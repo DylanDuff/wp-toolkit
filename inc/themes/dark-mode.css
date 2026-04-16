@@ -1,0 +1,184 @@
+/*
+ * Theme Name: Dark Mode
+ * Description: A dark color scheme for the WordPress admin.
+ */
+
+#wpcontent,
+#wpbody-content,
+body,
+.wrap {
+  background: #1e1e2e;
+  color: #cdd6f4;
+}
+
+/* Cards, postboxes, and form tables */
+.postbox,
+.stuffbox,
+.card,
+.notice,
+#dashboard-widgets .postbox {
+  background: #282840;
+  border-color: #383860;
+  color: #cdd6f4;
+}
+
+.postbox .hndle,
+.stuffbox .hndle {
+  border-bottom-color: #383860;
+}
+
+/* Form tables */
+.form-table th {
+  color: #cdd6f4;
+}
+
+/* WP List Tables */
+.wp-list-table {
+  border-color: #383860;
+}
+
+.wp-list-table thead th,
+.wp-list-table thead td,
+.wp-list-table tfoot th,
+.wp-list-table tfoot td {
+  background: #282840;
+  color: #a6adc8;
+  border-bottom-color: #383860;
+}
+
+.wp-list-table tbody tr {
+  background: #1e1e2e;
+}
+
+.wp-list-table tbody tr:hover,
+.wp-list-table tbody tr:focus-within {
+  background: #252540;
+}
+
+.wp-list-table tbody th,
+.wp-list-table tbody td {
+  border-bottom-color: #2a2a45;
+  color: #cdd6f4;
+}
+
+.striped > tbody > :nth-child(odd),
+ul.striped > :nth-child(odd),
+.alternate {
+  background: #22223a;
+}
+
+/* Row actions */
+.row-actions span a {
+  color: #89b4fa;
+}
+
+.row-actions span a:hover {
+  color: #b4d0fb;
+}
+
+/* Headings */
+.wrap h1,
+.wrap h2,
+.wrap h3 {
+  color: #cdd6f4;
+}
+
+/* Links */
+#wpcontent a {
+  color: #89b4fa;
+}
+
+#wpcontent a:hover {
+  color: #b4d0fb;
+}
+
+/* Inputs and form controls */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="url"],
+input[type="search"],
+input[type="number"],
+input[type="tel"],
+textarea,
+select {
+  background: #313150;
+  border-color: #45457a;
+  color: #cdd6f4;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+input[type="url"]:focus,
+input[type="search"]:focus,
+input[type="number"]:focus,
+input[type="tel"]:focus,
+textarea:focus,
+select:focus {
+  background: #353558;
+  border-color: #89b4fa;
+  box-shadow: 0 0 0 1px #89b4fa;
+  color: #cdd6f4;
+}
+
+/* Descriptions */
+.description,
+p.description {
+  color: #7f849c;
+}
+
+/* Tabs */
+.nav-tab {
+  background: #282840;
+  border-color: #383860;
+  color: #a6adc8;
+}
+
+.nav-tab:hover {
+  background: #313150;
+  color: #cdd6f4;
+}
+
+.nav-tab-active,
+.nav-tab-active:hover {
+  background: #1e1e2e;
+  border-bottom-color: #1e1e2e;
+  color: #cdd6f4;
+}
+
+.nav-tab-wrapper {
+  border-bottom-color: #383860;
+}
+
+/* Buttons - keep primary visible */
+.button {
+  background: #313150;
+  border-color: #45457a;
+  color: #cdd6f4;
+}
+
+.button:hover {
+  background: #3a3a5c;
+  border-color: #5555a0;
+  color: #cdd6f4;
+}
+
+/* Horizontal rules */
+hr {
+  border-color: #383860;
+}
+
+/* Dashboard specific */
+#dashboard-widgets h2,
+#dashboard-widgets h3 {
+  color: #cdd6f4;
+}
+
+#wpfooter {
+  color: #585b70;
+}
+
+#wpfooter a {
+  color: #89b4fa;
+}

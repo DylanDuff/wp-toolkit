@@ -1,0 +1,137 @@
+/*
+ * Theme Name: High Contrast
+ * Description: Sharper borders and stronger text contrast for readability.
+ */
+
+#wpcontent,
+#wpbody-content,
+.wrap {
+    background: #ffffff;
+    color: #111111;
+}
+
+/* Cards, postboxes */
+.postbox,
+.stuffbox,
+.card,
+#dashboard-widgets .postbox {
+    border: 2px solid #333;
+}
+
+.postbox .hndle,
+.stuffbox .hndle {
+    border-bottom: 2px solid #333;
+}
+
+/* Headings */
+.wrap h1,
+.wrap h2,
+.wrap h3 {
+    color: #000;
+}
+
+/* List tables */
+.wp-list-table {
+    border: 2px solid #333;
+}
+
+.wp-list-table thead th,
+.wp-list-table thead td,
+.wp-list-table tfoot th,
+.wp-list-table tfoot td {
+    background: #f0f0f0;
+    border-bottom: 2px solid #333;
+    color: #000;
+    font-weight: 700;
+}
+
+.wp-list-table tbody th,
+.wp-list-table tbody td {
+    border-bottom: 1px solid #666;
+    color: #111;
+}
+
+.striped > tbody > :nth-child(odd),
+ul.striped > :nth-child(odd),
+.alternate {
+    background: #f7f7f7;
+}
+
+.wp-list-table tbody tr:hover,
+.wp-list-table tbody tr:focus-within {
+    background: #ffffdd;
+}
+
+/* Descriptions */
+.description,
+p.description {
+    color: #444;
+}
+
+/* Tabs */
+.nav-tab {
+    border: 2px solid #333;
+    color: #000;
+    font-weight: 600;
+}
+
+.nav-tab-active,
+.nav-tab-active:hover {
+    background: #fff;
+    border-bottom-color: #fff;
+}
+
+.nav-tab-wrapper {
+    border-bottom: 2px solid #333;
+}
+
+/* Inputs */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="url"],
+input[type="search"],
+input[type="number"],
+input[type="tel"],
+textarea,
+select {
+    border: 2px solid #555;
+    color: #111;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+input[type="url"]:focus,
+input[type="search"]:focus,
+input[type="number"]:focus,
+input[type="tel"]:focus,
+textarea:focus,
+select:focus {
+    border-color: #000;
+    box-shadow: 0 0 0 2px #000;
+}
+
+/* Links */
+#wpcontent a {
+    color: #0000cc;
+    text-decoration: underline;
+}
+
+#wpcontent a:hover {
+    color: #000;
+}
+
+/* Buttons */
+.button {
+    border: 2px solid #333;
+    font-weight: 600;
+}
+
+hr {
+    border-color: #333;
+}
+
+#wpfooter {
+    color: #333;
+}

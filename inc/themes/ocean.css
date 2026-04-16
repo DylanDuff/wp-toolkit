@@ -1,0 +1,127 @@
+/*
+ * Theme Name: Ocean
+ * Description: A calm blue-toned admin theme with softer contrasts.
+ */
+
+#wpcontent,
+#wpbody-content,
+.wrap {
+    background: #f0f5f9;
+}
+
+/* Cards, postboxes */
+.postbox,
+.stuffbox,
+.card,
+#dashboard-widgets .postbox {
+    background: #fff;
+    border-color: #c8dae8;
+}
+
+.postbox .hndle,
+.stuffbox .hndle {
+    border-bottom-color: #c8dae8;
+}
+
+/* List tables */
+.wp-list-table thead th,
+.wp-list-table thead td,
+.wp-list-table tfoot th,
+.wp-list-table tfoot td {
+    background: #e1ecf4;
+}
+
+.wp-list-table {
+    border-color: #c8dae8;
+}
+
+.wp-list-table tbody th,
+.wp-list-table tbody td {
+    border-bottom-color: #dce7f0;
+}
+
+.striped > tbody > :nth-child(odd),
+ul.striped > :nth-child(odd),
+.alternate {
+    background: #f5f9fc;
+}
+
+.wp-list-table tbody tr:hover,
+.wp-list-table tbody tr:focus-within {
+    background: #e8f1f8;
+}
+
+/* Tabs */
+.nav-tab {
+    background: #e1ecf4;
+    border-color: #c8dae8;
+}
+
+.nav-tab:hover {
+    background: #d4e4f0;
+}
+
+.nav-tab-active,
+.nav-tab-active:hover {
+    background: #f0f5f9;
+    border-bottom-color: #f0f5f9;
+}
+
+.nav-tab-wrapper {
+    border-bottom-color: #c8dae8;
+}
+
+/* Inputs */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="url"],
+input[type="search"],
+input[type="number"],
+input[type="tel"],
+textarea,
+select {
+    border-color: #b0c9dc;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+input[type="url"]:focus,
+input[type="search"]:focus,
+input[type="number"]:focus,
+input[type="tel"]:focus,
+textarea:focus,
+select:focus {
+    border-color: #4a90c4;
+    box-shadow: 0 0 0 1px #4a90c4;
+}
+
+/* Links */
+#wpcontent a {
+    color: #2c6da3;
+}
+
+#wpcontent a:hover {
+    color: #1a4f7a;
+}
+
+/* Buttons */
+.button {
+    border-color: #b0c9dc;
+}
+
+.button:hover {
+    background: #e8f1f8;
+    border-color: #8ab0cc;
+}
+
+/* Horizontal rules */
+hr {
+    border-color: #c8dae8;
+}
+
+/* Footer */
+#wpfooter {
+    color: #7a9bb5;
+}
