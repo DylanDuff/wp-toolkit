@@ -195,7 +195,9 @@ function toast_script()
             }
 
             toast.style.position = 'relative';
-            toast.innerHTML = notice.innerHTML;
+            Array.from(notice.childNodes).forEach(function (node) {
+                toast.appendChild(node.cloneNode(true));
+            });
 
             // Remove any existing dismiss button from the original notice
             var existingDismiss = toast.querySelector('.notice-dismiss');

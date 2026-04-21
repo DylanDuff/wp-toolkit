@@ -81,9 +81,28 @@ class Plugin
       );
 
       foreach ($tweak["settings"] as $setting) {
-        $sanitize = $setting["type"] === "wysiwyg" ? "wp_kses_post" : null;
+        $sanitize_map = [
+          "wysiwyg"     => "wp_kses_post",
+          "text"        => "sanitize_text_field",
+          "select"      => "sanitize_text_field",
+          "checkbox"    => "absint",
+          "media"       => "esc_url_raw",
+          "multiselect" => function ($val) {
+            $decoded = json_decode($val, true);
+            if (!is_array($decoded)) return '';
+            return wp_json_encode(array_map("sanitize_text_field", $decoded));
+          },
+          "sortable"    => function ($val) {
+            $decoded = json_decode($val, true);
+            if (!is_array($decoded)) return '';
+            return wp_json_encode([
+              "order"  => array_map("sanitize_key", $decoded["order"]  ?? []),
+              "hidden" => array_map("sanitize_key", $decoded["hidden"] ?? []),
+            ]);
+          },
+        ];
         register_setting($this->settings_group, $setting["id"], [
-          "sanitize_callback" => $sanitize,
+          "sanitize_callback" => $sanitize_map[$setting["type"]] ?? "sanitize_text_field",
         ]);
 
         add_settings_field(

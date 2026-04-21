@@ -37,7 +37,7 @@ function handle_duplicate_post()
     $meta = get_post_meta($post_id);
     foreach ($meta as $key => $values) {
         foreach ($values as $value) {
-            add_post_meta($new_id, $key, maybe_unserialize($value));
+            add_post_meta($new_id, $key, $value);
         }
     }
 
