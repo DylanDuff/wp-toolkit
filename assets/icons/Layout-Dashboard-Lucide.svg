@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" id="Layout-Dashboard--Streamline-Lucide">
+  <desc>
+    Layout Dashboard Streamline Icon: https://streamlinehq.com
+  </desc>
+  <path d="M4 3h5s1 0 1 1v7s0 1 -1 1H4s-1 0 -1 -1V4s0 -1 1 -1" stroke-width="2"></path>
+  <path d="M15 3h5s1 0 1 1v3s0 1 -1 1h-5s-1 0 -1 -1V4s0 -1 1 -1" stroke-width="2"></path>
+  <path d="M15 12h5s1 0 1 1v7s0 1 -1 1h-5s-1 0 -1 -1v-7s0 -1 1 -1" stroke-width="2"></path>
+  <path d="M4 16h5s1 0 1 1v3s0 1 -1 1H4s-1 0 -1 -1v-3s0 -1 1 -1" stroke-width="2"></path>
+</svg>

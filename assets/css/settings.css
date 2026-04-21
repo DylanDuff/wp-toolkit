@@ -1,0 +1,407 @@
+/* ================================================================
+   WP Toolkit — Settings Page
+   Scoped to .ddwpt-page (added via admin_body_class on our page)
+   ================================================================ */
+
+/* ── Variables ─────────────────────────────────────────────────── */
+.ddwpt-page {
+    --ddwpt-accent:       #2271b1;
+    --ddwpt-accent-hover: #135e96;
+    --ddwpt-accent-light: #f0f6fc;
+    --ddwpt-bg:           #f0f0f4;
+    --ddwpt-surface:      #ffffff;
+    --ddwpt-surface-alt:  #f9fafb;
+    --ddwpt-border:       #e5e7eb;
+    --ddwpt-text:         #111827;
+    --ddwpt-text-muted:   #6b7280;
+    --ddwpt-text-light:   #9ca3af;
+    --ddwpt-radius:       10px;
+    --ddwpt-shadow:       0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+}
+
+/* ── WP chrome overrides ───────────────────────────────────────── */
+.ddwpt-page #wpcontent {
+    background: var(--ddwpt-bg);
+    padding-left: 0 !important;
+}
+
+.ddwpt-page #wpbody-content {
+    padding: 0 !important;
+}
+
+/* Suppress WP's default settings-saved notice — we show our own */
+.ddwpt-page #wpbody-content > .notice,
+.ddwpt-page #wpbody-content > .updated,
+.ddwpt-page #wpbody-content > .error {
+    display: none !important;
+}
+
+/* ── Page wrapper ──────────────────────────────────────────────── */
+.ddwpt-wrap {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    color: var(--ddwpt-text);
+    padding-bottom: 40px;
+}
+
+/* ── Header ────────────────────────────────────────────────────── */
+.ddwpt-header {
+    position: sticky;
+    top: 32px;
+    z-index: 99;
+    background: var(--ddwpt-surface);
+    border-bottom: 1px solid var(--ddwpt-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    height: 64px;
+}
+
+@media screen and (max-width: 782px) {
+    .ddwpt-header { top: 46px; }
+}
+
+.ddwpt-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ddwpt-brand {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ddwpt-text);
+    letter-spacing: -.3px;
+}
+
+.ddwpt-active-count {
+    font-size: 12px;
+    color: var(--ddwpt-text-light);
+    padding-left: 4px;
+}
+
+.ddwpt-version-pill {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--ddwpt-text-muted);
+    background: #f3f4f6;
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: .2px;
+}
+
+.ddwpt-save-btn {
+    background: var(--ddwpt-accent) !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 6px !important;
+    padding: 0 18px !important;
+    height: 36px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: background .15s ease !important;
+    line-height: 1 !important;
+    letter-spacing: .1px !important;
+    box-shadow: none !important;
+}
+
+.ddwpt-save-btn:hover {
+    background: var(--ddwpt-accent-hover) !important;
+}
+
+.ddwpt-save-btn.is-saved {
+    background: #00a32a !important;
+    transition: background 0s !important;
+}
+
+
+/* ── Tab nav ───────────────────────────────────────────────────── */
+.ddwpt-tabs-nav {
+    background: var(--ddwpt-surface);
+    border-bottom: 1px solid var(--ddwpt-border);
+    display: flex;
+    align-items: stretch;
+    padding: 0 12px;
+    overflow-x: auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.ddwpt-tabs-nav::-webkit-scrollbar { display: none; }
+
+.ddwpt-tab {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 12px;
+    height: 48px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ddwpt-text-muted);
+    text-decoration: none !important;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    white-space: nowrap;
+    transition: color .15s ease, border-color .15s ease;
+}
+
+.ddwpt-tab:hover {
+    color: var(--ddwpt-text);
+}
+
+.ddwpt-tab.is-active {
+    color: var(--ddwpt-accent);
+    border-bottom-color: var(--ddwpt-accent);
+}
+
+.ddwpt-tab:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+.ddwpt-tab svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    stroke-width: 1.75;
+}
+
+/* ── Content ───────────────────────────────────────────────────── */
+.ddwpt-content {
+    padding: 24px;
+    max-width: 860px;
+}
+
+/* ── Card ──────────────────────────────────────────────────────── */
+.ddwpt-card {
+    background: var(--ddwpt-surface);
+    border: 1px solid var(--ddwpt-border);
+    border-radius: var(--ddwpt-radius);
+    box-shadow: var(--ddwpt-shadow);
+    margin-bottom: 10px;
+    overflow: hidden;
+    transition: opacity .2s ease;
+}
+
+.ddwpt-card.is-disabled {
+    opacity: .6;
+}
+
+.ddwpt-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 20px;
+}
+
+.ddwpt-card-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.ddwpt-card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ddwpt-text);
+    margin: 0 0 2px;
+    line-height: 1.3;
+}
+
+.ddwpt-card-desc {
+    font-size: 12px;
+    color: var(--ddwpt-text-muted);
+    margin: 0;
+    line-height: 1.5;
+}
+
+/* ── Toggle ────────────────────────────────────────────────────── */
+.ddwpt-toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.ddwpt-toggle input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    margin: 0;
+}
+
+.ddwpt-toggle-track {
+    width: 40px;
+    height: 22px;
+    background: var(--ddwpt-border);
+    border-radius: 11px;
+    position: relative;
+    transition: background .2s ease;
+    flex-shrink: 0;
+}
+
+.ddwpt-toggle input:checked + .ddwpt-toggle-track {
+    background: var(--ddwpt-accent);
+}
+
+.ddwpt-toggle-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,.2);
+    transition: transform .2s ease;
+    pointer-events: none;
+}
+
+.ddwpt-toggle input:checked + .ddwpt-toggle-track .ddwpt-toggle-thumb {
+    transform: translateX(18px);
+}
+
+/* ── Card body ─────────────────────────────────────────────────── */
+.ddwpt-card-body {
+    background: var(--ddwpt-surface-alt);
+    border-top: 1px solid var(--ddwpt-border);
+}
+
+.ddwpt-field-row {
+    display: grid;
+    grid-template-columns: 190px 1fr;
+    align-items: start;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--ddwpt-border);
+}
+
+.ddwpt-field-row:last-child {
+    border-bottom: none;
+}
+
+.ddwpt-field-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ddwpt-text);
+    padding-top: 6px;
+    line-height: 1.4;
+}
+
+.ddwpt-field-input {
+    font-size: 13px;
+}
+
+/* ── Field overrides ───────────────────────────────────────────── */
+.ddwpt-page .ddwpt-field-input input[type="text"],
+.ddwpt-page .ddwpt-field-input select {
+    border-color: var(--ddwpt-border) !important;
+    border-radius: 6px !important;
+    font-size: 13px !important;
+    box-shadow: none !important;
+}
+
+.ddwpt-page .ddwpt-field-input input[type="text"]:focus,
+.ddwpt-page .ddwpt-field-input select:focus {
+    border-color: var(--ddwpt-accent) !important;
+    box-shadow: 0 0 0 1px var(--ddwpt-accent) !important;
+    outline: none !important;
+}
+
+.ddwpt-page .ddwpt-field-input .description {
+    font-size: 12px;
+    color: var(--ddwpt-text-muted);
+    margin: 5px 0 0;
+}
+
+.ddwpt-page .ddwpt-field-input .button {
+    font-size: 12px;
+}
+
+/* ── Sortable in card body ─────────────────────────────────────── */
+.ddwpt-sortable-wrap { max-width: 380px; }
+
+.ddwpt-sortable li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    margin: 0;
+    background: #fff;
+    border: 1px solid var(--ddwpt-border);
+    border-bottom: none;
+    cursor: grab;
+    user-select: none;
+    font-size: 13px;
+    color: var(--ddwpt-text);
+}
+
+.ddwpt-sortable li .dashicons {
+    color: var(--ddwpt-text-light);
+    flex-shrink: 0;
+    font-size: 15px;
+    width: 15px;
+    height: 15px;
+}
+
+.ddwpt-sortable li:last-child { border-bottom: 1px solid var(--ddwpt-border); }
+
+.ddwpt-sortable li.ui-sortable-helper {
+    box-shadow: 0 2px 8px rgba(0,0,0,.12);
+    border-bottom: 1px solid var(--ddwpt-border);
+    cursor: grabbing;
+}
+
+.ddwpt-sortable .ui-sortable-placeholder {
+    visibility: visible !important;
+    background: var(--ddwpt-accent-light);
+    border: 1px dashed var(--ddwpt-accent);
+    border-bottom: none;
+    height: 38px;
+}
+
+.ddwpt-sortable-hidden {
+    background: #fef2f2;
+    border: 1px dashed #fca5a5 !important;
+    border-radius: 4px;
+}
+
+.ddwpt-sortable-hidden li {
+    background: #fff5f5;
+    opacity: .75;
+}
+
+.ddwpt-sortable-hidden:empty::after {
+    content: "Drag items here to hide them";
+    display: block;
+    padding: 10px 12px;
+    color: var(--ddwpt-text-light);
+    font-style: italic;
+    font-size: 12px;
+}
+
+.ddwpt-sortable-visible:empty::after {
+    content: "No visible items";
+    display: block;
+    padding: 10px 12px;
+    color: var(--ddwpt-text-light);
+    font-style: italic;
+    font-size: 12px;
+}
+
+.ddwpt-sortable-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--ddwpt-text-light);
+    margin: 0 0 4px;
+}
+
+.ddwpt-sortable-label + .ddwpt-sortable-label {
+    margin-top: 12px;
+}
