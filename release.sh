@@ -123,7 +123,7 @@ fi
 # ── Bump version in plugin.php ────────────────────────────────────────────────
 
 echo -e "\n${CYAN}[1/5] Bumping version number...${NC}"
-sed -i '' "s/Version: ${CURRENT_VERSION}/Version: ${NEW_VERSION}/" "$MAIN_FILE"
+sed -i '' "s/Version:[[:space:]]*${CURRENT_VERSION}/Version: ${NEW_VERSION}/" "$MAIN_FILE"
 echo -e "  ${GREEN}✓${NC} $MAIN_FILE → $NEW_VERSION"
 
 # ── Create release zip ────────────────────────────────────────────────────────
