@@ -9,6 +9,7 @@ class Tweak_Loader
 
     private const ALLOWED_TWEAKS = [
         'acf-site-options',
+        'acss-gutenberg',
         'admin-footer-text',
         'admin-theme',
         'bricks-dashboard-widgets',
@@ -38,6 +39,7 @@ class Tweak_Loader
         'mapbox-bricks',
         'rive-bricks',
         'unicorn-studio-bricks',
+        'wpsr-bricks',
     ];
 
     public function load_all()
