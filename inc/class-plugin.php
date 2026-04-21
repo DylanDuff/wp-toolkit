@@ -17,6 +17,7 @@ class Plugin
         add_action('admin_menu', [$this, 'register_menu']);
         add_action('admin_init', [$this, 'register_settings']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_media']);
+        add_action('tool_box', [$this, 'render_toolbox_card']);
     }
 
     public function register_menu()
@@ -35,6 +36,24 @@ class Plugin
         if ($hook !== 'tools_page_ddwptweaks') return;
         wp_enqueue_media();
         wp_enqueue_script('jquery-ui-sortable');
+    }
+
+    public function render_toolbox_card()
+    {
+        $active_count = $this->get_active_tweak_count();
+        $total_count  = count($this->tweaks);
+        $url          = admin_url('tools.php?page=ddwptweaks');
+        ?>
+        <div class="card">
+            <h2 class="title"><?php esc_html_e('WP Toolkit', 'wp-toolkit'); ?></h2>
+            <p><?php printf(
+                esc_html__('Manage modular admin tweaks for this site. %d of %d tweaks currently active.', 'wp-toolkit'),
+                $active_count,
+                $total_count
+            ); ?></p>
+            <p><a href="<?php echo esc_url($url); ?>" class="button"><?php esc_html_e('Manage Tweaks', 'wp-toolkit'); ?></a></p>
+        </div>
+        <?php
     }
 
     public function register_settings()

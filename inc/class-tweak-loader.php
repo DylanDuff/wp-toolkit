@@ -8,9 +8,11 @@ class Tweak_Loader
 {
 
     private const ALLOWED_TWEAKS = [
+        'acf-site-options',
         'admin-footer-text',
         'admin-theme',
         'bricks-dashboard-widgets',
+        'bricks-post-editor',
         'change-howdy-greeting',
         'disable-comments',
         'disable-dashboard-widgets',
