@@ -26,6 +26,7 @@ class Tweak_Loader
         'hide-footer-version',
         'hide-wp-version',
         'inset-subposts',
+        'knowledge-base',
         'invert-admin-bar',
         'post-id-column',
         'posts-per-page',

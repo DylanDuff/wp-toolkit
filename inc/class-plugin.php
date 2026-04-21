@@ -2,203 +2,285 @@
 
 namespace DDWPTweaks;
 
-defined('ABSPATH') || exit;
+defined("ABSPATH") || exit();
 
 class Plugin
 {
-    private $tweaks = [];
-    private $settings_group = 'ddwptweaks_options';
+  private $tweaks = [];
+  private $settings_group = "ddwptweaks_options";
 
-    public function __construct()
-    {
-        require_once __DIR__ . '/class-tweak-loader.php';
-        $this->tweaks = (new Tweak_Loader())->load_all();
+  public function __construct()
+  {
+    require_once __DIR__ . "/class-tweak-loader.php";
+    $this->tweaks = (new Tweak_Loader())->load_all();
 
-        add_action('admin_menu', [$this, 'register_menu']);
-        add_action('admin_init', [$this, 'register_settings']);
-        add_action('admin_enqueue_scripts', [$this, 'enqueue_media']);
-        add_action('tool_box', [$this, 'render_toolbox_card']);
+    add_action("admin_menu", [$this, "register_menu"]);
+    add_action("admin_init", [$this, "register_settings"]);
+    add_action("admin_enqueue_scripts", [$this, "enqueue_media"]);
+    add_action("tool_box", [$this, "render_toolbox_card"]);
+  }
+
+  public function register_menu()
+  {
+    add_management_page(
+      "WP Toolkit",
+      "WP Toolkit",
+      "manage_options",
+      "ddwptweaks",
+      [$this, "render_settings_page"],
+    );
+  }
+
+  public function enqueue_media($hook)
+  {
+    if ($hook !== "tools_page_ddwptweaks") {
+      return;
     }
+    wp_enqueue_media();
+    wp_enqueue_script("jquery-ui-sortable");
+  }
 
-    public function register_menu()
-    {
-        add_management_page(
-            'WP Toolkit',
-            'WP Toolkit',
-            'manage_options',
-            'ddwptweaks',
-            [$this, 'render_settings_page']
-        );
-    }
-
-    public function enqueue_media($hook)
-    {
-        if ($hook !== 'tools_page_ddwptweaks') return;
-        wp_enqueue_media();
-        wp_enqueue_script('jquery-ui-sortable');
-    }
-
-    public function render_toolbox_card()
-    {
-        $active_count = $this->get_active_tweak_count();
-        $total_count  = count($this->tweaks);
-        $url          = admin_url('tools.php?page=ddwptweaks');
-        ?>
+  public function render_toolbox_card()
+  {
+    $active_count = $this->get_active_tweak_count();
+    $total_count = count($this->tweaks);
+    $url = admin_url("tools.php?page=ddwptweaks");
+    ?>
         <div class="card">
-            <h2 class="title"><?php esc_html_e('WP Toolkit', 'wp-toolkit'); ?></h2>
+            <h2 class="title"><?php esc_html_e(
+              "WP Toolkit",
+              "wp-toolkit",
+            ); ?></h2>
             <p><?php printf(
-                esc_html__('Manage modular admin tweaks for this site. %d of %d tweaks currently active.', 'wp-toolkit'),
-                $active_count,
-                $total_count
+              esc_html__(
+                "Manage modular admin tweaks for this site. %d of %d tweaks currently active.",
+                "wp-toolkit",
+              ),
+              $active_count,
+              $total_count,
             ); ?></p>
-            <p><a href="<?php echo esc_url($url); ?>" class="button"><?php esc_html_e('Manage Tweaks', 'wp-toolkit'); ?></a></p>
+            <p><a href="<?php echo esc_url(
+              $url,
+            ); ?>" class="button"><?php esc_html_e(
+  "Manage Tweaks",
+  "wp-toolkit",
+); ?></a></p>
         </div>
         <?php
+  }
+
+  public function register_settings()
+  {
+    foreach ($this->tweaks as $tweak) {
+      // Create a section per tweak under the tweak ID
+      add_settings_section(
+        $tweak["id"],
+        $tweak["label"],
+        "__return_empty_string",
+        $tweak["id"],
+      );
+
+      foreach ($tweak["settings"] as $setting) {
+        $sanitize = $setting["type"] === "wysiwyg" ? "wp_kses_post" : null;
+        register_setting($this->settings_group, $setting["id"], [
+          "sanitize_callback" => $sanitize,
+        ]);
+
+        add_settings_field(
+          $setting["id"],
+          $setting["label"],
+          function () use ($setting) {
+            $val = get_option($setting["id"], $setting["default"] ?? "");
+            $this->render_field($setting, $val, $setting["id"]);
+          },
+          $tweak["id"],
+          $tweak["id"],
+        );
+      }
     }
+  }
 
-    public function register_settings()
-    {
-        foreach ($this->tweaks as $tweak) {
-            // Create a section per tweak under the tweak ID
-            add_settings_section(
-                $tweak['id'],
-                $tweak['label'],
-                '__return_empty_string',
-                $tweak['id']
-            );
+  private function render_field($field, $value, $field_id)
+  {
+    switch ($field["type"]) {
+      case "text":
+        echo '<input type="text" class="regular-text" id="' .
+          esc_attr($field_id) .
+          '" name="' .
+          esc_attr($field_id) .
+          '" value="' .
+          esc_attr($value) .
+          '" />';
+        break;
 
-            foreach ($tweak['settings'] as $setting) {
-                $sanitize = $setting['type'] === 'wysiwyg' ? 'wp_kses_post' : null;
-                register_setting($this->settings_group, $setting['id'], [
-                    'sanitize_callback' => $sanitize,
-                ]);
-
-                add_settings_field(
-                    $setting['id'],
-                    $setting['label'],
-                    function () use ($setting) {
-                        $val = get_option($setting['id'], $setting['default'] ?? '');
-                        $this->render_field($setting, $val, $setting['id']);
-                    },
-                    $tweak['id'],
-                    $tweak['id']
-                );
-            }
+      case "checkbox":
+        echo '<label for="' . esc_attr($field_id) . '">';
+        echo '<input type="checkbox" id="' .
+          esc_attr($field_id) .
+          '" name="' .
+          esc_attr($field_id) .
+          '" value="1" ' .
+          checked($value, 1, false) .
+          " />";
+        if (!empty($field["description"])) {
+          echo " " . esc_html($field["description"]);
         }
-    }
+        echo "</label>";
+        break;
 
-    private function render_field($field, $value, $field_id)
-    {
-        switch ($field['type']) {
-            case 'text':
-                echo '<input type="text" class="regular-text" id="' . esc_attr($field_id) . '" name="' . esc_attr($field_id) . '" value="' . esc_attr($value) . '" />';
-                break;
+      case "select":
+        echo '<select id="' .
+          esc_attr($field_id) .
+          '" name="' .
+          esc_attr($field_id) .
+          '">';
+        foreach ($field["options"] ?? [] as $opt_value => $opt_label) {
+          echo '<option value="' .
+            esc_attr($opt_value) .
+            '" ' .
+            selected($value, $opt_value, false) .
+            ">" .
+            esc_html($opt_label) .
+            "</option>";
+        }
+        echo "</select>";
+        break;
 
-            case 'checkbox':
-                echo '<label for="' . esc_attr($field_id) . '">';
-                echo '<input type="checkbox" id="' . esc_attr($field_id) . '" name="' . esc_attr($field_id) . '" value="1" ' . checked($value, 1, false) . ' />';
-                if (!empty($field['description'])) {
-                    echo ' ' . esc_html($field['description']);
-                }
-                echo '</label>';
-                break;
+      case "multiselect":
+        $options = $field["options"] ?? [];
+        if (is_callable($options)) {
+          $options = call_user_func($options);
+        }
+        $selected = $value ? json_decode($value, true) : [];
+        if (!is_array($selected)) {
+          $selected = [];
+        }
 
-            case 'select':
-                echo '<select id="' . esc_attr($field_id) . '" name="' . esc_attr($field_id) . '">';
-                foreach (($field['options'] ?? []) as $opt_value => $opt_label) {
-                    echo '<option value="' . esc_attr($opt_value) . '" ' . selected($value, $opt_value, false) . '>' . esc_html($opt_label) . '</option>';
-                }
-                echo '</select>';
-                break;
+        $safe_id = esc_attr($field_id);
+        echo '<input type="hidden" id="' .
+          $safe_id .
+          '" name="' .
+          $safe_id .
+          '" value="' .
+          esc_attr(wp_json_encode($selected)) .
+          '" />';
+        echo '<select class="ddwpt-multiselect" data-input="' .
+          $safe_id .
+          '" multiple style="min-width: 300px; min-height: 120px;">';
+        foreach ($options as $opt_value => $opt_label) {
+          $is_selected = in_array(
+            (string) $opt_value,
+            array_map("strval", $selected),
+            true,
+          );
+          echo '<option value="' .
+            esc_attr($opt_value) .
+            '"' .
+            ($is_selected ? " selected" : "") .
+            ">" .
+            esc_html($opt_label) .
+            "</option>";
+        }
+        echo "</select>";
+        break;
 
-            case 'multiselect':
-                $options = $field['options'] ?? [];
-                if (is_callable($options)) {
-                    $options = call_user_func($options);
-                }
-                $selected = $value ? json_decode($value, true) : [];
-                if (!is_array($selected)) $selected = [];
+      case "media":
+        $safe_id = esc_attr($field_id);
+        $preview = $value
+          ? '<img src="' .
+            esc_url($value) .
+            '" style="max-width: 200px; max-height: 60px; display: block; margin-bottom: 8px;" />'
+          : "";
+        echo '<div class="ddwpt-media-field" data-field="' . $safe_id . '">';
+        echo '<div class="ddwpt-media-preview">' . $preview . "</div>";
+        echo '<input type="hidden" id="' .
+          $safe_id .
+          '" name="' .
+          $safe_id .
+          '" value="' .
+          esc_attr($value) .
+          '" />';
+        echo '<button type="button" class="button ddwpt-media-select">Select Image</button> ';
+        echo '<button type="button" class="button ddwpt-media-remove"' .
+          ($value ? "" : ' style="display:none;"') .
+          ">Remove</button>";
+        echo "</div>";
+        break;
 
-                $safe_id = esc_attr($field_id);
-                echo '<input type="hidden" id="' . $safe_id . '" name="' . $safe_id . '" value="' . esc_attr(wp_json_encode($selected)) . '" />';
-                echo '<select class="ddwpt-multiselect" data-input="' . $safe_id . '" multiple style="min-width: 300px; min-height: 120px;">';
-                foreach ($options as $opt_value => $opt_label) {
-                    $is_selected = in_array((string) $opt_value, array_map('strval', $selected), true);
-                    echo '<option value="' . esc_attr($opt_value) . '"' . ($is_selected ? ' selected' : '') . '>' . esc_html($opt_label) . '</option>';
-                }
-                echo '</select>';
-                break;
+      case "sortable":
+        $items = $field["items"] ?? [];
+        if (is_callable($items)) {
+          $items = call_user_func($items);
+        }
 
-            case 'media':
-                $safe_id = esc_attr($field_id);
-                $preview = $value ? '<img src="' . esc_url($value) . '" style="max-width: 200px; max-height: 60px; display: block; margin-bottom: 8px;" />' : '';
-                echo '<div class="ddwpt-media-field" data-field="' . $safe_id . '">';
-                echo '<div class="ddwpt-media-preview">' . $preview . '</div>';
-                echo '<input type="hidden" id="' . $safe_id . '" name="' . $safe_id . '" value="' . esc_attr($value) . '" />';
-                echo '<button type="button" class="button ddwpt-media-select">Select Image</button> ';
-                echo '<button type="button" class="button ddwpt-media-remove"' . ($value ? '' : ' style="display:none;"') . '>Remove</button>';
-                echo '</div>';
-                break;
+        $saved = $value ? json_decode($value, true) : [];
+        if (!is_array($saved)) {
+          $saved = [];
+        }
+        $saved_order = $saved["order"] ?? [];
+        $saved_hidden = $saved["hidden"] ?? [];
 
-            case 'sortable':
-                $items = $field['items'] ?? [];
-                if (is_callable($items)) {
-                    $items = call_user_func($items);
-                }
+        // Build visible list: saved order first, then new items
+        $visible = [];
+        foreach ($saved_order as $key) {
+          if (isset($items[$key])) {
+            $visible[$key] = $items[$key];
+          }
+        }
+        foreach ($items as $key => $label) {
+          if (!isset($visible[$key]) && !in_array($key, $saved_hidden, true)) {
+            $visible[$key] = $label;
+          }
+        }
 
-                $saved = $value ? json_decode($value, true) : [];
-                if (!is_array($saved)) $saved = [];
-                $saved_order = $saved['order'] ?? [];
-                $saved_hidden = $saved['hidden'] ?? [];
+        // Build hidden list (items may no longer be in $items if removed by the tweak)
+        $hidden = [];
+        foreach ($saved_hidden as $key) {
+          $hidden[$key] =
+            $items[$key] ??
+            ucfirst(str_replace(["-", ".php"], [" ", ""], $key));
+        }
 
-                // Build visible list: saved order first, then new items
-                $visible = [];
-                foreach ($saved_order as $key) {
-                    if (isset($items[$key])) {
-                        $visible[$key] = $items[$key];
-                    }
-                }
-                foreach ($items as $key => $label) {
-                    if (!isset($visible[$key]) && !in_array($key, $saved_hidden, true)) {
-                        $visible[$key] = $label;
-                    }
-                }
+        $safe_id = esc_attr($field_id);
+        $initial = wp_json_encode([
+          "order" => array_keys($visible),
+          "hidden" => array_keys($hidden),
+        ]);
+        echo '<input type="hidden" class="ddwpt-sortable-input" id="' .
+          $safe_id .
+          '" name="' .
+          $safe_id .
+          '" value="' .
+          esc_attr($initial) .
+          '" />';
 
-                // Build hidden list (items may no longer be in $items if removed by the tweak)
-                $hidden = [];
-                foreach ($saved_hidden as $key) {
-                    $hidden[$key] = $items[$key] ?? ucfirst(str_replace(['-', '.php'], [' ', ''], $key));
-                }
+        echo '<div class="ddwpt-sortable-wrap" data-input="' .
+          $safe_id .
+          '" style="max-width: 400px;">';
 
-                $safe_id = esc_attr($field_id);
-                $initial = wp_json_encode(['order' => array_keys($visible), 'hidden' => array_keys($hidden)]);
-                echo '<input type="hidden" class="ddwpt-sortable-input" id="' . $safe_id . '" name="' . $safe_id . '" value="' . esc_attr($initial) . '" />';
+        echo '<p class="description" style="margin: 0 0 4px;">Visible</p>';
+        echo '<ul class="ddwpt-sortable ddwpt-sortable-visible" style="margin: 0; min-height: 38px;">';
+        foreach ($visible as $key => $label) {
+          echo '<li data-key="' . esc_attr($key) . '">';
+          echo '<span class="dashicons dashicons-menu"></span>';
+          echo "<span>" . esc_html($label) . "</span>";
+          echo "</li>";
+        }
+        echo "</ul>";
 
-                echo '<div class="ddwpt-sortable-wrap" data-input="' . $safe_id . '" style="max-width: 400px;">';
+        echo '<p class="description" style="margin: 12px 0 4px;">Hidden</p>';
+        echo '<ul class="ddwpt-sortable ddwpt-sortable-hidden" style="margin: 0; min-height: 38px;">';
+        foreach ($hidden as $key => $label) {
+          echo '<li data-key="' . esc_attr($key) . '">';
+          echo '<span class="dashicons dashicons-menu"></span>';
+          echo "<span>" . esc_html($label) . "</span>";
+          echo "</li>";
+        }
+        echo "</ul>";
 
-                echo '<p class="description" style="margin: 0 0 4px;">Visible</p>';
-                echo '<ul class="ddwpt-sortable ddwpt-sortable-visible" style="margin: 0; min-height: 38px;">';
-                foreach ($visible as $key => $label) {
-                    echo '<li data-key="' . esc_attr($key) . '">';
-                    echo '<span class="dashicons dashicons-menu"></span>';
-                    echo '<span>' . esc_html($label) . '</span>';
-                    echo '</li>';
-                }
-                echo '</ul>';
+        echo "</div>";
 
-                echo '<p class="description" style="margin: 12px 0 4px;">Hidden</p>';
-                echo '<ul class="ddwpt-sortable ddwpt-sortable-hidden" style="margin: 0; min-height: 38px;">';
-                foreach ($hidden as $key => $label) {
-                    echo '<li data-key="' . esc_attr($key) . '">';
-                    echo '<span class="dashicons dashicons-menu"></span>';
-                    echo '<span>' . esc_html($label) . '</span>';
-                    echo '</li>';
-                }
-                echo '</ul>';
-
-                echo '</div>';
-
-                echo '<style>
+        echo '<style>
                     .ddwpt-sortable li {
                         display: flex; align-items: center; gap: 8px;
                         padding: 8px 12px; margin: 0;
@@ -214,32 +296,31 @@ class Plugin
                     .ddwpt-sortable-hidden:empty::after { content: "Drag items here to hide them"; display: block; padding: 10px 12px; color: #999; font-style: italic; }
                     .ddwpt-sortable-visible:empty::after { content: "No visible items"; display: block; padding: 10px 12px; color: #999; font-style: italic; }
                 </style>';
-                break;
+        break;
 
-            case 'wysiwyg':
-                $editor_id = preg_replace('/[^a-z0-9_]/', '_', strtolower($field_id));
-                wp_editor($value, $editor_id, [
-                    'textarea_name' => $field_id,
-                    'textarea_rows' => $field['rows'] ?? 8,
-                    'media_buttons' => $field['media_buttons'] ?? false,
-                    'teeny'         => $field['teeny'] ?? false,
-                ]);
-                break;
-        }
-
-        if (!empty($field['description']) && $field['type'] !== 'checkbox') {
-            echo '<p class="description">' . esc_html($field['description']) . '</p>';
-        }
+      case "wysiwyg":
+        $editor_id = preg_replace("/[^a-z0-9_]/", "_", strtolower($field_id));
+        wp_editor($value, $editor_id, [
+          "textarea_name" => $field_id,
+          "textarea_rows" => $field["rows"] ?? 8,
+          "media_buttons" => $field["media_buttons"] ?? false,
+          "teeny" => $field["teeny"] ?? false,
+        ]);
+        break;
     }
 
-    public function render_settings_page()
-    {
-        $tabs = $this->get_all_tabs();
-        $default_tab = array_key_first($tabs) ?: 'general';
-        $active_count = $this->get_active_tweak_count();
-        $total_count = count($this->tweaks);
+    if (!empty($field["description"]) && $field["type"] !== "checkbox") {
+      echo '<p class="description">' . esc_html($field["description"]) . "</p>";
+    }
+  }
 
-        ?>
+  public function render_settings_page()
+  {
+    $tabs = $this->get_all_tabs();
+    $default_tab = array_key_first($tabs) ?: "general";
+    $active_count = $this->get_active_tweak_count();
+    $total_count = count($this->tweaks);
+    ?>
         <style>
             .ddwpt-tabs .nav-tab { text-transform: capitalize; }
         </style>
@@ -251,20 +332,31 @@ class Plugin
 
                 <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;">
                     <div>
-                        <h1 style="margin-bottom: 0;"><?php echo esc_html(get_admin_page_title()); ?></h1>
+                        <h1 style="margin-bottom: 0;"><?php echo esc_html(
+                          get_admin_page_title(),
+                        ); ?></h1>
                         <p class="description">
                             Toggle individual admin tweaks on or off. Each tweak is a small, self-contained
                             modification to your WordPress experience.
-                            Currently <strong><?php echo esc_html($active_count); ?></strong> of
-                            <strong><?php echo esc_html($total_count); ?></strong> tweaks active.
+                            Currently <strong><?php echo esc_html(
+                              $active_count,
+                            ); ?></strong> of
+                            <strong><?php echo esc_html(
+                              $total_count,
+                            ); ?></strong> tweaks active.
                         </p>
                     </div>
-                    <?php submit_button('Save Changes', 'primary', 'submit', false); ?>
+                    <?php submit_button(
+                      "Save Changes",
+                      "primary",
+                      "submit",
+                      false,
+                    ); ?>
                 </div>
 
-                <?php if (count($tabs) > 1) : ?>
+                <?php if (count($tabs) > 1): ?>
                     <nav class="nav-tab-wrapper ddwpt-tabs" style="margin-bottom: 0;">
-                        <?php foreach ($tabs as $tab_id => $tab_label) : ?>
+                        <?php foreach ($tabs as $tab_id => $tab_label): ?>
                             <a href="#<?php echo esc_attr($tab_id); ?>"
                                class="nav-tab ddwpt-tab"
                                data-tab="<?php echo esc_attr($tab_id); ?>">
@@ -274,12 +366,14 @@ class Plugin
                     </nav>
                 <?php endif; ?>
 
-                <?php foreach ($tabs as $tab_id => $tab_label) : ?>
-                    <div class="ddwpt-tab-panel" data-tab="<?php echo esc_attr($tab_id); ?>" style="display: none;">
+                <?php foreach ($tabs as $tab_id => $tab_label): ?>
+                    <div class="ddwpt-tab-panel" data-tab="<?php echo esc_attr(
+                      $tab_id,
+                    ); ?>" style="display: none;">
                         <?php
                         $tab_tweaks = $this->get_tweaks_for_tab($tab_id);
                         foreach ($tab_tweaks as $tweak) {
-                            do_settings_sections($tweak['id']);
+                          do_settings_sections($tweak["id"]);
                         }
                         ?>
                     </div>
@@ -289,8 +383,9 @@ class Plugin
             <hr />
             <p class="description" style="margin-top: 1rem;">
                 WP Toolkit &mdash;
-                <?php echo esc_html($total_count); ?> tweak<?php echo $total_count !== 1 ? 's' : ''; ?> loaded.
-                Add new tweaks by dropping a PHP file into <code>inc/tweaks/</code>.
+                <?php echo esc_html(
+                  $total_count,
+                ); ?> tweak<?php echo $total_count !== 1 ? "s" : ""; ?> loaded.
             </p>
 
         </div>
@@ -433,62 +528,72 @@ class Plugin
         })();
         </script>
         <?php
+  }
+
+  private function get_active_tweak_count()
+  {
+    $count = 0;
+    foreach ($this->tweaks as $tweak) {
+      foreach ($tweak["settings"] as $setting) {
+        if (
+          str_ends_with($setting["id"], "_enabled") &&
+          get_option($setting["id"])
+        ) {
+          $count++;
+          break;
+        }
+      }
+    }
+    return $count;
+  }
+
+  private function get_all_tabs()
+  {
+    $preferred_order = [
+      "general",
+      "dashboard",
+      "admin-bar",
+      "admin-tables",
+      "sidebar",
+      "bricks",
+    ];
+
+    $tabs = [];
+    $has_general = false;
+
+    foreach ($this->tweaks as $tweak) {
+      $tab = !empty($tweak["tab"]) ? $tweak["tab"] : null;
+      if ($tab) {
+        $tabs[$tab] = ucfirst(str_replace("-", " ", $tab));
+      } else {
+        $has_general = true;
+      }
     }
 
-    private function get_active_tweak_count()
-    {
-        $count = 0;
-        foreach ($this->tweaks as $tweak) {
-            foreach ($tweak['settings'] as $setting) {
-                if (str_ends_with($setting['id'], '_enabled') && get_option($setting['id'])) {
-                    $count++;
-                    break;
-                }
-            }
-        }
-        return $count;
+    if ($has_general) {
+      $tabs["general"] = "General";
     }
 
-    private function get_all_tabs()
-    {
-        $preferred_order = ['general', 'dashboard', 'admin-bar', 'admin-tables', 'sidebar', 'bricks'];
-
-        $tabs = [];
-        $has_general = false;
-
-        foreach ($this->tweaks as $tweak) {
-            $tab = !empty($tweak['tab']) ? $tweak['tab'] : null;
-            if ($tab) {
-                $tabs[$tab] = ucfirst(str_replace('-', ' ', $tab));
-            } else {
-                $has_general = true;
-            }
-        }
-
-        if ($has_general) {
-            $tabs['general'] = 'General';
-        }
-
-        $sorted = [];
-        foreach ($preferred_order as $key) {
-            if (isset($tabs[$key])) {
-                $sorted[$key] = $tabs[$key];
-            }
-        }
-        foreach ($tabs as $key => $label) {
-            if (!isset($sorted[$key])) {
-                $sorted[$key] = $label;
-            }
-        }
-
-        return $sorted;
+    $sorted = [];
+    foreach ($preferred_order as $key) {
+      if (isset($tabs[$key])) {
+        $sorted[$key] = $tabs[$key];
+      }
+    }
+    foreach ($tabs as $key => $label) {
+      if (!isset($sorted[$key])) {
+        $sorted[$key] = $label;
+      }
     }
 
-    private function get_tweaks_for_tab($tab_id)
-    {
-        return array_filter($this->tweaks, function ($tweak) use ($tab_id) {
-            $tweak_tab = !empty($tweak['tab']) ? $tweak['tab'] : 'general';
-            return $tweak_tab === $tab_id;
-        });
-    }
+    return $sorted;
+  }
+
+  private function get_tweaks_for_tab($tab_id)
+  {
+    return array_filter($this->tweaks, function ($tweak) use ($tab_id) {
+      $tweak_tab = !empty($tweak["tab"]) ? $tweak["tab"] : "general";
+      return $tweak_tab === $tab_id;
+    });
+  }
 }

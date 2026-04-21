@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-PLUGIN_SLUG="WPTweaks"
+PLUGIN_SLUG="wp-toolkit"
 MAIN_FILE="plugin.php"
 GITHUB_REPO="DylanDuff/wp-toolkit"
 

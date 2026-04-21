@@ -4,8 +4,16 @@ namespace DDWPTweaks\Tweaks;
 
 function environment_badge($wp_admin_bar)
 {
-    $override = get_option('ddwpt_environment_indicator_environment', '');
-    $env = $override ?: wp_get_environment_type();
+    $override    = get_option('ddwpt_environment_indicator_environment', '');
+    $staging_url = trim(get_option('ddwpt_environment_indicator_staging_url', ''));
+
+    if ($override) {
+        $env = $override;
+    } elseif ($staging_url && strpos(home_url(), $staging_url) !== false) {
+        $env = 'staging';
+    } else {
+        $env = wp_get_environment_type();
+    }
 
     $colors = [
         'local'       => '#2271b1',
@@ -45,6 +53,13 @@ return [
             'type'        => 'checkbox',
             'label'       => 'Enable tweak',
             'description' => 'Show a coloured environment badge in the admin bar.',
+        ],
+        [
+            'id'          => 'staging_url',
+            'type'        => 'text',
+            'label'       => 'Staging URL fragment',
+            'description' => 'If this value appears anywhere in the site URL, the environment will be treated as Staging. E.g. "staging." or "mystagingdomain.com". Only applies when Environment is set to Auto.',
+            'default'     => '',
         ],
         [
             'id'          => 'environment',

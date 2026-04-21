@@ -12,6 +12,7 @@
 defined('ABSPATH') || exit;
 
 require_once __DIR__ . '/inc/class-plugin.php';
+require_once __DIR__ . '/inc/class-knowledge-base.php';
 require_once __DIR__ . '/plugin-update-checker/plugin-update-checker.php';
 
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
