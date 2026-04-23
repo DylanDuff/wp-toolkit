@@ -131,7 +131,9 @@ class Plugin
 
                 <div class="ddwpt-header">
                     <div class="ddwpt-header-left">
-                        <span class="ddwpt-brand">WP Toolkit</span>
+                        <img src="<?php echo esc_url(DDWPT_URL . 'assets/icons/wptk-logo.svg'); ?>"
+                             alt="WP Toolkit"
+                             class="ddwpt-logo" />
                         <?php if ($version): ?>
                         <span class="ddwpt-version-pill">v<?php echo esc_html($version); ?></span>
                         <?php endif; ?>
