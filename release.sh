@@ -138,6 +138,7 @@ PACKAGE_DIR="${TEMP_DIR}/${PLUGIN_SLUG}"
 mkdir -p "$PACKAGE_DIR"
 
 cp "$MAIN_FILE" "$PACKAGE_DIR/"
+cp -r assets "$PACKAGE_DIR/"
 cp -r inc "$PACKAGE_DIR/"
 cp -r plugin-update-checker "$PACKAGE_DIR/"
 
