@@ -373,7 +373,7 @@ class Plugin
 
     private function get_all_tabs()
     {
-        $preferred = ["general", "dashboard", "admin-bar", "admin-tables", "sidebar", "bricks"];
+        $preferred = ["general", "dashboard", "admin-bar", "admin-tables", "sidebar", "animations", "bricks"];
 
         $tabs       = [];
         $has_general = false;
@@ -420,6 +420,7 @@ class Plugin
             "bricks"       => "Layout-Dashboard-Lucide.svg",
             "footer"       => "Dock-Lucide.svg",
             "media"        => "Image-Lucide.svg",
+            "animations"   => "Sparkles-Lucide.svg",
             "notifications"       => "Message-Square-Warning-Lucide.svg",
             "themes"       => "Swatch-Book-Lucide.svg",
             "security"     => "Globe-Lock-Lucide.svg",

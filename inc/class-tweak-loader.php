@@ -37,6 +37,7 @@ class Tweak_Loader
         'toast-notifications',
         'whitelabel-adminbar-logo',
         'mapbox-bricks',
+        'motion-library',
         'rive-bricks',
         'unicorn-studio-bricks',
         'wpsr-bricks',
