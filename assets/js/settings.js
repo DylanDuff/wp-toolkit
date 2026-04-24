@@ -131,6 +131,94 @@
         });
     });
 
+    // ── Export settings ───────────────────────────────────────────────
+    var exportBtn = document.querySelector('.ddwpt-export-btn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', function () {
+            exportBtn.textContent = 'Exporting…';
+            exportBtn.disabled = true;
+
+            fetch(ddwptSettings.ajaxUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    action: 'ddwpt_export_settings',
+                    nonce: ddwptSettings.exportNonce
+                })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (!res.success) throw new Error('Export failed');
+                var blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+                var url  = URL.createObjectURL(blob);
+                var a    = document.createElement('a');
+                a.href     = url;
+                a.download = 'wp-toolkit-settings.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            })
+            .catch(function () {
+                alert('Export failed. Please try again.');
+            })
+            .finally(function () {
+                exportBtn.textContent = 'Export';
+                exportBtn.disabled = false;
+            });
+        });
+    }
+
+    // ── Import settings ───────────────────────────────────────────────
+    var importBtn  = document.querySelector('.ddwpt-import-btn');
+    var importFile = document.getElementById('ddwpt-import-file');
+    if (importBtn && importFile) {
+        importBtn.addEventListener('click', function () {
+            importFile.value = '';
+            importFile.click();
+        });
+
+        importFile.addEventListener('change', function () {
+            var file = this.files[0];
+            if (!file) return;
+
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                var data;
+                try {
+                    data = JSON.parse(e.target.result);
+                } catch (err) {
+                    alert('Invalid JSON file.');
+                    return;
+                }
+
+                importBtn.textContent = 'Importing…';
+                importBtn.disabled = true;
+
+                fetch(ddwptSettings.ajaxUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        action: 'ddwpt_import_settings',
+                        nonce: ddwptSettings.importNonce,
+                        settings: JSON.stringify(data)
+                    })
+                })
+                .then(function (r) { return r.json(); })
+                .then(function (res) {
+                    if (!res.success) throw new Error('Import failed');
+                    location.reload();
+                })
+                .catch(function () {
+                    alert('Import failed. Please check the file and try again.');
+                    importBtn.textContent = 'Import';
+                    importBtn.disabled = false;
+                });
+            };
+            reader.readAsText(file);
+        });
+    }
+
     // ── Sortable fields ───────────────────────────────────────────────
     if (typeof jQuery !== 'undefined') {
         jQuery(function ($) {

@@ -20,6 +20,8 @@ class Plugin
         add_action("admin_enqueue_scripts", [$this, "enqueue_assets"]);
         add_filter("admin_body_class",      [$this, "add_body_class"]);
         add_action("tool_box",              [$this, "render_toolbox_card"]);
+        add_action("wp_ajax_ddwpt_export_settings", [$this, "export_settings"]);
+        add_action("wp_ajax_ddwpt_import_settings", [$this, "import_settings"]);
     }
 
     public function register_menu()
@@ -56,6 +58,12 @@ class Plugin
             DDWPT_VERSION,
             true,
         );
+
+        wp_localize_script("ddwpt-settings", "ddwptSettings", [
+            "ajaxUrl"     => admin_url("admin-ajax.php"),
+            "exportNonce" => wp_create_nonce("ddwpt_export"),
+            "importNonce" => wp_create_nonce("ddwpt_import"),
+        ]);
     }
 
     public function add_body_class($classes)
@@ -85,20 +93,22 @@ class Plugin
         <?php
     }
 
-    public function register_settings()
+    private function get_sanitize_map()
     {
-        $sanitize_map = [
+        return [
             "wysiwyg"     => "wp_kses_post",
             "text"        => "sanitize_text_field",
             "select"      => "sanitize_text_field",
             "checkbox"    => "absint",
             "media"       => "esc_url_raw",
             "multiselect" => function ($val) {
+                if (is_array($val)) $val = wp_json_encode($val);
                 $decoded = json_decode($val, true);
                 if (!is_array($decoded)) return "";
                 return wp_json_encode(array_map("sanitize_text_field", $decoded));
             },
             "sortable"    => function ($val) {
+                if (is_array($val)) $val = wp_json_encode($val);
                 $decoded = json_decode($val, true);
                 if (!is_array($decoded)) return "";
                 return wp_json_encode([
@@ -107,6 +117,11 @@ class Plugin
                 ]);
             },
         ];
+    }
+
+    public function register_settings()
+    {
+        $sanitize_map = $this->get_sanitize_map();
 
         foreach ($this->tweaks as $tweak) {
             foreach ($tweak["settings"] as $setting) {
@@ -115,6 +130,54 @@ class Plugin
                 ]);
             }
         }
+    }
+
+    public function export_settings()
+    {
+        check_ajax_referer("ddwpt_export", "nonce");
+        if (!current_user_can("manage_options")) {
+            wp_send_json_error("Unauthorized");
+        }
+
+        $data = [];
+        foreach ($this->tweaks as $tweak) {
+            foreach ($tweak["settings"] as $setting) {
+                $data[$setting["id"]] = get_option($setting["id"], $setting["default"] ?? "");
+            }
+        }
+
+        wp_send_json_success($data);
+    }
+
+    public function import_settings()
+    {
+        check_ajax_referer("ddwpt_import", "nonce");
+        if (!current_user_can("manage_options")) {
+            wp_send_json_error("Unauthorized");
+        }
+
+        $raw  = isset($_POST["settings"]) ? wp_unslash($_POST["settings"]) : "";
+        $data = json_decode($raw, true);
+
+        if (!is_array($data)) {
+            wp_send_json_error("Invalid data");
+        }
+
+        $sanitize_map   = $this->get_sanitize_map();
+        $valid_settings = [];
+        foreach ($this->tweaks as $tweak) {
+            foreach ($tweak["settings"] as $setting) {
+                $valid_settings[$setting["id"]] = $setting["type"];
+            }
+        }
+
+        foreach ($data as $key => $value) {
+            if (!isset($valid_settings[$key])) continue;
+            $sanitize = $sanitize_map[$valid_settings[$key]] ?? "sanitize_text_field";
+            update_option($key, call_user_func($sanitize, $value));
+        }
+
+        wp_send_json_success();
     }
 
     public function render_settings_page()
@@ -141,8 +204,13 @@ class Plugin
                             <?php echo esc_html($active_count); ?> / <?php echo esc_html($total_count); ?> active
                         </span>
                     </div>
-                    <button type="submit" class="ddwpt-save-btn">Save Changes</button>
+                    <div class="ddwpt-header-actions">
+                        <button type="button" class="ddwpt-import-btn"><?php esc_html_e("Import", "wp-toolkit"); ?></button>
+                        <button type="button" class="ddwpt-export-btn"><?php esc_html_e("Export", "wp-toolkit"); ?></button>
+                        <button type="submit" class="ddwpt-save-btn"><?php esc_html_e("Save Changes", "wp-toolkit"); ?></button>
+                    </div>
                 </div>
+                <input type="file" id="ddwpt-import-file" accept=".json" style="display:none;" />
 
                 <?php if (count($tabs) > 1): ?>
                 <div class="ddwpt-tabs-nav">
