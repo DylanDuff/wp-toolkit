@@ -10,10 +10,9 @@ class Plugin
     private $settings_group = "ddwptweaks_options";
     private $page_hook = "tools_page_ddwptweaks";
 
-    public function __construct()
+    public function __construct(array $tweaks)
     {
-        require_once __DIR__ . "/class-tweak-loader.php";
-        $this->tweaks = (new Tweak_Loader())->load_all();
+        $this->tweaks = $tweaks;
 
         add_action("admin_menu",            [$this, "register_menu"]);
         add_action("admin_init",            [$this, "register_settings"]);

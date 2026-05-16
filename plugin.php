@@ -14,8 +14,9 @@ defined('ABSPATH') || exit;
 define('DDWPT_VERSION', get_file_data(__FILE__, ['Version' => 'Version'])['Version'] ?? '1.0.0');
 define('DDWPT_URL', plugin_dir_url(__FILE__));
 
-require_once __DIR__ . '/inc/class-plugin.php';
+require_once __DIR__ . '/inc/class-tweak-loader.php';
 require_once __DIR__ . '/inc/class-knowledge-base.php';
+require_once __DIR__ . '/inc/class-plugin.php';
 require_once __DIR__ . '/plugin-update-checker/plugin-update-checker.php';
 
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
@@ -30,5 +31,11 @@ $myUpdateChecker->setBranch('main');
 $myUpdateChecker->getVcsApi()->enableReleaseAssets();
 
 add_action('plugins_loaded', function () {
-    new DDWPTweaks\Plugin();
+    // Tweak runner always boots — CPTs, ACF, GTM etc. must register on every request.
+    $tweaks = (new DDWPTweaks\Tweak_Loader())->load_all();
+
+    // Admin UI only needed in the dashboard and AJAX context.
+    if (is_admin()) {
+        new DDWPTweaks\Plugin($tweaks);
+    }
 });
