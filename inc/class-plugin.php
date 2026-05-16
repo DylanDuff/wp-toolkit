@@ -212,27 +212,33 @@ class Plugin
                 </div>
                 <input type="file" id="ddwpt-import-file" accept=".json" style="display:none;" />
 
-                <?php if (count($tabs) > 1): ?>
-                <div class="ddwpt-tabs-nav">
-                    <?php foreach ($tabs as $tab_id => $tab_label): ?>
-                    <a href="#<?php echo esc_attr($tab_id); ?>"
-                       class="ddwpt-tab"
-                       data-tab="<?php echo esc_attr($tab_id); ?>">
-                        <?php echo $this->get_tab_icon($tab_id); ?>
-                        <?php echo esc_html($tab_label); ?>
-                    </a>
-                    <?php endforeach; ?>
-                </div>
-                <?php endif; ?>
+                <div class="ddwpt-body">
 
-                <div class="ddwpt-content">
-                    <?php foreach ($tabs as $tab_id => $tab_label): ?>
-                    <div class="ddwpt-panel" data-tab="<?php echo esc_attr($tab_id); ?>" style="display:none;">
-                        <?php foreach ($this->get_tweaks_for_tab($tab_id) as $tweak):
-                            $this->render_tweak_card($tweak);
-                        endforeach; ?>
+                    <?php if (count($tabs) > 1): ?>
+                    <nav class="ddwpt-tabs-nav">
+                        <div class="ddwpt-tabs-nav-sticky">
+                            <?php foreach ($tabs as $tab_id => $tab_label): ?>
+                            <a href="#<?php echo esc_attr($tab_id); ?>"
+                               class="ddwpt-tab"
+                               data-tab="<?php echo esc_attr($tab_id); ?>">
+                                <?php echo $this->get_tab_icon($tab_id); ?>
+                                <?php echo esc_html($tab_label); ?>
+                            </a>
+                            <?php endforeach; ?>
+                        </div>
+                    </nav>
+                    <?php endif; ?>
+
+                    <div class="ddwpt-content">
+                        <?php foreach ($tabs as $tab_id => $tab_label): ?>
+                        <div class="ddwpt-panel" data-tab="<?php echo esc_attr($tab_id); ?>" style="display:none;">
+                            <?php foreach ($this->get_tweaks_for_tab($tab_id) as $tweak):
+                                $this->render_tweak_card($tweak);
+                            endforeach; ?>
+                        </div>
+                        <?php endforeach; ?>
                     </div>
-                    <?php endforeach; ?>
+
                 </div>
 
             </div>
