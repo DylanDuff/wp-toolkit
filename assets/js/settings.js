@@ -131,7 +131,24 @@
         });
     });
 
-    // ── Export settings ───────────────────────────────────────────────
+    // ── Checkboxes — sync to hidden input as JSON ─────────────────────
+    document.querySelectorAll('.ddwpt-checkboxes-wrap').forEach(function (wrap) {
+        var input = document.getElementById(wrap.dataset.input);
+        if (!input) return;
+
+        function sync() {
+            var values = Array.from(wrap.querySelectorAll('input[type="checkbox"]'))
+                .filter(function (cb) { return cb.checked; })
+                .map(function (cb) { return cb.value; });
+            input.value = JSON.stringify(values);
+        }
+
+        wrap.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+            cb.addEventListener('change', sync);
+        });
+    });
+
+    // ── Export settings ───���────────────────────────────��──────────────
     var exportBtn = document.querySelector('.ddwpt-export-btn');
     if (exportBtn) {
         exportBtn.addEventListener('click', function () {

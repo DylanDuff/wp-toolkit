@@ -77,6 +77,10 @@ class Plugin
 
     public function render_toolbox_card()
     {
+        if (!current_user_can("manage_options")) {
+            return;
+        }
+
         $active_count = $this->get_active_tweak_count();
         $total_count  = count($this->tweaks);
         $url          = admin_url("tools.php?page=ddwptweaks");
@@ -102,6 +106,12 @@ class Plugin
             "checkbox"    => "absint",
             "media"       => "esc_url_raw",
             "multiselect" => function ($val) {
+                if (is_array($val)) $val = wp_json_encode($val);
+                $decoded = json_decode($val, true);
+                if (!is_array($decoded)) return "";
+                return wp_json_encode(array_map("sanitize_text_field", $decoded));
+            },
+            "checkboxes" => function ($val) {
                 if (is_array($val)) $val = wp_json_encode($val);
                 $decoded = json_decode($val, true);
                 if (!is_array($decoded)) return "";
@@ -419,6 +429,24 @@ class Plugin
                 echo "</div>";
                 break;
 
+            case "checkboxes":
+                $options  = $field["options"] ?? [];
+                $selected = $value ? json_decode($value, true) : [];
+                if (!is_array($selected)) $selected = [];
+
+                $safe_id = esc_attr($field_id);
+                echo '<input type="hidden" id="' . $safe_id . '" name="' . $safe_id . '" value="' . esc_attr(wp_json_encode($selected)) . '" />';
+                echo '<div class="ddwpt-checkboxes-wrap" data-input="' . $safe_id . '">';
+                foreach ($options as $opt_value => $opt_label) {
+                    $is_checked = in_array((string) $opt_value, array_map("strval", $selected), true);
+                    echo '<label class="ddwpt-checkbox-item">';
+                    echo '<input type="checkbox" value="' . esc_attr($opt_value) . '"' . ($is_checked ? " checked" : "") . " />";
+                    echo " " . esc_html($opt_label);
+                    echo "</label>";
+                }
+                echo "</div>";
+                break;
+
             case "wysiwyg":
                 $editor_id = preg_replace("/[^a-z0-9_]/", "_", strtolower($field_id));
                 wp_editor($value, $editor_id, [
@@ -447,7 +475,7 @@ class Plugin
 
     private function get_all_tabs()
     {
-        $preferred = ["general", "dashboard", "admin-bar", "admin-tables", "sidebar", "animations", "bricks"];
+        $preferred = ["general", "acf", "dashboard", "admin-bar", "admin-tables", "sidebar", "animations", "bricks"];
 
         $tabs       = [];
         $has_general = false;
@@ -487,6 +515,7 @@ class Plugin
     {
         $icons = [
             "general"      => "Boxes-Lucide.svg",
+            "acf"          => "App-Window-Lucide.svg",
             "dashboard"    => "Gauge-Lucide.svg",
             "admin-bar"    => "Credit-Card-Lucide.svg",
             "admin-tables" => "Table-Properties-Lucide.svg",

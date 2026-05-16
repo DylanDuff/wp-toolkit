@@ -8,6 +8,8 @@ class Tweak_Loader
 {
 
     private const ALLOWED_TWEAKS = [
+        'acf-faq',
+        'acf-service-areas',
         'acf-site-options',
         'acss-gutenberg',
         'admin-footer-text',
