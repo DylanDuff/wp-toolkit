@@ -500,3 +500,10 @@
   cursor: pointer;
   flex-shrink: 0;
 }
+
+.ddwpt-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}

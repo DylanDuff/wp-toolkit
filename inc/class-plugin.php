@@ -98,24 +98,21 @@ class Plugin
 
     private function get_sanitize_map()
     {
+        $sanitize_json_array = function ($val) {
+            if (is_array($val)) $val = wp_json_encode($val);
+            $decoded = json_decode($val, true);
+            if (!is_array($decoded)) return "";
+            return wp_json_encode(array_map("sanitize_text_field", $decoded));
+        };
+
         return [
             "wysiwyg"     => "wp_kses_post",
             "text"        => "sanitize_text_field",
             "select"      => "sanitize_text_field",
             "checkbox"    => "absint",
             "media"       => "esc_url_raw",
-            "multiselect" => function ($val) {
-                if (is_array($val)) $val = wp_json_encode($val);
-                $decoded = json_decode($val, true);
-                if (!is_array($decoded)) return "";
-                return wp_json_encode(array_map("sanitize_text_field", $decoded));
-            },
-            "checkboxes" => function ($val) {
-                if (is_array($val)) $val = wp_json_encode($val);
-                $decoded = json_decode($val, true);
-                if (!is_array($decoded)) return "";
-                return wp_json_encode(array_map("sanitize_text_field", $decoded));
-            },
+            "multiselect" => $sanitize_json_array,
+            "checkboxes"  => $sanitize_json_array,
             "sortable"    => function ($val) {
                 if (is_array($val)) $val = wp_json_encode($val);
                 $decoded = json_decode($val, true);
@@ -337,7 +334,7 @@ class Plugin
                 break;
 
             case "checkbox":
-                echo '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;">';
+                echo '<label class="ddwpt-checkbox-label">';
                 echo '<input type="checkbox" id="' . esc_attr($field_id) . '" name="' . esc_attr($field_id) . '" value="1" ' . checked($value, 1, false) . " />";
                 if (!empty($field["label_inline"])) {
                     echo "<span>" . esc_html($field["label_inline"]) . "</span>";
