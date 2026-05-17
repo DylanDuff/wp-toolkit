@@ -87,6 +87,16 @@ The knowledge base can be displayed as a **sidebar page** (its own admin menu en
 
 ---
 
+## Developer Reference
+
+Detailed documentation is in [`help-docs/`](help-docs/):
+
+- [`tweak-system.md`](help-docs/tweak-system.md) — tweak definition format, all field types, tab system, settings ID prefixing, callback timing
+- [`knowledge-base.md`](help-docs/knowledge-base.md) — adding articles, display modes, manifest structure
+- [`settings-export-import.md`](help-docs/settings-export-import.md) — export/import behaviour, security model, portability notes
+
+---
+
 ## Releasing
 
 The release script handles version bumping, zip packaging, git tagging, and GitHub release creation.
