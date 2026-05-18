@@ -29,4 +29,7 @@ return [
     'Support' => [
         '09-getting-help' => 'dashicons-sos',
     ],
+    'Developers' => [
+        '16-developer-handoff' => 'dashicons-editor-code',
+    ],
 ];
