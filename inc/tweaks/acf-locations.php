@@ -15,6 +15,22 @@ return [
             'description' => 'Register the Locations custom post type, the Location Type taxonomy, and an ACF details field group.',
         ],
         [
+            'id'        => 'field_keys',
+            'type'      => 'acf_keys',
+            'label'     => 'Field Names',
+            'accordion' => true,
+            'keys'      => [
+                ['name' => 'post_title',    'type' => 'text',     'label' => 'Location name — stored as post title'],
+                ['name' => 'post_content',  'type' => 'html',     'label' => 'Description — stored as post content'],
+                ['name' => 'location-type', 'type' => 'taxonomy', 'label' => 'Location Type — custom taxonomy term slug'],
+                ['name' => 'lc_address',    'type' => 'textarea', 'label' => 'Street address'],
+                ['name' => 'lc_phone',      'type' => 'text',     'label' => 'Phone number'],
+                ['name' => 'lc_email',      'type' => 'email',    'label' => 'Email address'],
+                ['name' => 'lc_hours',      'type' => 'textarea', 'label' => 'Opening hours'],
+                ['name' => 'lc_map_embed',  'type' => 'textarea', 'label' => 'Map embed code'],
+            ],
+        ],
+        [
             'id'        => 'import',
             'type'      => 'location_import',
             'label'     => 'Import Locations',

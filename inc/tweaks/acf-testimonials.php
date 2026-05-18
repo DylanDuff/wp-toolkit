@@ -47,6 +47,21 @@ return [
             'default' => '["page"]',
         ],
         [
+            'id'        => 'field_keys',
+            'type'      => 'acf_keys',
+            'label'     => 'Field Names',
+            'accordion' => true,
+            'keys'      => [
+                ['name' => 'post_title',           'type' => 'text',         'label' => 'Reviewer name — stored as post title'],
+                ['name' => 'post_content',          'type' => 'html',         'label' => 'Quote — stored as post content'],
+                ['name' => 'testimonial-category', 'type' => 'taxonomy',     'label' => 'Category — custom taxonomy term slug'],
+                ['name' => 'tb_company',           'type' => 'text',         'label' => 'Company name'],
+                ['name' => 'tb_role',              'type' => 'text',         'label' => 'Role / position'],
+                ['name' => 'tb_rating',            'type' => 'number',       'label' => 'Rating (1–5)'],
+                ['name' => 'linked_testimonials',  'type' => 'relationship', 'label' => 'Linked testimonials — relationship field on selected post types'],
+            ],
+        ],
+        [
             'id'        => 'import',
             'type'      => 'testimonial_import',
             'label'     => 'Import Testimonials',

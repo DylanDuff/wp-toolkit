@@ -29,6 +29,18 @@ return [
             'default' => '["page","post"]',
         ],
         [
+            'id'        => 'field_keys',
+            'type'      => 'acf_keys',
+            'label'     => 'Field Names',
+            'accordion' => true,
+            'keys'      => [
+                ['name' => 'post_title',  'type' => 'text',         'label' => 'Question — stored as post title'],
+                ['name' => 'post_content','type' => 'html',         'label' => 'Answer — stored as post content'],
+                ['name' => 'faq-tag',     'type' => 'taxonomy',     'label' => 'FAQ Tag — custom taxonomy term slug'],
+                ['name' => 'linked_faqs', 'type' => 'relationship', 'label' => 'Linked FAQs — relationship field on selected post types'],
+            ],
+        ],
+        [
             'id'        => 'import',
             'type'      => 'faq_import',
             'label'     => 'Import FAQs',

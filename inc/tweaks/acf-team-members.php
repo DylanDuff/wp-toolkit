@@ -29,6 +29,21 @@ return [
             'default' => '["page"]',
         ],
         [
+            'id'        => 'field_keys',
+            'type'      => 'acf_keys',
+            'label'     => 'Field Names',
+            'accordion' => true,
+            'keys'      => [
+                ['name' => 'post_title',          'type' => 'text',         'label' => 'Name — stored as post title'],
+                ['name' => 'post_content',         'type' => 'blocks',       'label' => 'Bio — stored as Gutenberg blocks'],
+                ['name' => 'job-title',            'type' => 'taxonomy',     'label' => 'Job Title — custom taxonomy term slug'],
+                ['name' => 'tm_email',             'type' => 'email',        'label' => 'Email address'],
+                ['name' => 'tm_phone',             'type' => 'text',         'label' => 'Phone number'],
+                ['name' => 'tm_linkedin_url',      'type' => 'url',          'label' => 'LinkedIn profile URL'],
+                ['name' => 'linked_team_members',  'type' => 'relationship', 'label' => 'Linked team members — relationship field on selected post types'],
+            ],
+        ],
+        [
             'id'        => 'import',
             'type'      => 'team_member_import',
             'label'     => 'Import Team Members',

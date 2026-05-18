@@ -130,7 +130,7 @@ class Plugin
     {
         $sanitize_map = $this->get_sanitize_map();
 
-        $no_persist = ["faq_import", "acf_export", "service_area_import", "team_member_import", "testimonial_import", "location_import", "project_import"];
+        $no_persist = ["faq_import", "acf_export", "service_area_import", "team_member_import", "testimonial_import", "location_import", "project_import", "acf_keys"];
 
         foreach ($this->tweaks as $tweak) {
             foreach ($tweak["settings"] as $setting) {
@@ -509,6 +509,22 @@ class Plugin
                 echo '<button type="button" class="button ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
                 echo '</div>';
                 echo '</div>';
+                break;
+
+            case "acf_keys":
+                $keys = $field["keys"] ?? [];
+                if (empty($keys)) break;
+                echo '<table class="ddwpt-field-keys-table">';
+                echo '<thead><tr><th>Field name</th><th>Type</th><th>Description</th></tr></thead>';
+                echo '<tbody>';
+                foreach ($keys as $key) {
+                    echo '<tr>';
+                    echo '<td><code>' . esc_html($key['name']) . '</code></td>';
+                    echo '<td>' . esc_html($key['type']) . '</td>';
+                    echo '<td>' . esc_html($key['label']) . '</td>';
+                    echo '</tr>';
+                }
+                echo '</tbody></table>';
                 break;
 
             case "team_member_import":

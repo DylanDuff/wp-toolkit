@@ -541,6 +541,53 @@
   padding: 0 20px 20px;
 }
 
+/* ── ACF field keys reference table ───────────────────────────── */
+.ddwpt-field-keys-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.ddwpt-field-keys-table th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--ddwpt-text-muted);
+  padding: 0 16px 8px 0;
+  border-bottom: 1px solid var(--ddwpt-border);
+}
+
+.ddwpt-field-keys-table td {
+  padding: 7px 16px 7px 0;
+  border-bottom: 1px solid var(--ddwpt-border);
+  vertical-align: middle;
+  color: var(--ddwpt-text);
+  line-height: 1.4;
+}
+
+.ddwpt-field-keys-table tr:last-child td {
+  border-bottom: none;
+}
+
+.ddwpt-field-keys-table code {
+  background: var(--ddwpt-surface-alt);
+  border: 1px solid var(--ddwpt-border);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: Menlo, Consolas, "Courier New", monospace;
+  color: var(--ddwpt-accent);
+  white-space: nowrap;
+}
+
+.ddwpt-field-keys-table td:nth-child(2) {
+  color: var(--ddwpt-text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 /* ── JSON importers ────────────────────────────────────────────── */
 .ddwpt-json-import .CodeMirror {
   height: 220px;

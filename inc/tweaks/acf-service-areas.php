@@ -15,6 +15,17 @@ return [
             'description' => 'Register the Service Areas custom post type and the Region taxonomy.',
         ],
         [
+            'id'        => 'field_keys',
+            'type'      => 'acf_keys',
+            'label'     => 'Field Names',
+            'accordion' => true,
+            'keys'      => [
+                ['name' => 'post_title',   'type' => 'text',     'label' => 'Location name — stored as post title'],
+                ['name' => 'post_content', 'type' => 'blocks',   'label' => 'Description — stored as Gutenberg blocks'],
+                ['name' => 'region',       'type' => 'taxonomy', 'label' => 'Region — custom taxonomy term slug'],
+            ],
+        ],
+        [
             'id'        => 'import',
             'type'      => 'service_area_import',
             'label'     => 'Import Service Areas',

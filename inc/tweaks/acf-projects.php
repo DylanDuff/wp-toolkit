@@ -29,6 +29,21 @@ return [
             'default' => '["page"]',
         ],
         [
+            'id'        => 'field_keys',
+            'type'      => 'acf_keys',
+            'label'     => 'Field Names',
+            'accordion' => true,
+            'keys'      => [
+                ['name' => 'post_title',      'type' => 'text',         'label' => 'Project name — stored as post title'],
+                ['name' => 'post_content',    'type' => 'blocks',       'label' => 'Description — stored as Gutenberg blocks'],
+                ['name' => 'project-type',    'type' => 'taxonomy',     'label' => 'Project Type — custom taxonomy term slug'],
+                ['name' => 'pj_client',       'type' => 'text',         'label' => 'Client name'],
+                ['name' => 'pj_url',          'type' => 'url',          'label' => 'Project URL'],
+                ['name' => 'pj_year',         'type' => 'number',       'label' => 'Year completed'],
+                ['name' => 'linked_projects', 'type' => 'relationship', 'label' => 'Linked projects — relationship field on selected post types'],
+            ],
+        ],
+        [
             'id'        => 'import',
             'type'      => 'project_import',
             'label'     => 'Import Projects',
