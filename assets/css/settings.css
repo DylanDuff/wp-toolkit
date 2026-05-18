@@ -507,3 +507,64 @@
   gap: 6px;
   cursor: pointer;
 }
+
+/* ── Accordion field rows ───────────────────────────────────────── */
+.ddwpt-field-accordion-summary {
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ddwpt-text);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+.ddwpt-field-accordion-summary::-webkit-details-marker {
+  display: none;
+}
+
+.ddwpt-field-accordion-summary::after {
+  content: '▶';
+  font-size: 10px;
+  color: var(--ddwpt-text-muted);
+  transition: transform 0.15s ease;
+  margin-left: auto;
+}
+
+.ddwpt-field-accordion[open] .ddwpt-field-accordion-summary::after {
+  transform: rotate(90deg);
+}
+
+.ddwpt-field-accordion-body {
+  padding: 0 20px 20px;
+}
+
+/* ── JSON importers ────────────────────────────────────────────── */
+.ddwpt-json-import .CodeMirror {
+  height: 220px;
+  border: 1px solid var(--ddwpt-border);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: Menlo, Consolas, "Courier New", monospace;
+}
+
+.ddwpt-json-import-result {
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.ddwpt-json-schema-example {
+  background: var(--ddwpt-surface-alt);
+  border: 1px solid var(--ddwpt-border);
+  border-radius: 4px;
+  padding: 12px 14px;
+  font-size: 12px;
+  font-family: Menlo, Consolas, "Courier New", monospace;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--ddwpt-text);
+  margin: 0;
+}

@@ -58,11 +58,12 @@ class Plugin
             true,
         );
 
-        wp_localize_script("ddwpt-settings", "ddwptSettings", [
+        $localize_data = apply_filters("ddwpt_localize_data", [
             "ajaxUrl"     => admin_url("admin-ajax.php"),
             "exportNonce" => wp_create_nonce("ddwpt_export"),
             "importNonce" => wp_create_nonce("ddwpt_import"),
         ]);
+        wp_localize_script("ddwpt-settings", "ddwptSettings", $localize_data);
     }
 
     public function add_body_class($classes)
@@ -129,8 +130,11 @@ class Plugin
     {
         $sanitize_map = $this->get_sanitize_map();
 
+        $no_persist = ["faq_import", "acf_export", "service_area_import"];
+
         foreach ($this->tweaks as $tweak) {
             foreach ($tweak["settings"] as $setting) {
+                if (in_array($setting["type"], $no_persist, true)) continue;
                 register_setting($this->settings_group, $setting["id"], [
                     "sanitize_callback" => $sanitize_map[$setting["type"]] ?? "sanitize_text_field",
                 ]);
@@ -308,6 +312,19 @@ class Plugin
                     }
                     $value = get_option($setting["id"], $setting["default"] ?? "");
                 ?>
+                <?php if (!empty($setting["accordion"])): ?>
+                <details class="ddwpt-field-accordion">
+                    <summary class="ddwpt-field-accordion-summary">
+                        <?php echo esc_html($setting["label"]); ?>
+                    </summary>
+                    <div class="ddwpt-field-accordion-body">
+                        <?php $this->render_field($setting, $value, $setting["id"]); ?>
+                        <?php if (!empty($setting["description"])): ?>
+                        <p class="description"><?php echo esc_html($setting["description"]); ?></p>
+                        <?php endif; ?>
+                    </div>
+                </details>
+                <?php else: ?>
                 <div class="ddwpt-field-row">
                     <label class="ddwpt-field-label" for="<?php echo esc_attr($setting["id"]); ?>">
                         <?php echo esc_html($setting["label"]); ?>
@@ -319,6 +336,7 @@ class Plugin
                         <?php endif; ?>
                     </div>
                 </div>
+                <?php endif; ?>
                 <?php endforeach; ?>
             </div>
             <?php endif; ?>
@@ -451,6 +469,80 @@ class Plugin
                     "media_buttons" => $field["media_buttons"] ?? false,
                     "teeny"         => $field["teeny"] ?? false,
                 ]);
+                break;
+
+            case "acf_export":
+                echo '<div class="ddwpt-acf-export-wrap">';
+                echo '<button type="button" class="button ddwpt-acf-export-btn">Export ACF Presets</button>';
+                echo ' <span class="ddwpt-acf-export-result"></span>';
+                echo '</div>';
+                break;
+
+            case "faq_import":
+                $example = wp_json_encode(
+                    [
+                        [
+                            "question" => "What is your return policy?",
+                            "answer"   => "We accept returns within 30 days of purchase. Items must be unused and in original packaging.",
+                            "taxonomy" => "returns",
+                        ],
+                        [
+                            "question" => "How do I track my order?",
+                            "answer"   => "You will receive a tracking link by email once your order ships. You can also log in to your account to view order status.",
+                        ],
+                    ],
+                    JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+                );
+                echo '<div class="ddwpt-json-import" data-action="ddwpt_faq_import" data-nonce-key="faqImportNonce">';
+                echo '<textarea class="ddwpt-json-import-editor" rows="12" style="width:100%;"></textarea>';
+                echo '<div style="margin-top:8px;">';
+                echo '<button type="button" class="button ddwpt-json-import-btn">Run Import</button>';
+                echo ' <span class="ddwpt-json-import-result"></span>';
+                echo '</div>';
+                echo '<div class="ddwpt-json-schema" style="margin-top:20px;">';
+                echo '<p class="description" style="margin-bottom:6px;font-weight:600;">Schema</p>';
+                echo '<p class="description" style="margin-bottom:8px;">';
+                echo '<strong>Required:</strong> <code>question</code> (string), <code>answer</code> (string, HTML allowed)<br>';
+                echo '<strong>Optional:</strong> <code>taxonomy</code> (string) — slug of an existing <code>faq-tag</code> term; silently skipped if not found';
+                echo '</p>';
+                echo '<pre class="ddwpt-json-schema-example">' . esc_html($example) . '</pre>';
+                echo '<button type="button" class="button ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
+                echo '</div>';
+                echo '</div>';
+                break;
+
+            case "service_area_import":
+                $example = wp_json_encode(
+                    [
+                        [
+                            "title"    => "Sunnybrook",
+                            "content"  => "## About Sunnybrook\n\nWe serve the **Sunnybrook** area with comprehensive lawn care.\n\n- Mowing\n- Edging\n- Fertilization",
+                            "taxonomy" => "north-region",
+                        ],
+                        [
+                            "title"   => "Riverside",
+                            "content" => "Full-service coverage for the Riverside district.",
+                        ],
+                    ],
+                    JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+                );
+                echo '<div class="ddwpt-json-import" data-action="ddwpt_sa_import" data-nonce-key="saImportNonce">';
+                echo '<textarea class="ddwpt-json-import-editor" rows="12" style="width:100%;"></textarea>';
+                echo '<div style="margin-top:8px;">';
+                echo '<button type="button" class="button ddwpt-json-import-btn">Run Import</button>';
+                echo ' <span class="ddwpt-json-import-result"></span>';
+                echo '</div>';
+                echo '<div class="ddwpt-json-schema" style="margin-top:20px;">';
+                echo '<p class="description" style="margin-bottom:6px;font-weight:600;">Schema</p>';
+                echo '<p class="description" style="margin-bottom:8px;">';
+                echo '<strong>Required:</strong> <code>title</code> (string) — location name<br>';
+                echo '<strong>Optional:</strong> <code>content</code> (string, Markdown) — converted to Gutenberg blocks<br>';
+                echo '<strong>Optional:</strong> <code>taxonomy</code> (string) — slug of an existing <code>region</code> term; silently skipped if not found';
+                echo '</p>';
+                echo '<pre class="ddwpt-json-schema-example">' . esc_html($example) . '</pre>';
+                echo '<button type="button" class="button ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
+                echo '</div>';
+                echo '</div>';
                 break;
         }
     }

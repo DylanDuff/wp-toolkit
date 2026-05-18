@@ -10,7 +10,9 @@ class Tweak_Loader
     private const ALLOWED_TWEAKS = [
         'acf-faq',
         'acf-service-areas',
+        'acf-settings',
         'acf-site-options',
+        'acf-export',
         'acss-gutenberg',
         'admin-footer-text',
         'admin-theme',

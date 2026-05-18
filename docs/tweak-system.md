@@ -49,8 +49,12 @@ The `_enabled` checkbox is special: the loader identifies it by type `checkbox` 
 | `media` | URL string | Uses WP media picker |
 | `sortable` | JSON `{order, hidden}` | Requires `items` array or callable |
 | `wysiwyg` | HTML string | TinyMCE; supports `rows`, `media_buttons`, `teeny` keys |
+| `faq_import` | *(not persisted)* | Renders a JSON textarea + "Run Import" button; fires `wp_ajax_ddwpt_faq_import` |
+| `acf_export` | *(not persisted)* | Renders an "Export ACF Presets" button; fires `wp_ajax_ddwpt_acf_export`, downloads JSON |
 
 All fields accept `default` (used when the option has never been saved).
+
+Non-persisted types (currently `faq_import`, `acf_export`) are excluded from `register_settings()` and do not write to the options table. Each wires its own AJAX handler in the tweak callback and injects its nonce into `ddwptSettings` via the `ddwpt_localize_data` filter.
 
 Callable `options`/`items` are resolved at render time, so they can query the database.
 
@@ -74,3 +78,9 @@ This means callbacks can use short keys (`$settings['enabled']`) and WordPress o
 ## Callback timing
 
 All callbacks are hooked to `init` at priority 10. Tweaks that register CPTs, ACF field groups, or other early hooks must do so directly inside the callback — they run during `init`, which is the correct registration point for most WordPress APIs.
+
+## Early-boot code
+
+Occasionally a tweak needs to act before `init` — for example, filtering `register_post_type_args` before another tweak's `init` callback calls `register_post_type()`. Place such code at the top of the tweak file, before the `return` statement. It runs during `plugins_loaded` when `Tweak_Loader::load_all()` requires the file.
+
+Use `get_option('ddwpt_my_tweak_enabled')` directly to gate the early code (the full prefixed key, since auto-prefixing hasn't run yet). `acf-settings.php` uses this pattern to set `show_in_menu` on preset CPTs before they are registered.

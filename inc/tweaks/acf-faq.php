@@ -28,12 +28,36 @@ return [
             },
             'default' => '["page","post"]',
         ],
+        [
+            'id'        => 'import',
+            'type'      => 'faq_import',
+            'label'     => 'Import FAQs',
+            'accordion' => true,
+        ],
     ],
 
     'callback' => function ($settings) {
         if (empty($settings['enabled'])) {
             return;
         }
+
+        register_taxonomy('faq-tag', 'faq', [
+            'labels' => [
+                'name'          => 'FAQ Tags',
+                'singular_name' => 'FAQ Tag',
+                'search_items'  => 'Search FAQ Tags',
+                'all_items'     => 'All FAQ Tags',
+                'edit_item'     => 'Edit FAQ Tag',
+                'update_item'   => 'Update FAQ Tag',
+                'add_new_item'  => 'Add New FAQ Tag',
+                'new_item_name' => 'New FAQ Tag Name',
+                'menu_name'     => 'FAQ Tags',
+            ],
+            'hierarchical'      => false,
+            'show_in_rest'      => true,
+            'show_admin_column' => true,
+            'rewrite'           => ['slug' => 'faq-tag'],
+        ]);
 
         register_post_type('faq', [
             'labels' => [
@@ -72,9 +96,80 @@ return [
             'show_in_rest'       => true,
             'menu_icon'          => 'dashicons-align-center',
             'supports'           => ['title', 'editor', 'custom-fields'],
-            'taxonomies'         => ['post_tag'],
+            'taxonomies'         => ['faq-tag'],
             'delete_with_user'   => false,
         ]);
+
+        add_filter('ddwpt_localize_data', function ($data) {
+            $data['faqImportNonce'] = wp_create_nonce('ddwpt_faq_import');
+            return $data;
+        });
+
+        add_action('admin_enqueue_scripts', function ($hook) {
+            if ($hook !== 'tools_page_ddwptweaks') return;
+            if (defined('DDWPT_JSON_EDITOR_ENQUEUED')) return;
+            define('DDWPT_JSON_EDITOR_ENQUEUED', true);
+            $editor_settings = wp_enqueue_code_editor(['type' => 'application/json']);
+            if ($editor_settings !== false) {
+                wp_add_inline_script(
+                    'ddwpt-settings',
+                    'var ddwptJsonEditorSettings = ' . wp_json_encode($editor_settings) . ';',
+                    'before'
+                );
+            }
+        });
+
+        add_action('wp_ajax_ddwpt_faq_import', function () {
+            check_ajax_referer('ddwpt_faq_import', 'nonce');
+            if (!current_user_can('manage_options')) {
+                wp_send_json_error('Unauthorized');
+            }
+
+            $raw   = isset($_POST['items']) ? wp_unslash($_POST['items']) : '';
+            $items = json_decode($raw, true);
+
+            if (!is_array($items) || empty($items)) {
+                wp_send_json_error('Expected a non-empty JSON array.');
+            }
+
+            $created = 0;
+            $skipped = 0;
+
+            foreach ($items as $item) {
+                if (empty($item['question']) || empty($item['answer'])) {
+                    $skipped++;
+                    continue;
+                }
+
+                $post_id = wp_insert_post([
+                    'post_type'    => 'faq',
+                    'post_title'   => sanitize_text_field($item['question']),
+                    'post_content' => wp_kses_post($item['answer']),
+                    'post_status'  => 'publish',
+                ], true);
+
+                if (is_wp_error($post_id)) {
+                    $skipped++;
+                    continue;
+                }
+
+                if (!empty($item['taxonomy'])) {
+                    $term = get_term_by('slug', sanitize_key($item['taxonomy']), 'faq-tag');
+                    if ($term) {
+                        wp_set_post_terms($post_id, [$term->term_id], 'faq-tag');
+                    }
+                }
+
+                $created++;
+            }
+
+            $message = sprintf('%d FAQ%s created', $created, $created === 1 ? '' : 's');
+            if ($skipped > 0) {
+                $message .= sprintf(', %d skipped (missing question or answer, or insert error)', $skipped);
+            }
+
+            wp_send_json_success(['message' => $message . '.']);
+        });
 
         if (!function_exists('acf_add_local_field_group')) {
             return;

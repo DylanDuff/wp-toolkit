@@ -236,6 +236,155 @@
         });
     }
 
+    // ── ACF preset export ─────────────────────────────────────────────
+    document.querySelectorAll('.ddwpt-acf-export-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var wrap   = btn.closest('.ddwpt-acf-export-wrap');
+            var result = wrap ? wrap.querySelector('.ddwpt-acf-export-result') : null;
+
+            btn.textContent = 'Exporting…';
+            btn.disabled    = true;
+            if (result) result.textContent = '';
+
+            fetch(ddwptSettings.ajaxUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    action: 'ddwpt_acf_export',
+                    nonce:  ddwptSettings.acfExportNonce
+                })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (!res.success) throw new Error(res.data || 'Export failed.');
+                var blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+                var url  = URL.createObjectURL(blob);
+                var a    = document.createElement('a');
+                a.href     = url;
+                a.download = 'acf-presets.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                if (result) { result.textContent = 'Downloaded.'; result.style.color = 'green'; }
+            })
+            .catch(function (err) {
+                if (result) { result.textContent = err.message || 'Export failed.'; result.style.color = 'red'; }
+            })
+            .finally(function () {
+                btn.textContent = 'Export ACF Presets';
+                btn.disabled    = false;
+            });
+        });
+    });
+
+    // ── JSON importers ────────────────────────────────────────────────
+    var jsonEditorSettings = (typeof ddwptJsonEditorSettings !== 'undefined') ? ddwptJsonEditorSettings : null;
+
+    function jsonEditorGetValue(wrap) {
+        if (wrap._jsonEditor && wrap._jsonEditor.codemirror) {
+            return wrap._jsonEditor.codemirror.getValue();
+        }
+        var ta = wrap.querySelector('.ddwpt-json-import-editor');
+        return ta ? ta.value : '';
+    }
+
+    function jsonEditorSetValue(wrap, value) {
+        if (wrap._jsonEditor && wrap._jsonEditor.codemirror) {
+            wrap._jsonEditor.codemirror.setValue(value);
+        } else {
+            var ta = wrap.querySelector('.ddwpt-json-import-editor');
+            if (ta) ta.value = value;
+        }
+    }
+
+    document.querySelectorAll('.ddwpt-json-import').forEach(function (wrap) {
+        var textarea = wrap.querySelector('.ddwpt-json-import-editor');
+        if (!textarea) return;
+
+        function initOrRefreshEditor() {
+            if (!wrap._jsonEditor && jsonEditorSettings && typeof wp !== 'undefined' && wp.codeEditor) {
+                wrap._jsonEditor = wp.codeEditor.initialize(textarea, jsonEditorSettings);
+            } else if (wrap._jsonEditor && wrap._jsonEditor.codemirror) {
+                wrap._jsonEditor.codemirror.refresh();
+            }
+        }
+
+        var details = wrap.closest('details.ddwpt-field-accordion');
+        if (details) {
+            details.addEventListener('toggle', function () {
+                if (details.open) initOrRefreshEditor();
+            });
+        } else {
+            initOrRefreshEditor();
+        }
+    });
+
+    document.querySelectorAll('.ddwpt-json-copy-schema').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var example = btn.closest('.ddwpt-json-import').querySelector('.ddwpt-json-schema-example');
+            if (!example) return;
+            navigator.clipboard.writeText(example.textContent).then(function () {
+                var orig = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(function () { btn.textContent = orig; }, 2000);
+            });
+        });
+    });
+
+    document.querySelectorAll('.ddwpt-json-import-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var wrap     = btn.closest('.ddwpt-json-import');
+            var result   = wrap.querySelector('.ddwpt-json-import-result');
+            var action   = wrap.dataset.action;
+            var nonceKey = wrap.dataset.nonceKey;
+
+            var items;
+            try {
+                items = JSON.parse(jsonEditorGetValue(wrap));
+            } catch (e) {
+                result.textContent = 'Invalid JSON.';
+                result.style.color = 'red';
+                return;
+            }
+
+            if (!Array.isArray(items) || items.length === 0) {
+                result.textContent = 'Expected a non-empty JSON array.';
+                result.style.color = 'red';
+                return;
+            }
+
+            btn.textContent    = 'Importing…';
+            btn.disabled       = true;
+            result.textContent = '';
+
+            fetch(ddwptSettings.ajaxUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    action: action,
+                    nonce:  ddwptSettings[nonceKey],
+                    items:  JSON.stringify(items)
+                })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (!res.success) throw new Error(res.data || 'Import failed.');
+                result.textContent = res.data.message;
+                result.style.color = 'green';
+                jsonEditorSetValue(wrap, '');
+            })
+            .catch(function (err) {
+                result.textContent = err.message || 'Import failed.';
+                result.style.color = 'red';
+            })
+            .finally(function () {
+                btn.textContent = 'Run Import';
+                btn.disabled    = false;
+            });
+        });
+    });
+
     // ── Sortable fields ───────────────────────────────────────────────
     if (typeof jQuery !== 'undefined') {
         jQuery(function ($) {
