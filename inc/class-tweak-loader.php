@@ -9,10 +9,13 @@ class Tweak_Loader
 
     private const ALLOWED_TWEAKS = [
         'acf-faq',
+        'acf-locations',
+        'acf-projects',
         'acf-service-areas',
         'acf-settings',
         'acf-site-options',
         'acf-team-members',
+        'acf-testimonials',
         'acf-export',
         'acss-gutenberg',
         'admin-footer-text',

@@ -130,7 +130,7 @@ class Plugin
     {
         $sanitize_map = $this->get_sanitize_map();
 
-        $no_persist = ["faq_import", "acf_export", "service_area_import", "team_member_import"];
+        $no_persist = ["faq_import", "acf_export", "service_area_import", "team_member_import", "testimonial_import", "location_import", "project_import"];
 
         foreach ($this->tweaks as $tweak) {
             foreach ($tweak["settings"] as $setting) {
@@ -543,6 +543,127 @@ class Plugin
                 echo '<strong>Optional:</strong> <code>bio</code> (string, Markdown) — converted to Gutenberg blocks<br>';
                 echo '<strong>Optional:</strong> <code>taxonomy</code> (string) — slug of an existing <code>job-title</code> term; silently skipped if not found<br>';
                 echo '<strong>Optional:</strong> <code>email</code>, <code>phone</code>, <code>linkedin</code> (strings) — stored as ACF profile fields';
+                echo '</p>';
+                echo '<pre class="ddwpt-json-schema-example">' . esc_html($example) . '</pre>';
+                echo '<button type="button" class="button ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
+                echo '</div>';
+                echo '</div>';
+                break;
+
+            case "testimonial_import":
+                $example = wp_json_encode(
+                    [
+                        [
+                            "name"     => "Sarah Johnson",
+                            "quote"    => "Working with this team was an incredible experience. They delivered beyond our expectations.",
+                            "taxonomy" => "web-design",
+                            "company"  => "Acme Corp",
+                            "role"     => "Marketing Director",
+                            "rating"   => 5,
+                        ],
+                        [
+                            "name"  => "Tom Davies",
+                            "quote" => "Professional, communicative, and fast. Highly recommended.",
+                            "company" => "Davies & Co",
+                            "role"    => "Founder",
+                        ],
+                    ],
+                    JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+                );
+                echo '<div class="ddwpt-json-import" data-action="ddwpt_testimonial_import" data-nonce-key="testimonialImportNonce">';
+                echo '<textarea class="ddwpt-json-import-editor" rows="12" style="width:100%;"></textarea>';
+                echo '<div style="margin-top:8px;">';
+                echo '<button type="button" class="button ddwpt-json-import-btn">Run Import</button>';
+                echo ' <span class="ddwpt-json-import-result"></span>';
+                echo '</div>';
+                echo '<div class="ddwpt-json-schema" style="margin-top:20px;">';
+                echo '<p class="description" style="margin-bottom:6px;font-weight:600;">Schema</p>';
+                echo '<p class="description" style="margin-bottom:8px;">';
+                echo '<strong>Required:</strong> <code>name</code> (string) — person\'s name<br>';
+                echo '<strong>Optional:</strong> <code>quote</code> (string) — testimonial text<br>';
+                echo '<strong>Optional:</strong> <code>taxonomy</code> (string) — slug of an existing <code>testimonial-category</code> term<br>';
+                echo '<strong>Optional:</strong> <code>company</code>, <code>role</code> (strings), <code>rating</code> (integer 1–5)';
+                echo '</p>';
+                echo '<pre class="ddwpt-json-schema-example">' . esc_html($example) . '</pre>';
+                echo '<button type="button" class="button ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
+                echo '</div>';
+                echo '</div>';
+                break;
+
+            case "location_import":
+                $example = wp_json_encode(
+                    [
+                        [
+                            "name"        => "City Branch",
+                            "description" => "Our main city location, open six days a week.",
+                            "taxonomy"    => "branch",
+                            "address"     => "123 Main St\nSydney NSW 2000",
+                            "phone"       => "+61 2 0000 0000",
+                            "email"       => "city@example.com",
+                            "hours"       => "Mon–Fri 9am–5pm\nSat 10am–2pm",
+                        ],
+                        [
+                            "name"    => "Suburbs Outpost",
+                            "taxonomy" => "outpost",
+                            "address" => "45 Park Rd\nParramatta NSW 2150",
+                            "phone"   => "+61 2 0000 0001",
+                        ],
+                    ],
+                    JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+                );
+                echo '<div class="ddwpt-json-import" data-action="ddwpt_location_import" data-nonce-key="locationImportNonce">';
+                echo '<textarea class="ddwpt-json-import-editor" rows="12" style="width:100%;"></textarea>';
+                echo '<div style="margin-top:8px;">';
+                echo '<button type="button" class="button ddwpt-json-import-btn">Run Import</button>';
+                echo ' <span class="ddwpt-json-import-result"></span>';
+                echo '</div>';
+                echo '<div class="ddwpt-json-schema" style="margin-top:20px;">';
+                echo '<p class="description" style="margin-bottom:6px;font-weight:600;">Schema</p>';
+                echo '<p class="description" style="margin-bottom:8px;">';
+                echo '<strong>Required:</strong> <code>name</code> (string) — location name<br>';
+                echo '<strong>Optional:</strong> <code>description</code> (string) — plain text or HTML<br>';
+                echo '<strong>Optional:</strong> <code>taxonomy</code> (string) — slug of an existing <code>location-type</code> term<br>';
+                echo '<strong>Optional:</strong> <code>address</code>, <code>phone</code>, <code>email</code>, <code>hours</code>, <code>map_embed</code> (strings)';
+                echo '</p>';
+                echo '<pre class="ddwpt-json-schema-example">' . esc_html($example) . '</pre>';
+                echo '<button type="button" class="button ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
+                echo '</div>';
+                echo '</div>';
+                break;
+
+            case "project_import":
+                $example = wp_json_encode(
+                    [
+                        [
+                            "name"        => "Brand Refresh",
+                            "description" => "## Overview\n\nA complete visual identity overhaul for a national retail brand.\n\n- Logo redesign\n- Brand guidelines\n- Digital asset library",
+                            "taxonomy"    => "branding",
+                            "client"      => "Acme Corp",
+                            "url"         => "https://acmecorp.com",
+                            "year"        => 2024,
+                        ],
+                        [
+                            "name"   => "E-commerce Replatform",
+                            "taxonomy" => "web-development",
+                            "client"   => "Retail Co",
+                            "year"     => 2023,
+                        ],
+                    ],
+                    JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+                );
+                echo '<div class="ddwpt-json-import" data-action="ddwpt_project_import" data-nonce-key="projectImportNonce">';
+                echo '<textarea class="ddwpt-json-import-editor" rows="12" style="width:100%;"></textarea>';
+                echo '<div style="margin-top:8px;">';
+                echo '<button type="button" class="button ddwpt-json-import-btn">Run Import</button>';
+                echo ' <span class="ddwpt-json-import-result"></span>';
+                echo '</div>';
+                echo '<div class="ddwpt-json-schema" style="margin-top:20px;">';
+                echo '<p class="description" style="margin-bottom:6px;font-weight:600;">Schema</p>';
+                echo '<p class="description" style="margin-bottom:8px;">';
+                echo '<strong>Required:</strong> <code>name</code> (string) — project name<br>';
+                echo '<strong>Optional:</strong> <code>description</code> (string, Markdown) — converted to Gutenberg blocks<br>';
+                echo '<strong>Optional:</strong> <code>taxonomy</code> (string) — slug of an existing <code>project-type</code> term<br>';
+                echo '<strong>Optional:</strong> <code>client</code> (string), <code>url</code> (string), <code>year</code> (integer)';
                 echo '</p>';
                 echo '<pre class="ddwpt-json-schema-example">' . esc_html($example) . '</pre>';
                 echo '<button type="button" class="button ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';

@@ -35,8 +35,11 @@ return [
             // Map of enabled-option → one or more local field group keys per preset.
             $preset_groups = [
                 'ddwpt_acf_faq_enabled'          => ['group_695c328871ee2'],
-                'ddwpt_acf_site_options_enabled'  => ['group_66d540426b8e3'],
-                'ddwpt_acf_team_members_enabled'  => ['group_68293a7c2f1e1', 'group_68293a7c2f1e5'],
+                'ddwpt_acf_locations_enabled'    => ['group_68293c2d5e3b1'],
+                'ddwpt_acf_projects_enabled'     => ['group_68293d3e6f4c1', 'group_68293d3e6f4c5'],
+                'ddwpt_acf_site_options_enabled' => ['group_66d540426b8e3'],
+                'ddwpt_acf_team_members_enabled' => ['group_68293a7c2f1e1', 'group_68293a7c2f1e5'],
+                'ddwpt_acf_testimonials_enabled' => ['group_68293b1c4d2a1', 'group_68293b1c4d2a5'],
             ];
 
             $export = [];
