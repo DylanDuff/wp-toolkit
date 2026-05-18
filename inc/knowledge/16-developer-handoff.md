@@ -66,6 +66,8 @@ All WP Toolkit settings are stored in `wp_options`. Option keys follow the patte
 
 The knowledge base you're reading now is also managed by WP Toolkit (the **Knowledge Base** tweak). Articles are Markdown files stored in `wp-content/plugins/wp-toolkit/inc/knowledge/` and indexed via `manifest.php` in that same directory. To add or edit articles, update those files directly — no database entries are involved.
 
+> **Important:** This directory lives inside the plugin folder. Plugin updates will overwrite it, replacing any articles you've added or edited. If you need to customise the knowledge base, either pin the plugin to a specific version and update manually, or maintain your article files outside version control and redeploy them after each update.
+
 ---
 
 ## Key Places at a Glance
