@@ -52,6 +52,7 @@ class Tweak_Loader
         'wpsr-bricks',
         'plugin-settings',
         'experiments',
+        'floating-admin-panel',
     ];
 
     public function load_all()
