@@ -15,6 +15,7 @@ class Tweak_Loader
         'admin-footer-text',
         'admin-theme',
         'bricks-dashboard-widgets',
+        'bricks-menu-images',
         'bricks-post-editor',
         'change-howdy-greeting',
         'disable-comments',
