@@ -8,7 +8,7 @@ namespace DDWPTweaks\Tweaks;
 // is in place before any CPT registration happens.
 if (get_option('ddwpt_acf_settings_enabled')) {
     add_filter('register_post_type_args', function ($args, $post_type) {
-        static $preset_types = ['faq', 'service-area'];
+        static $preset_types = ['faq', 'service-area', 'team-member'];
         if (in_array($post_type, $preset_types, true)) {
             $args['show_in_menu'] = 'ddwpt-collections';
         }
@@ -37,7 +37,7 @@ return [
 
         add_action('admin_menu', function () {
             // Only register Collections if at least one preset CPT is active.
-            $preset_types = ['faq', 'service-area'];
+            $preset_types = ['faq', 'service-area', 'team-member'];
             if (!array_filter($preset_types, 'post_type_exists')) {
                 return;
             }
