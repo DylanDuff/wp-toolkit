@@ -12,6 +12,7 @@ class Tweak_Loader
         'acf-service-areas',
         'acf-settings',
         'acf-site-options',
+        'acf-team-members',
         'acf-export',
         'acss-gutenberg',
         'admin-footer-text',

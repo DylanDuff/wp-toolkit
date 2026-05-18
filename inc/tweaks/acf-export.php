@@ -32,23 +32,26 @@ return [
                 wp_send_json_error('ACF is not active.');
             }
 
-            // Map of enabled-option → local field group key for each preset tweak.
+            // Map of enabled-option → one or more local field group keys per preset.
             $preset_groups = [
-                'ddwpt_acf_faq_enabled'         => 'group_695c328871ee2',
-                'ddwpt_acf_site_options_enabled' => 'group_66d540426b8e3',
+                'ddwpt_acf_faq_enabled'          => ['group_695c328871ee2'],
+                'ddwpt_acf_site_options_enabled'  => ['group_66d540426b8e3'],
+                'ddwpt_acf_team_members_enabled'  => ['group_68293a7c2f1e1', 'group_68293a7c2f1e5'],
             ];
 
             $export = [];
-            foreach ($preset_groups as $option => $group_key) {
+            foreach ($preset_groups as $option => $group_keys) {
                 if (!get_option($option)) continue;
-                $group = acf_get_field_group($group_key);
-                if (!$group) continue;
-                $group['fields'] = acf_get_fields($group) ?: [];
-                $export[] = $group;
+                foreach ($group_keys as $group_key) {
+                    $group = acf_get_field_group($group_key);
+                    if (!$group) continue;
+                    $group['fields'] = acf_get_fields($group) ?: [];
+                    $export[] = $group;
+                }
             }
 
             if (empty($export)) {
-                wp_send_json_error('No enabled ACF presets with field groups found. Enable the FAQ or ACF Site Options tweak first.');
+                wp_send_json_error('No enabled ACF presets with field groups found. Enable at least one ACF preset tweak first.');
             }
 
             wp_send_json_success($export);

@@ -130,7 +130,7 @@ class Plugin
     {
         $sanitize_map = $this->get_sanitize_map();
 
-        $no_persist = ["faq_import", "acf_export", "service_area_import"];
+        $no_persist = ["faq_import", "acf_export", "service_area_import", "team_member_import"];
 
         foreach ($this->tweaks as $tweak) {
             foreach ($tweak["settings"] as $setting) {
@@ -504,6 +504,45 @@ class Plugin
                 echo '<p class="description" style="margin-bottom:8px;">';
                 echo '<strong>Required:</strong> <code>question</code> (string), <code>answer</code> (string, HTML allowed)<br>';
                 echo '<strong>Optional:</strong> <code>taxonomy</code> (string) — slug of an existing <code>faq-tag</code> term; silently skipped if not found';
+                echo '</p>';
+                echo '<pre class="ddwpt-json-schema-example">' . esc_html($example) . '</pre>';
+                echo '<button type="button" class="button ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
+                echo '</div>';
+                echo '</div>';
+                break;
+
+            case "team_member_import":
+                $example = wp_json_encode(
+                    [
+                        [
+                            "name"     => "Jane Smith",
+                            "bio"      => "Jane leads our design team with over **10 years** of experience.\n\n- Brand strategy\n- Visual identity\n- UX design",
+                            "taxonomy" => "creative-director",
+                            "email"    => "jane@example.com",
+                            "phone"    => "+1 555 000 0000",
+                            "linkedin" => "https://linkedin.com/in/janesmith",
+                        ],
+                        [
+                            "name"     => "Tom Davies",
+                            "bio"      => "Tom manages client relationships across all accounts.",
+                            "taxonomy" => "account-manager",
+                        ],
+                    ],
+                    JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+                );
+                echo '<div class="ddwpt-json-import" data-action="ddwpt_tm_import" data-nonce-key="tmImportNonce">';
+                echo '<textarea class="ddwpt-json-import-editor" rows="12" style="width:100%;"></textarea>';
+                echo '<div style="margin-top:8px;">';
+                echo '<button type="button" class="button ddwpt-json-import-btn">Run Import</button>';
+                echo ' <span class="ddwpt-json-import-result"></span>';
+                echo '</div>';
+                echo '<div class="ddwpt-json-schema" style="margin-top:20px;">';
+                echo '<p class="description" style="margin-bottom:6px;font-weight:600;">Schema</p>';
+                echo '<p class="description" style="margin-bottom:8px;">';
+                echo '<strong>Required:</strong> <code>name</code> (string) — person\'s full name<br>';
+                echo '<strong>Optional:</strong> <code>bio</code> (string, Markdown) — converted to Gutenberg blocks<br>';
+                echo '<strong>Optional:</strong> <code>taxonomy</code> (string) — slug of an existing <code>job-title</code> term; silently skipped if not found<br>';
+                echo '<strong>Optional:</strong> <code>email</code>, <code>phone</code>, <code>linkedin</code> (strings) — stored as ACF profile fields';
                 echo '</p>';
                 echo '<pre class="ddwpt-json-schema-example">' . esc_html($example) . '</pre>';
                 echo '<button type="button" class="button ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
