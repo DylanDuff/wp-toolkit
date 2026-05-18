@@ -15,6 +15,24 @@ return [
             'description' => 'Register the Testimonials custom post type, the Testimonial Category taxonomy, and ACF detail and relationship field groups.',
         ],
         [
+            'id'          => 'sync_wpsr',
+            'type'        => 'checkbox',
+            'label'       => 'Sync from WP Social Ninja',
+            'description' => 'Automatically create testimonial posts from WP Social Ninja reviews. New manual reviews sync immediately; platform reviews (Google, Facebook, etc.) sync in batches of 25 per hour.',
+        ],
+        [
+            'id'      => 'sync_wpsr_min_rating',
+            'type'    => 'select',
+            'label'   => 'Minimum rating to sync',
+            'options' => [
+                '0' => 'Any rating',
+                '3' => '3+ stars',
+                '4' => '4+ stars',
+                '5' => '5 stars only',
+            ],
+            'default' => '4',
+        ],
+        [
             'id'      => 'post_types',
             'type'    => 'checkboxes',
             'label'   => 'Show field on',
@@ -127,6 +145,152 @@ return [
             wp_send_json_success(['message' => $message . '.']);
         });
 
+        // ── WP Social Ninja sync ──────────────────────────────────────────
+        //
+        // Reviews are stored in {prefix}wpsr_reviews. The plugin fires
+        // wpsocialreviews/custom_review_created for manual reviews only.
+        // Platform syncs (Google, Facebook, etc.) batch-insert with no hook,
+        // so we also run an hourly cron that processes unsynced rows in
+        // batches of 25 to avoid overwhelming the server on first setup.
+        //
+        // Each synced review is tracked via a ddwpt_wpsr_review_id post meta
+        // on the testimonial post so both paths stay idempotent.
+
+        /**
+         * Create a single testimonial from a wpsr_reviews row.
+         * Returns the new post ID on success, false if skipped/failed.
+         */
+        $create_from_wpsr = function ($row) {
+            global $wpdb;
+
+            $review_id  = (int) $row->id;
+            $reviewer   = sanitize_text_field((string) ($row->reviewer_name ?: 'Anonymous'));
+            $text       = wp_kses_post((string) $row->reviewer_text);
+            $rating     = (int) $row->rating;
+            $platform   = sanitize_key((string) $row->platform_name);
+            $fields_raw = $row->fields ?? null;
+
+            // Skip below minimum rating (re-reads option so cron respects live changes)
+            $min_rating = (int) get_option('ddwpt_acf_testimonials_sync_wpsr_min_rating', 0);
+            if ($min_rating > 0 && $rating < $min_rating) {
+                return false;
+            }
+
+            // Skip if already synced
+            $existing = $wpdb->get_var($wpdb->prepare( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+                "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = 'ddwpt_wpsr_review_id' AND meta_value = %d LIMIT 1",
+                $review_id
+            ));
+            if ($existing) {
+                return false;
+            }
+
+            $post_id = wp_insert_post([
+                'post_type'    => 'testimonial',
+                'post_title'   => $reviewer,
+                'post_content' => $text,
+                'post_status'  => 'publish',
+            ], true);
+
+            if (is_wp_error($post_id)) {
+                return false;
+            }
+
+            update_post_meta($post_id, 'ddwpt_wpsr_review_id', $review_id);
+
+            // Auto-create/assign a testimonial-category term from the platform name.
+            if (!empty($platform)) {
+                $term_label = ucwords(str_replace(['-', '_'], ' ', $platform));
+                $term = get_term_by('name', $term_label, 'testimonial-category');
+                if (!$term) {
+                    $result  = wp_insert_term($term_label, 'testimonial-category');
+                    $term_id = !is_wp_error($result) ? $result['term_id'] : null;
+                } else {
+                    $term_id = $term->term_id;
+                }
+                if (!empty($term_id)) {
+                    wp_set_post_terms($post_id, [$term_id], 'testimonial-category');
+                }
+            }
+
+            $acf_available = function_exists('update_field');
+
+            if ($rating >= 1 && $rating <= 5) {
+                $acf_available
+                    ? update_field('tb_rating', $rating, $post_id)
+                    : update_post_meta($post_id, 'tb_rating', $rating);
+            }
+
+            $extra = is_string($fields_raw) ? json_decode($fields_raw, true) : (array) $fields_raw;
+
+            if (!empty($extra['author_company'])) {
+                $val = sanitize_text_field($extra['author_company']);
+                $acf_available ? update_field('tb_company', $val, $post_id) : update_post_meta($post_id, 'tb_company', $val);
+            }
+            if (!empty($extra['author_position'])) {
+                $val = sanitize_text_field($extra['author_position']);
+                $acf_available ? update_field('tb_role', $val, $post_id) : update_post_meta($post_id, 'tb_role', $val);
+            }
+
+            return $post_id;
+        };
+
+        // Immediate sync for manually-created reviews.
+        add_action('wpsocialreviews/custom_review_created', function ($review) use ($create_from_wpsr) {
+            if (!get_option('ddwpt_acf_testimonials_sync_wpsr')) return;
+            // Model object → stdClass so the helper can use property access uniformly.
+            $row = (object) (method_exists($review, 'toArray') ? $review->toArray() : (array) $review);
+            $create_from_wpsr($row);
+        });
+
+        // Hourly batch sync for platform reviews (Google, Facebook, etc.) which
+        // are inserted directly into the DB with no WordPress hook.
+        $batch_sync = function () use ($create_from_wpsr) {
+            if (!get_option('ddwpt_acf_testimonials_sync_wpsr')) return;
+
+            global $wpdb;
+            $table = $wpdb->prefix . 'wpsr_reviews';
+
+            // Collect already-synced WPSR review IDs via postmeta.
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+            $synced_ids = $wpdb->get_col(
+                "SELECT DISTINCT CAST(meta_value AS UNSIGNED) FROM {$wpdb->postmeta} WHERE meta_key = 'ddwpt_wpsr_review_id'"
+            );
+
+            $min_rating = (int) get_option('ddwpt_acf_testimonials_sync_wpsr_min_rating', 0);
+
+            $where = 'WHERE review_approved = 1';
+
+            if (!empty($synced_ids)) {
+                // Safe: values are already cast to integers above.
+                $id_list = implode(',', array_map('intval', $synced_ids));
+                $where  .= " AND id NOT IN ({$id_list})";
+            }
+
+            if ($min_rating > 0) {
+                $where .= $wpdb->prepare(' AND rating >= %d', $min_rating); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+            }
+
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            $reviews = $wpdb->get_results("SELECT * FROM {$table} {$where} ORDER BY id ASC LIMIT 25");
+
+            if (empty($reviews)) return;
+
+            foreach ($reviews as $review) {
+                $create_from_wpsr($review);
+            }
+        };
+
+        add_action('ddwpt_testimonial_wpsr_sync', $batch_sync);
+
+        if (!empty($settings['sync_wpsr'])) {
+            if (!wp_next_scheduled('ddwpt_testimonial_wpsr_sync')) {
+                wp_schedule_event(time(), 'hourly', 'ddwpt_testimonial_wpsr_sync');
+            }
+        }
+
+        // ── CPT + taxonomy ────────────────────────────────────────────────
+
         register_taxonomy('testimonial-category', ['testimonial'], [
             'labels' => [
                 'name'                  => 'Testimonial Categories',
@@ -189,6 +353,8 @@ return [
             'taxonomies'         => ['testimonial-category'],
             'delete_with_user'   => false,
         ]);
+
+        // ── ACF field groups ──────────────────────────────────────────────
 
         if (!function_exists('acf_add_local_field_group')) {
             return;
