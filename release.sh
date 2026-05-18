@@ -38,7 +38,8 @@ bump_version() {
 
 # ── Preflight checks ─────────────────────────────────────────────────────────
 
-echo -e "${CYAN}── WP Toolkit Release Script ──${NC}\n"
+echo -e "${CYAN}── WP Toolkit Release Script ──${NC}"
+echo -e "${CYAN}Usage: $0 [patch|minor|major|x.y.z] [changelog entry...] ${NC}\n"
 
 for cmd in gh zip; do
     if ! command -v "$cmd" &> /dev/null; then
@@ -58,53 +59,92 @@ if ! git diff --quiet HEAD -- ':!release.sh' ':!.DS_Store' 2>/dev/null; then
     exit 1
 fi
 
-# ── Version selection ─────────────────────────────────────────────────────────
+# ── Argument parsing ─────────────────────────────────────────────────────────
 
 CURRENT_VERSION=$(get_current_version)
 echo -e "Current version: ${YELLOW}${CURRENT_VERSION}${NC}\n"
 
-echo "How would you like to bump the version?"
-echo -e "  ${GREEN}1)${NC} patch  → $(bump_version "$CURRENT_VERSION" patch)"
-echo -e "  ${GREEN}2)${NC} minor  → $(bump_version "$CURRENT_VERSION" minor)"
-echo -e "  ${GREEN}3)${NC} major  → $(bump_version "$CURRENT_VERSION" major)"
-echo -e "  ${GREEN}4)${NC} custom"
-echo ""
-read -rp "Select [1-4]: " choice
+if [[ $# -ge 1 ]]; then
+    VERSION_ARG="$1"
+    shift
+    CHANGELOG_ARGS=("$@")
+    NON_INTERACTIVE=true
+else
+    NON_INTERACTIVE=false
+fi
 
-case "$choice" in
-    1) NEW_VERSION=$(bump_version "$CURRENT_VERSION" patch) ;;
-    2) NEW_VERSION=$(bump_version "$CURRENT_VERSION" minor) ;;
-    3) NEW_VERSION=$(bump_version "$CURRENT_VERSION" major) ;;
-    4)
-        read -rp "Enter version number (e.g. 2.1.0): " NEW_VERSION
-        if [[ ! "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
-            echo -e "${RED}Invalid version format.${NC}"
+# ── Version selection ─────────────────────────────────────────────────────────
+
+if [[ "$NON_INTERACTIVE" == true ]]; then
+    case "$VERSION_ARG" in
+        patch|minor|major)
+            NEW_VERSION=$(bump_version "$CURRENT_VERSION" "$VERSION_ARG")
+            ;;
+        [0-9]*.[0-9]*)
+            if [[ ! "$VERSION_ARG" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+                echo -e "${RED}Invalid version format: ${VERSION_ARG}${NC}"
+                exit 1
+            fi
+            NEW_VERSION="$VERSION_ARG"
+            ;;
+        *)
+            echo -e "${RED}Invalid version argument: ${VERSION_ARG}${NC}"
+            echo -e "Expected: patch | minor | major | x.y.z"
             exit 1
-        fi
-        ;;
-    *)
-        echo -e "${RED}Invalid selection.${NC}"
-        exit 1
-        ;;
-esac
+            ;;
+    esac
+else
+    echo "How would you like to bump the version?"
+    echo -e "  ${GREEN}1)${NC} patch  → $(bump_version "$CURRENT_VERSION" patch)"
+    echo -e "  ${GREEN}2)${NC} minor  → $(bump_version "$CURRENT_VERSION" minor)"
+    echo -e "  ${GREEN}3)${NC} major  → $(bump_version "$CURRENT_VERSION" major)"
+    echo -e "  ${GREEN}4)${NC} custom"
+    echo ""
+    read -rp "Select [1-4]: " choice
+
+    case "$choice" in
+        1) NEW_VERSION=$(bump_version "$CURRENT_VERSION" patch) ;;
+        2) NEW_VERSION=$(bump_version "$CURRENT_VERSION" minor) ;;
+        3) NEW_VERSION=$(bump_version "$CURRENT_VERSION" major) ;;
+        4)
+            read -rp "Enter version number (e.g. 2.1.0): " NEW_VERSION
+            if [[ ! "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+                echo -e "${RED}Invalid version format.${NC}"
+                exit 1
+            fi
+            ;;
+        *)
+            echo -e "${RED}Invalid selection.${NC}"
+            exit 1
+            ;;
+    esac
+fi
 
 echo ""
 echo -e "Releasing: ${YELLOW}${CURRENT_VERSION}${NC} → ${GREEN}${NEW_VERSION}${NC}"
 
 # ── Changelog entry ──────────────────────────────────────────────────────────
 
-echo ""
-echo -e "${CYAN}Enter changelog notes for v${NEW_VERSION} (one per line, empty line to finish):${NC}"
-CHANGELOG_LINES=()
-while true; do
-    read -rp "  * " line
-    [[ -z "$line" ]] && break
-    CHANGELOG_LINES+=("$line")
-done
+if [[ "$NON_INTERACTIVE" == true ]]; then
+    CHANGELOG_LINES=("${CHANGELOG_ARGS[@]}")
+    if [[ ${#CHANGELOG_LINES[@]} -eq 0 ]]; then
+        echo -e "${RED}At least one changelog entry is required.${NC}"
+        exit 1
+    fi
+else
+    echo ""
+    echo -e "${CYAN}Enter changelog notes for v${NEW_VERSION} (one per line, empty line to finish):${NC}"
+    CHANGELOG_LINES=()
+    while true; do
+        read -rp "  * " line
+        [[ -z "$line" ]] && break
+        CHANGELOG_LINES+=("$line")
+    done
 
-if [[ ${#CHANGELOG_LINES[@]} -eq 0 ]]; then
-    echo -e "${RED}At least one changelog entry is required.${NC}"
-    exit 1
+    if [[ ${#CHANGELOG_LINES[@]} -eq 0 ]]; then
+        echo -e "${RED}At least one changelog entry is required.${NC}"
+        exit 1
+    fi
 fi
 
 echo ""
@@ -113,11 +153,13 @@ for line in "${CHANGELOG_LINES[@]}"; do
     echo -e "  ${GREEN}*${NC} $line"
 done
 
-echo ""
-read -rp "Continue? [y/N]: " confirm
-if [[ "$confirm" != [yY] ]]; then
-    echo "Aborted."
-    exit 0
+if [[ "$NON_INTERACTIVE" != true ]]; then
+    echo ""
+    read -rp "Continue? [y/N]: " confirm
+    if [[ "$confirm" != [yY] ]]; then
+        echo "Aborted."
+        exit 0
+    fi
 fi
 
 # ── Bump version in plugin.php ────────────────────────────────────────────────
