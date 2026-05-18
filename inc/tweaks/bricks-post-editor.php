@@ -17,7 +17,7 @@ return [
     ],
     [
       "id" => "acf_post_types",
-      "type" => "multiselect",
+      "type" => "checkboxes",
       "label" => "ACF-managed post types",
       "description" => "Hide the block editor and show an ACF notice for these post types.",
       "default" => "",

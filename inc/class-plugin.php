@@ -111,6 +111,7 @@ class Plugin
             "text"        => "sanitize_text_field",
             "select"      => "sanitize_text_field",
             "checkbox"    => "absint",
+            "color"       => "sanitize_hex_color",
             "media"       => "esc_url_raw",
             "multiselect" => $sanitize_json_array,
             "checkboxes"  => $sanitize_json_array,
@@ -196,28 +197,52 @@ class Plugin
         $version      = defined("DDWPT_VERSION") ? DDWPT_VERSION : "";
         $active_count = $this->get_active_tweak_count();
         $total_count  = count($this->tweaks);
+
+        $wl_enabled = get_option("ddwpt_plugin_settings_enabled");
+        $wrap_vars  = [];
+        $hero_icon  = DDWPT_URL . "assets/icons/wptk-logo.svg";
+
+        if ($wl_enabled) {
+            $map = [
+                "--ddwpt-hero-from"    => ["ddwpt_plugin_settings_gradient_from",  "sanitize_hex_color"],
+                "--ddwpt-hero-to"      => ["ddwpt_plugin_settings_gradient_to",    "sanitize_hex_color"],
+                "--ddwpt-hero-angle"   => ["ddwpt_plugin_settings_gradient_angle", "sanitize_text_field"],
+                "--ddwpt-accent"       => ["ddwpt_plugin_settings_accent",         "sanitize_hex_color"],
+                "--ddwpt-accent-hover" => ["ddwpt_plugin_settings_accent_hover",   "sanitize_hex_color"],
+                "--ddwpt-accent-light" => ["ddwpt_plugin_settings_accent_light",   "sanitize_hex_color"],
+            ];
+
+            foreach ($map as $var => [$option, $sanitize]) {
+                $val = get_option($option, "");
+                if ($val) $wrap_vars[] = $var . ":" . call_user_func($sanitize, $val);
+            }
+
+            $icon = get_option("ddwpt_plugin_settings_icon", "");
+            if ($icon) $hero_icon = esc_url($icon);
+        }
+
+        $wrap_style = $wrap_vars ? ' style="' . esc_attr(implode(";", $wrap_vars)) . '"' : "";
         ?>
         <form method="post" action="options.php">
             <?php settings_fields($this->settings_group); ?>
 
-            <div class="ddwpt-wrap">
+            <div class="ddwpt-wrap"<?php echo $wrap_style; ?>>
 
                 <div class="ddwpt-header">
-                    <div class="ddwpt-header-left">
-                        <img src="<?php echo esc_url(DDWPT_URL . 'assets/icons/wptk-logo.svg'); ?>"
+                    <?php if ($version): ?>
+                    <span class="ddwpt-version-pill">v<?php echo esc_html($version); ?></span>
+                    <?php endif; ?>
+                    <div class="ddwpt-header-center">
+                        <img src="<?php echo esc_url($hero_icon); ?>"
                              alt="WP Toolkit"
                              class="ddwpt-logo" />
-                        <?php if ($version): ?>
-                        <span class="ddwpt-version-pill">v<?php echo esc_html($version); ?></span>
-                        <?php endif; ?>
                         <span class="ddwpt-active-count">
-                            <?php echo esc_html($active_count); ?> / <?php echo esc_html($total_count); ?> active
+                            <?php echo esc_html($active_count); ?> / <?php echo esc_html($total_count); ?> tweaks enabled
                         </span>
                     </div>
                     <div class="ddwpt-header-actions">
                         <button type="button" class="ddwpt-import-btn"><?php esc_html_e("Import", "wp-toolkit"); ?></button>
                         <button type="button" class="ddwpt-export-btn"><?php esc_html_e("Export", "wp-toolkit"); ?></button>
-                        <button type="submit" class="ddwpt-save-btn"><?php esc_html_e("Save Changes", "wp-toolkit"); ?></button>
                     </div>
                 </div>
                 <input type="file" id="ddwpt-import-file" accept=".json" style="display:none;" />
@@ -227,14 +252,16 @@ class Plugin
                     <?php if (count($tabs) > 1): ?>
                     <nav class="ddwpt-tabs-nav">
                         <div class="ddwpt-tabs-nav-sticky">
-                            <?php foreach ($tabs as $tab_id => $tab_label): ?>
-                            <a href="#<?php echo esc_attr($tab_id); ?>"
-                               class="ddwpt-tab"
-                               data-tab="<?php echo esc_attr($tab_id); ?>">
-                                <?php echo $this->get_tab_icon($tab_id); ?>
-                                <?php echo esc_html($tab_label); ?>
-                            </a>
-                            <?php endforeach; ?>
+                            <div class="ddwpt-tabs-nav-scroll">
+                                <?php foreach ($tabs as $tab_id => $tab_label): ?>
+                                <a href="#<?php echo esc_attr($tab_id); ?>"
+                                   class="ddwpt-tab"
+                                   data-tab="<?php echo esc_attr($tab_id); ?>">
+                                    <?php echo $this->get_tab_icon($tab_id); ?>
+                                    <?php echo esc_html($tab_label); ?>
+                                </a>
+                                <?php endforeach; ?>
+                            </div>
                         </div>
                     </nav>
                     <?php endif; ?>
@@ -242,9 +269,15 @@ class Plugin
                     <div class="ddwpt-content">
                         <?php foreach ($tabs as $tab_id => $tab_label): ?>
                         <div class="ddwpt-panel" data-tab="<?php echo esc_attr($tab_id); ?>" style="display:none;">
+                            <div class="ddwpt-panel-actions">
+                                <button type="submit" class="ddwpt-save-btn"><?php esc_html_e("Save Changes", "wp-toolkit"); ?></button>
+                            </div>
                             <?php foreach ($this->get_tweaks_for_tab($tab_id) as $tweak):
                                 $this->render_tweak_card($tweak);
                             endforeach; ?>
+                            <div class="ddwpt-panel-actions">
+                                <button type="submit" class="ddwpt-save-btn"><?php esc_html_e("Save Changes", "wp-toolkit"); ?></button>
+                            </div>
                         </div>
                         <?php endforeach; ?>
                     </div>
@@ -351,6 +384,11 @@ class Plugin
                 echo '<input type="text" class="regular-text" id="' . esc_attr($field_id) . '" name="' . esc_attr($field_id) . '" value="' . esc_attr($value) . '" />';
                 break;
 
+            case "color":
+                $hex = $value ?: ($field["default"] ?? "#000000");
+                echo '<input type="color" class="ddwpt-color-input" id="' . esc_attr($field_id) . '" name="' . esc_attr($field_id) . '" value="' . esc_attr($hex) . '" />';
+                break;
+
             case "checkbox":
                 echo '<label class="ddwpt-checkbox-label">';
                 echo '<input type="checkbox" id="' . esc_attr($field_id) . '" name="' . esc_attr($field_id) . '" value="1" ' . checked($value, 1, false) . " />";
@@ -391,8 +429,8 @@ class Plugin
                 echo '<div class="ddwpt-media-field" data-field="' . $safe_id . '">';
                 echo '<div class="ddwpt-media-preview">' . $preview . "</div>";
                 echo '<input type="hidden" id="' . $safe_id . '" name="' . $safe_id . '" value="' . esc_attr($value) . '" />';
-                echo '<button type="button" class="button ddwpt-media-select">Select Image</button> ';
-                echo '<button type="button" class="button ddwpt-media-remove"' . ($value ? "" : ' style="display:none;"') . ">Remove</button>";
+                echo '<button type="button" class="ddwpt-btn ddwpt-media-select">Select Image</button> ';
+                echo '<button type="button" class="ddwpt-btn ddwpt-media-remove"' . ($value ? "" : ' style="display:none;"') . ">Remove</button>";
                 echo "</div>";
                 break;
 
@@ -455,7 +493,7 @@ class Plugin
                     $is_checked = in_array((string) $opt_value, array_map("strval", $selected), true);
                     echo '<label class="ddwpt-checkbox-item">';
                     echo '<input type="checkbox" value="' . esc_attr($opt_value) . '"' . ($is_checked ? " checked" : "") . " />";
-                    echo " " . esc_html($opt_label);
+                    echo "<span>" . esc_html($opt_label) . "</span>";
                     echo "</label>";
                 }
                 echo "</div>";
@@ -473,7 +511,7 @@ class Plugin
 
             case "acf_export":
                 echo '<div class="ddwpt-acf-export-wrap">';
-                echo '<button type="button" class="button ddwpt-acf-export-btn">Export ACF Presets</button>';
+                echo '<button type="button" class="ddwpt-btn ddwpt-acf-export-btn">Export ACF Presets</button>';
                 echo ' <span class="ddwpt-acf-export-result"></span>';
                 echo '</div>';
                 break;
@@ -496,7 +534,7 @@ class Plugin
                 echo '<div class="ddwpt-json-import" data-action="ddwpt_faq_import" data-nonce-key="faqImportNonce">';
                 echo '<textarea class="ddwpt-json-import-editor" rows="12" style="width:100%;"></textarea>';
                 echo '<div style="margin-top:8px;">';
-                echo '<button type="button" class="button ddwpt-json-import-btn">Run Import</button>';
+                echo '<button type="button" class="ddwpt-btn ddwpt-json-import-btn">Run Import</button>';
                 echo ' <span class="ddwpt-json-import-result"></span>';
                 echo '</div>';
                 echo '<div class="ddwpt-json-schema" style="margin-top:20px;">';
@@ -506,7 +544,7 @@ class Plugin
                 echo '<strong>Optional:</strong> <code>taxonomy</code> (string) — slug of an existing <code>faq-tag</code> term; silently skipped if not found';
                 echo '</p>';
                 echo '<pre class="ddwpt-json-schema-example">' . esc_html($example) . '</pre>';
-                echo '<button type="button" class="button ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
+                echo '<button type="button" class="ddwpt-btn ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
                 echo '</div>';
                 echo '</div>';
                 break;
@@ -549,7 +587,7 @@ class Plugin
                 echo '<div class="ddwpt-json-import" data-action="ddwpt_tm_import" data-nonce-key="tmImportNonce">';
                 echo '<textarea class="ddwpt-json-import-editor" rows="12" style="width:100%;"></textarea>';
                 echo '<div style="margin-top:8px;">';
-                echo '<button type="button" class="button ddwpt-json-import-btn">Run Import</button>';
+                echo '<button type="button" class="ddwpt-btn ddwpt-json-import-btn">Run Import</button>';
                 echo ' <span class="ddwpt-json-import-result"></span>';
                 echo '</div>';
                 echo '<div class="ddwpt-json-schema" style="margin-top:20px;">';
@@ -561,7 +599,7 @@ class Plugin
                 echo '<strong>Optional:</strong> <code>email</code>, <code>phone</code>, <code>linkedin</code> (strings) — stored as ACF profile fields';
                 echo '</p>';
                 echo '<pre class="ddwpt-json-schema-example">' . esc_html($example) . '</pre>';
-                echo '<button type="button" class="button ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
+                echo '<button type="button" class="ddwpt-btn ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
                 echo '</div>';
                 echo '</div>';
                 break;
@@ -589,7 +627,7 @@ class Plugin
                 echo '<div class="ddwpt-json-import" data-action="ddwpt_testimonial_import" data-nonce-key="testimonialImportNonce">';
                 echo '<textarea class="ddwpt-json-import-editor" rows="12" style="width:100%;"></textarea>';
                 echo '<div style="margin-top:8px;">';
-                echo '<button type="button" class="button ddwpt-json-import-btn">Run Import</button>';
+                echo '<button type="button" class="ddwpt-btn ddwpt-json-import-btn">Run Import</button>';
                 echo ' <span class="ddwpt-json-import-result"></span>';
                 echo '</div>';
                 echo '<div class="ddwpt-json-schema" style="margin-top:20px;">';
@@ -601,7 +639,7 @@ class Plugin
                 echo '<strong>Optional:</strong> <code>company</code>, <code>role</code> (strings), <code>rating</code> (integer 1–5)';
                 echo '</p>';
                 echo '<pre class="ddwpt-json-schema-example">' . esc_html($example) . '</pre>';
-                echo '<button type="button" class="button ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
+                echo '<button type="button" class="ddwpt-btn ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
                 echo '</div>';
                 echo '</div>';
                 break;
@@ -630,7 +668,7 @@ class Plugin
                 echo '<div class="ddwpt-json-import" data-action="ddwpt_location_import" data-nonce-key="locationImportNonce">';
                 echo '<textarea class="ddwpt-json-import-editor" rows="12" style="width:100%;"></textarea>';
                 echo '<div style="margin-top:8px;">';
-                echo '<button type="button" class="button ddwpt-json-import-btn">Run Import</button>';
+                echo '<button type="button" class="ddwpt-btn ddwpt-json-import-btn">Run Import</button>';
                 echo ' <span class="ddwpt-json-import-result"></span>';
                 echo '</div>';
                 echo '<div class="ddwpt-json-schema" style="margin-top:20px;">';
@@ -642,7 +680,7 @@ class Plugin
                 echo '<strong>Optional:</strong> <code>address</code>, <code>phone</code>, <code>email</code>, <code>hours</code>, <code>map_embed</code> (strings)';
                 echo '</p>';
                 echo '<pre class="ddwpt-json-schema-example">' . esc_html($example) . '</pre>';
-                echo '<button type="button" class="button ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
+                echo '<button type="button" class="ddwpt-btn ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
                 echo '</div>';
                 echo '</div>';
                 break;
@@ -670,7 +708,7 @@ class Plugin
                 echo '<div class="ddwpt-json-import" data-action="ddwpt_project_import" data-nonce-key="projectImportNonce">';
                 echo '<textarea class="ddwpt-json-import-editor" rows="12" style="width:100%;"></textarea>';
                 echo '<div style="margin-top:8px;">';
-                echo '<button type="button" class="button ddwpt-json-import-btn">Run Import</button>';
+                echo '<button type="button" class="ddwpt-btn ddwpt-json-import-btn">Run Import</button>';
                 echo ' <span class="ddwpt-json-import-result"></span>';
                 echo '</div>';
                 echo '<div class="ddwpt-json-schema" style="margin-top:20px;">';
@@ -682,7 +720,7 @@ class Plugin
                 echo '<strong>Optional:</strong> <code>client</code> (string), <code>url</code> (string), <code>year</code> (integer)';
                 echo '</p>';
                 echo '<pre class="ddwpt-json-schema-example">' . esc_html($example) . '</pre>';
-                echo '<button type="button" class="button ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
+                echo '<button type="button" class="ddwpt-btn ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
                 echo '</div>';
                 echo '</div>';
                 break;
@@ -705,7 +743,7 @@ class Plugin
                 echo '<div class="ddwpt-json-import" data-action="ddwpt_sa_import" data-nonce-key="saImportNonce">';
                 echo '<textarea class="ddwpt-json-import-editor" rows="12" style="width:100%;"></textarea>';
                 echo '<div style="margin-top:8px;">';
-                echo '<button type="button" class="button ddwpt-json-import-btn">Run Import</button>';
+                echo '<button type="button" class="ddwpt-btn ddwpt-json-import-btn">Run Import</button>';
                 echo ' <span class="ddwpt-json-import-result"></span>';
                 echo '</div>';
                 echo '<div class="ddwpt-json-schema" style="margin-top:20px;">';
@@ -716,7 +754,7 @@ class Plugin
                 echo '<strong>Optional:</strong> <code>taxonomy</code> (string) — slug of an existing <code>region</code> term; silently skipped if not found';
                 echo '</p>';
                 echo '<pre class="ddwpt-json-schema-example">' . esc_html($example) . '</pre>';
-                echo '<button type="button" class="button ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
+                echo '<button type="button" class="ddwpt-btn ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
                 echo '</div>';
                 echo '</div>';
                 break;
@@ -739,13 +777,16 @@ class Plugin
 
     private function get_all_tabs()
     {
-        $preferred = ["general", "acf", "dashboard", "admin-bar", "admin-tables", "sidebar", "animations", "bricks"];
+        $preferred = ["general", "acf", "dashboard", "admin-bar", "admin-tables", "sidebar", "animations", "bricks", "experimental", "settings"];
 
         $tabs       = [];
         $has_general = false;
 
+        $show_experimental = get_option("ddwpt_experiments_enabled");
+
         foreach ($this->tweaks as $tweak) {
             $tab = !empty($tweak["tab"]) ? $tweak["tab"] : null;
+            if ($tab === "experimental" && !$show_experimental) continue;
             if ($tab) {
                 $tabs[$tab] = ucfirst(str_replace("-", " ", $tab));
             } else {
@@ -759,10 +800,14 @@ class Plugin
 
         $sorted = [];
         foreach ($preferred as $key) {
+            if ($key === "settings") continue;
             if (isset($tabs[$key])) $sorted[$key] = $tabs[$key];
         }
         foreach ($tabs as $key => $label) {
-            if (!isset($sorted[$key])) $sorted[$key] = $label;
+            if (!isset($sorted[$key]) && $key !== "settings") $sorted[$key] = $label;
+        }
+        if (isset($tabs["settings"])) {
+            $sorted["settings"] = $tabs["settings"];
         }
 
         return $sorted;
@@ -792,6 +837,8 @@ class Plugin
             "themes"       => "Swatch-Book-Lucide.svg",
             "security"     => "Globe-Lock-Lucide.svg",
             "debug"        => "Bug-Play-Lucide.svg",
+            "experimental" => "Flask-Conical-Lucide.svg",
+            "settings"     => "Swatch-Book-Lucide.svg",
         ];
         $file = $icons[$tab_id] ?? "Boxes-Lucide.svg";
         return $this->inline_icon($file);

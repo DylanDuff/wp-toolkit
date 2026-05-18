@@ -38,7 +38,7 @@ foreach ($theme_files as $file) {
 return [
     'id'    => 'ddwpt_admin_theme',
     'label' => 'Admin Theme',
-    'tab'   => 'themes',
+    'tab'   => 'experimental',
 
     'settings' => [
         [

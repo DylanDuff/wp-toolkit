@@ -5,7 +5,7 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_test_notifications',
     'label' => 'Test Notifications',
-    'tab'   => 'debug',
+    'tab'   => 'experimental',
 
     'settings' => [
         [

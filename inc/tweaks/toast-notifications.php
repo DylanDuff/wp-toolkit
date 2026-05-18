@@ -244,7 +244,7 @@ function toast_script()
 return [
     'id'    => 'ddwpt_toast_notifications',
     'label' => 'Toast Notifications',
-    'tab'   => 'notifications',
+    'tab'   => 'experimental',
 
     'settings' => [
         [

@@ -5,7 +5,7 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_bricks_dashboard_widgets',
     'label' => 'Bricks Dashboard Widgets',
-    'tab'   => 'bricks',
+    'tab'   => 'experimental',
 
     'settings' => [
         [

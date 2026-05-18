@@ -5,7 +5,7 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_motion_library',
     'label' => 'Motion Animations',
-    'tab'   => 'animations',
+    'tab'   => 'experimental',
 
     'settings' => [
         [

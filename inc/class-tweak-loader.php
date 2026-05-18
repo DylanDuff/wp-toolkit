@@ -50,6 +50,8 @@ class Tweak_Loader
         'rive-bricks',
         'unicorn-studio-bricks',
         'wpsr-bricks',
+        'plugin-settings',
+        'experiments',
     ];
 
     public function load_all()

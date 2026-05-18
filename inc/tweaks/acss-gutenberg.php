@@ -16,7 +16,7 @@ return [
         ],
         [
             'id'          => 'post_types',
-            'type'        => 'multiselect',
+            'type'        => 'checkboxes',
             'label'       => 'Post types',
             'description' => 'Post types that should have ACSS available in the Gutenberg editor.',
             'default'     => '',
