@@ -558,6 +558,10 @@ return [
             return;
         }
 
+        if (isset($_GET['bricks']) && $_GET['bricks'] === 'run') {
+            return;
+        }
+
         $min_cap       = $settings['min_capability'] ?? 'edit_posts';
         $hide_bar      = !empty($settings['hide_native_bar']);
         $open_on_hover = !empty($settings['open_on_hover']);
