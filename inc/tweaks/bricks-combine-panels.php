@@ -15,6 +15,20 @@ return [
       "description" =>
         "Stacks the elements panel below the structure panel in a single resizable sidebar. Only applied for users with the Editor role — administrators see the default Bricks layout.",
     ],
+    [
+      "id"          => "accent_color",
+      "type"        => "text",
+      "label"       => "Builder accent colour",
+      "default"     => "var(--accent)",
+      "description" => "Overrides <code>--builder-color-accent</code>. Accepts any CSS value — hex, hsl, or a CSS variable reference.",
+    ],
+    [
+      "id"          => "bg_accent_color",
+      "type"        => "text",
+      "label"       => "Builder accent background",
+      "default"     => "var(--primary-trans-10)",
+      "description" => "Overrides <code>--builder-bg-accent</code>. Accepts any CSS value — hex, hsl, or a CSS variable reference.",
+    ],
   ],
 
   "callback" => function ($settings) {
@@ -26,7 +40,7 @@ return [
       return;
     }
 
-    add_action("wp_head", function () {
+    add_action("wp_head", function () use ($settings) {
       if (!function_exists("bricks_is_builder") || !bricks_is_builder()) {
         return;
       }
@@ -34,15 +48,17 @@ return [
       $roles = wp_get_current_user()->roles ?? [];
       if (!in_array("editor", $roles, true)) {
         return;
-      }?>
+      }
+
+      $accent    = sanitize_text_field($settings['accent_color']    ?? 'var(--accent)');
+      $bg_accent = sanitize_text_field($settings['bg_accent_color'] ?? 'var(--primary-trans-10)');
+      ?>
             <style>
             #bricks-preview,
             body[data-builder-window="main"]{
               background-color: #161a1d;
-              --builder-color-accent: var(--primary);
-              --builder-bg-accent: var(--primary-trans-10);
-              /*--builder-color-accent: rgb(158 122 255 / 100%);
-              --builder-bg-accent: rgb(158 122 255 / 15%);*/
+              --builder-color-accent: <?php echo esc_attr($accent); ?>;
+              --builder-bg-accent: <?php echo esc_attr($bg_accent); ?>;
             }
             #bricks-structure {
                 display: flex;
