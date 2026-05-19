@@ -51,6 +51,7 @@ class Tweak_Loader
         'unicorn-studio-bricks',
         'wpsr-bricks',
         'plugin-settings',
+        'profile-overhaul',
         'experiments',
         'floating-admin-panel',
     ];
