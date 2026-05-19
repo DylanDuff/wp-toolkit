@@ -108,7 +108,15 @@ class Plugin
 
         return [
             "wysiwyg"     => "wp_kses_post",
+            "textarea"    => "sanitize_textarea_field",
             "text"        => "sanitize_text_field",
+            "url"         => function ($val) {
+                $val = trim($val);
+                if (preg_match('/^data:image\/(svg\+xml|png|jpeg|gif|webp|ico)(;base64)?,/', $val)) {
+                    return $val;
+                }
+                return esc_url_raw($val);
+            },
             "select"      => "sanitize_text_field",
             "checkbox"    => "absint",
             "color"       => "sanitize_hex_color",
@@ -380,6 +388,11 @@ class Plugin
     private function render_field($field, $value, $field_id)
     {
         switch ($field["type"]) {
+            case "textarea":
+                echo '<textarea class="large-text" rows="8" id="' . esc_attr($field_id) . '" name="' . esc_attr($field_id) . '" style="font-family:monospace;font-size:12px;">' . esc_textarea($value) . '</textarea>';
+                break;
+
+            case "url":
             case "text":
                 echo '<input type="text" class="regular-text" id="' . esc_attr($field_id) . '" name="' . esc_attr($field_id) . '" value="' . esc_attr($value) . '" />';
                 break;
