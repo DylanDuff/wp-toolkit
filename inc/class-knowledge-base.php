@@ -51,8 +51,7 @@ class Knowledge_Base
 
   public function setup_dashboard()
   {
-    remove_action("welcome_panel", "wp_welcome_panel");
-    add_action("welcome_panel", [$this, "render_dashboard_panel"]);
+    add_action("admin_notices", [$this, "render_dashboard_panel"], 1);
     add_action("admin_head", [$this, "render_dashboard_styles"]);
   }
 
@@ -60,23 +59,11 @@ class Knowledge_Base
   {
     ?>
         <style>
-            /* Force the welcome panel to always show and hide the dismiss link */
-            #welcome-panel,
-            #welcome-panel.hidden { display: block !important; }
-            .welcome-panel-close { display: none !important; }
-
-            /* Override WP welcome panel defaults */
-            #welcome-panel { background-color: transparent !important; overflow: visible !important; margin: 0 !important; font-size: inherit !important; line-height: inherit !important; }
-
-            /* ── Banner ── */
-            #ddwpt-dashboard { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-            #ddwpt-banner { background: linear-gradient(135deg, #1d2327 0%, #2c3338 100%); border-radius: 8px; padding: 32px 40px; margin-bottom: 28px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-            #ddwpt-banner-text {}
+            #ddwpt-dashboard { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin-bottom: 20px; }
+            #ddwpt-banner { background: linear-gradient(135deg, #1d2327 0%, #2c3338 100%);  width: calc(100% - 100px); border-radius: 8px; padding: 32px 40px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
             #ddwpt-banner h2 { color: #fff; font-size: 22px; margin: 0 0 6px; font-weight: 600; }
             #ddwpt-banner p { color: rgba(255,255,255,.65); margin: 0; font-size: 14px; line-height: 1.6; }
             #ddwpt-banner-logo { flex-shrink: 0; }
-            #ddwpt-banner-logo svg { display: block; }
-
         </style>
         <?php
   }
@@ -95,12 +82,18 @@ class Knowledge_Base
             <div id="ddwpt-banner">
                 <div id="ddwpt-banner-text">
                     <h2><?php echo esc_html($greeting); ?></h2>
-                    <p>You're managing <strong style="color:#fff;"><?php echo esc_html($site_name); ?></strong>. Need help with something? <a href="<?php echo esc_url($kb_url); ?>" style="color:rgba(255,255,255,.75);text-decoration:underline;">Browse the knowledge base</a>.</p>
+                    <p>You're managing <strong style="color:#fff;"><?php echo esc_html(
+                      $site_name,
+                    ); ?></strong>. Need help with something? <a href="<?php echo esc_url(
+  $kb_url,
+); ?>" style="color:rgba(255,255,255,.75);text-decoration:underline;">Browse the knowledge base</a>.</p>
                 </div>
                 <?php $favicon = get_site_icon_url(64); ?>
                 <?php if ($favicon): ?>
                 <div id="ddwpt-banner-logo" aria-hidden="true">
-                    <img src="<?php echo esc_url($favicon); ?>" width="64" height="64" alt="" style="border-radius: 8px;" />
+                    <img src="<?php echo esc_url(
+                      $favicon,
+                    ); ?>" width="64" height="64" alt="" style="border-radius: 8px;" />
                 </div>
                 <?php endif; ?>
             </div>
@@ -133,7 +126,12 @@ class Knowledge_Base
     $this->render_styles();
 
     if ($current && $raw_content) {
-      $this->render_article($this->get_groups(), $current, $raw_content, $hub_url);
+      $this->render_article(
+        $this->get_groups(),
+        $current,
+        $raw_content,
+        $hub_url,
+      );
     } else {
       $this->render_hub($this->get_groups(), $hub_url);
     }
@@ -148,43 +146,65 @@ class Knowledge_Base
             <div class="ddwpt-kb-header">
                 <div>
                     <h1 class="ddwpt-kb-title">Knowledge Base</h1>
-                    <p class="ddwpt-kb-subtitle"><?php echo esc_html($count); ?> article<?php echo $count !== 1 ? "s" : ""; ?> available</p>
+                    <p class="ddwpt-kb-subtitle"><?php echo esc_html(
+                      $count,
+                    ); ?> article<?php echo $count !== 1 ? "s" : ""; ?> available</p>
                 </div>
             </div>
 
             <?php foreach ($groups as $group_name => $docs):
+
               $open = $first;
               $first = false;
               $id = "ddwpt-group-" . sanitize_title($group_name);
-            ?>
-            <div class="ddwpt-kb-accordion <?php echo $open ? "is-open" : ""; ?>">
-                <button class="ddwpt-kb-accordion-trigger" aria-expanded="<?php echo $open ? "true" : "false"; ?>" aria-controls="<?php echo esc_attr($id); ?>">
+              ?>
+            <div class="ddwpt-kb-accordion <?php echo $open
+              ? "is-open"
+              : ""; ?>">
+                <button class="ddwpt-kb-accordion-trigger" aria-expanded="<?php echo $open
+                  ? "true"
+                  : "false"; ?>" aria-controls="<?php echo esc_attr($id); ?>">
                     <span><?php echo esc_html($group_name); ?></span>
                     <svg class="ddwpt-kb-accordion-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>
-                <div class="ddwpt-kb-accordion-body" id="<?php echo esc_attr($id); ?>">
+                <div class="ddwpt-kb-accordion-body" id="<?php echo esc_attr(
+                  $id,
+                ); ?>">
                     <div class="ddwpt-kb-grid">
                         <?php foreach ($docs as $slug => $item):
+
                           $excerpt = $this->get_excerpt($slug);
-                          $url = admin_url("admin.php?page=ddwpt-knowledge&doc=" . $slug);
-                        ?>
-                            <a href="<?php echo esc_url($url); ?>" class="ddwpt-kb-card">
+                          $url = admin_url(
+                            "admin.php?page=ddwpt-knowledge&doc=" . $slug,
+                          );
+                          ?>
+                            <a href="<?php echo esc_url(
+                              $url,
+                            ); ?>" class="ddwpt-kb-card">
                                 <div class="ddwpt-kb-card-icon">
-                                    <span class="dashicons <?php echo esc_attr($item['icon']); ?>"></span>
+                                    <span class="dashicons <?php echo esc_attr(
+                                      $item["icon"],
+                                    ); ?>"></span>
                                 </div>
                                 <div class="ddwpt-kb-card-text">
-                                    <h3 class="ddwpt-kb-card-title"><?php echo esc_html($item['title']); ?></h3>
+                                    <h3 class="ddwpt-kb-card-title"><?php echo esc_html(
+                                      $item["title"],
+                                    ); ?></h3>
                                     <?php if ($excerpt): ?>
-                                        <p class="ddwpt-kb-card-excerpt"><?php echo esc_html($excerpt); ?></p>
+                                        <p class="ddwpt-kb-card-excerpt"><?php echo esc_html(
+                                          $excerpt,
+                                        ); ?></p>
                                     <?php endif; ?>
                                 </div>
                                 <span class="ddwpt-kb-card-read">Read article <span aria-hidden="true">→</span></span>
                             </a>
-                        <?php endforeach; ?>
+                        <?php
+                        endforeach; ?>
                     </div>
                 </div>
             </div>
-            <?php endforeach; ?>
+            <?php
+            endforeach; ?>
         </div>
         <script>
             document.querySelectorAll('.ddwpt-kb-accordion-trigger').forEach(function (btn) {
@@ -210,16 +230,28 @@ class Knowledge_Base
             <div class="ddwpt-kb-article-layout">
 
                 <nav class="ddwpt-kb-nav">
-                    <a href="<?php echo esc_url($hub_url); ?>" class="ddwpt-kb-nav-back">
+                    <a href="<?php echo esc_url(
+                      $hub_url,
+                    ); ?>" class="ddwpt-kb-nav-back">
                         <span class="dashicons dashicons-arrow-left-alt2"></span> All articles
                     </a>
                     <div class="ddwpt-kb-nav-list">
                         <?php foreach ($groups as $group_name => $docs): ?>
-                            <div class="ddwpt-kb-nav-group-title"><?php echo esc_html($group_name); ?></div>
+                            <div class="ddwpt-kb-nav-group-title"><?php echo esc_html(
+                              $group_name,
+                            ); ?></div>
                             <?php foreach ($docs as $slug => $item): ?>
-                                <a href="<?php echo esc_url(admin_url("admin.php?page=ddwpt-knowledge&doc=" . $slug)); ?>"
-                                   class="ddwpt-kb-nav-item <?php echo $slug === $current ? "is-active" : ""; ?>">
-                                    <?php echo esc_html($item['title']); ?>
+                                <a href="<?php echo esc_url(
+                                  admin_url(
+                                    "admin.php?page=ddwpt-knowledge&doc=" .
+                                      $slug,
+                                  ),
+                                ); ?>"
+                                   class="ddwpt-kb-nav-item <?php echo $slug ===
+                                   $current
+                                     ? "is-active"
+                                     : ""; ?>">
+                                    <?php echo esc_html($item["title"]); ?>
                                 </a>
                             <?php endforeach; ?>
                         <?php endforeach; ?>
@@ -231,7 +263,9 @@ class Knowledge_Base
                     <script src="https://unpkg.com/showdown/dist/showdown.min.js"></script>
                     <script>
                         (function () {
-                            var raw = <?php echo wp_json_encode($raw_content); ?>;
+                            var raw = <?php echo wp_json_encode(
+                              $raw_content,
+                            ); ?>;
                             var converter = new showdown.Converter({ tables: true, strikethrough: true, ghCodeBlocks: true });
                             document.getElementById('ddwpt-kb-body').innerHTML = converter.makeHtml(raw);
                         })();
@@ -258,8 +292,8 @@ class Knowledge_Base
           if (file_exists($this->dir . $slug . ".md")) {
             $title_slug = preg_replace("/^\d+-/", "", $slug);
             $groups[$group_name][$slug] = [
-              'title' => ucwords(str_replace("-", " ", $title_slug)),
-              'icon'  => $icon ?: 'dashicons-media-text',
+              "title" => ucwords(str_replace("-", " ", $title_slug)),
+              "icon" => $icon ?: "dashicons-media-text",
             ];
           }
         }
@@ -273,7 +307,10 @@ class Knowledge_Base
     foreach (glob($this->dir . "*.md") ?: [] as $file) {
       $slug = basename($file, ".md");
       $title_slug = preg_replace("/^\d+-/", "", $slug);
-      $docs[$slug] = ['title' => ucwords(str_replace("-", " ", $title_slug)), 'icon' => 'dashicons-media-text'];
+      $docs[$slug] = [
+        "title" => ucwords(str_replace("-", " ", $title_slug)),
+        "icon" => "dashicons-media-text",
+      ];
     }
 
     return $docs ? ["Articles" => $docs] : [];
@@ -284,7 +321,7 @@ class Knowledge_Base
     $docs = [];
     foreach ($this->get_groups() as $group_docs) {
       foreach ($group_docs as $slug => $item) {
-        $docs[$slug] = $item['title'];
+        $docs[$slug] = $item["title"];
       }
     }
     return $docs;
