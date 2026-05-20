@@ -18,7 +18,7 @@ return [
             'id'          => 'sync_wpsr',
             'type'        => 'checkbox',
             'label'       => 'Sync from WP Social Ninja',
-            'description' => 'Automatically create testimonial posts from WP Social Ninja reviews. New manual reviews sync immediately; platform reviews (Google, Facebook, etc.) sync in batches of 25 per hour.',
+            'description' => 'Automatically create testimonial posts from WP Social Ninja reviews. New manual reviews sync immediately; platform reviews (Google, Facebook, etc.) sync in configurable batches per hour.',
         ],
         [
             'id'      => 'sync_wpsr_min_rating',
@@ -31,6 +31,13 @@ return [
                 '5' => '5 stars only',
             ],
             'default' => '4',
+        ],
+        [
+            'id'          => 'sync_wpsr_batch_size',
+            'type'        => 'text',
+            'label'       => 'Sync batch size',
+            'description' => 'Number of platform reviews (Google, Facebook, etc.) processed per hourly run. Raise temporarily to catch up after a gap; lower to reduce server load. Default: 25.',
+            'default'     => '25',
         ],
         [
             'id'      => 'post_types',
@@ -58,6 +65,7 @@ return [
                 ['name' => 'tb_company',           'type' => 'text',         'label' => 'Company name'],
                 ['name' => 'tb_role',              'type' => 'text',         'label' => 'Role / position'],
                 ['name' => 'tb_rating',            'type' => 'number',       'label' => 'Rating (1–5)'],
+                ['name' => 'tb_avatar',            'type' => 'url',          'label' => 'Avatar URL — reviewer profile image (populated automatically from WPSR)'],
                 ['name' => 'linked_testimonials',  'type' => 'relationship', 'label' => 'Linked testimonials — relationship field on selected post types'],
             ],
         ],
@@ -147,6 +155,10 @@ return [
                 if (isset($item['rating'])) {
                     $val = min(5, max(1, (int) $item['rating']));
                     $acf_available ? update_field('tb_rating', $val, $post_id) : update_post_meta($post_id, 'tb_rating', $val);
+                }
+                if (!empty($item['avatar'])) {
+                    $val = esc_url_raw($item['avatar']);
+                    $acf_available ? update_field('tb_avatar', $val, $post_id) : update_post_meta($post_id, 'tb_avatar', $val);
                 }
 
                 $created++;
@@ -247,6 +259,15 @@ return [
                 $acf_available ? update_field('tb_role', $val, $post_id) : update_post_meta($post_id, 'tb_role', $val);
             }
 
+            // reviewer_img is a direct column (Google, Facebook, etc. return a profile URL).
+            $avatar_url = !empty($row->reviewer_img) ? esc_url_raw((string) $row->reviewer_img) : '';
+            if (empty($avatar_url) && !empty($extra['reviewer_img'])) {
+                $avatar_url = esc_url_raw((string) $extra['reviewer_img']);
+            }
+            if (!empty($avatar_url)) {
+                $acf_available ? update_field('tb_avatar', $avatar_url, $post_id) : update_post_meta($post_id, 'tb_avatar', $avatar_url);
+            }
+
             return $post_id;
         };
 
@@ -286,8 +307,10 @@ return [
                 $where .= $wpdb->prepare(' AND rating >= %d', $min_rating); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
             }
 
+            $batch_size = max(1, (int) get_option('ddwpt_acf_testimonials_sync_wpsr_batch_size', 25));
+
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-            $reviews = $wpdb->get_results("SELECT * FROM {$table} {$where} ORDER BY id ASC LIMIT 25");
+            $reviews = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$table} {$where} ORDER BY id ASC LIMIT %d", $batch_size));
 
             if (empty($reviews)) return;
 
@@ -420,6 +443,19 @@ return [
                     'min'               => 1,
                     'max'               => 5,
                     'step'              => 1,
+                ],
+                [
+                    'key'               => 'field_68293b1c4d2a7',
+                    'label'             => 'Avatar URL',
+                    'name'              => 'tb_avatar',
+                    'type'              => 'url',
+                    'instructions'      => 'Reviewer profile image URL. Populated automatically when syncing from WP Social Ninja.',
+                    'required'          => 0,
+                    'conditional_logic' => 0,
+                    'wrapper'           => ['width' => '', 'class' => '', 'id' => ''],
+                    'default_value'     => '',
+                    'allow_in_bindings' => 1,
+                    'placeholder'       => 'https://',
                 ],
             ],
             'location' => [
