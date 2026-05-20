@@ -212,12 +212,20 @@ return [
                 return false;
             }
 
-            $post_id = wp_insert_post([
+            $post_args = [
                 'post_type'    => 'testimonial',
                 'post_title'   => $reviewer,
                 'post_content' => $text,
                 'post_status'  => 'publish',
-            ], true);
+            ];
+
+            if (!empty($row->review_time)) {
+                $timestamp           = strtotime($row->review_time);
+                $post_args['post_date']     = date('Y-m-d H:i:s', $timestamp);
+                $post_args['post_date_gmt'] = gmdate('Y-m-d H:i:s', $timestamp);
+            }
+
+            $post_id = wp_insert_post($post_args, true);
 
             if (is_wp_error($post_id)) {
                 return false;
