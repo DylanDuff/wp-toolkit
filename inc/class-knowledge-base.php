@@ -6,13 +6,22 @@ defined("ABSPATH") || exit();
 
 class Knowledge_Base
 {
-  private string $dir;
+  private array $dirs;
   private string $mode;
+  private array $slug_dirs = [];
 
-  public function __construct(string $mode = "sidebar")
+  public function __construct(string $mode = "sidebar", string $custom_path = "", string $custom_mode = "additive")
   {
-    $this->dir = __DIR__ . "/knowledge/";
+    $bundled = __DIR__ . "/knowledge/";
     $this->mode = $mode;
+
+    if ($custom_path && is_dir($custom_path)) {
+      $this->dirs = $custom_mode === "replace"
+        ? [$custom_path]
+        : [$bundled, $custom_path];
+    } else {
+      $this->dirs = [$bundled];
+    }
 
     add_action("admin_menu", [$this, "register_menu"]);
 
@@ -115,7 +124,7 @@ class Knowledge_Base
 
     $raw_content = "";
     if ($current) {
-      $file = $this->dir . $current . ".md";
+      $file = $this->resolve_file($current);
       if (file_exists($file)) {
         $raw_content = file_get_contents($file);
       }
@@ -281,7 +290,24 @@ class Knowledge_Base
 
   private function get_groups(): array
   {
-    $manifest = $this->dir . "manifest.php";
+    $groups = [];
+    $this->slug_dirs = [];
+
+    foreach ($this->dirs as $dir) {
+      foreach ($this->get_dir_groups($dir) as $group_name => $docs) {
+        foreach ($docs as $slug => $item) {
+          $groups[$group_name][$slug] = $item;
+          $this->slug_dirs[$slug] = $dir;
+        }
+      }
+    }
+
+    return $groups;
+  }
+
+  private function get_dir_groups(string $dir): array
+  {
+    $manifest = $dir . "manifest.php";
 
     if (file_exists($manifest)) {
       $raw = require $manifest;
@@ -289,7 +315,7 @@ class Knowledge_Base
 
       foreach ($raw as $group_name => $slugs) {
         foreach ($slugs as $slug => $icon) {
-          if (file_exists($this->dir . $slug . ".md")) {
+          if (file_exists($dir . $slug . ".md")) {
             $title_slug = preg_replace("/^\d+-/", "", $slug);
             $groups[$group_name][$slug] = [
               "title" => ucwords(str_replace("-", " ", $title_slug)),
@@ -304,7 +330,7 @@ class Knowledge_Base
 
     // Fallback: single group from glob
     $docs = [];
-    foreach (glob($this->dir . "*.md") ?: [] as $file) {
+    foreach (glob($dir . "*.md") ?: [] as $file) {
       $slug = basename($file, ".md");
       $title_slug = preg_replace("/^\d+-/", "", $slug);
       $docs[$slug] = [
@@ -314,6 +340,12 @@ class Knowledge_Base
     }
 
     return $docs ? ["Articles" => $docs] : [];
+  }
+
+  private function resolve_file(string $slug): string
+  {
+    $dir = $this->slug_dirs[$slug] ?? $this->dirs[0];
+    return $dir . $slug . ".md";
   }
 
   private function get_docs(): array
@@ -329,7 +361,7 @@ class Knowledge_Base
 
   private function get_excerpt(string $slug): string
   {
-    $file = $this->dir . $slug . ".md";
+    $file = $this->resolve_file($slug);
     if (!file_exists($file)) {
       return "";
     }
