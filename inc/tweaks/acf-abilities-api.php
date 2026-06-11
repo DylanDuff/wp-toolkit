@@ -2,6 +2,11 @@
 
 namespace DDWPTweaks\Tweaks;
 
+// Must run before ACF initialises (plugins_loaded), not on init.
+if (get_option('ddwpt_acf_abilities_api_enabled')) {
+    add_filter('acf/settings/enable_acf_ai', '__return_true');
+}
+
 return [
     'id'    => 'ddwpt_acf_abilities_api',
     'label' => 'Enable Abilities API',
@@ -17,10 +22,6 @@ return [
     ],
 
     'callback' => function ($settings) {
-        if (empty($settings['enabled'])) {
-            return;
-        }
-
-        add_filter('acf/settings/enable_acf_ai', '__return_true');
+        // Filter is registered at file-load time above; nothing to do here.
     },
 ];
