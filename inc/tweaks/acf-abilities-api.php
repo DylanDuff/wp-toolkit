@@ -9,8 +9,8 @@ if (get_option('ddwpt_acf_abilities_api_enabled')) {
 
 return [
     'id'    => 'ddwpt_acf_abilities_api',
-    'label' => 'Enable Abilities API',
-    'tab'   => 'acf',
+    'label' => 'Enable ACF Abilities',
+    'tab'   => 'ai',
 
     'settings' => [
         [

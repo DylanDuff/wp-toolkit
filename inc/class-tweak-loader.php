@@ -9,6 +9,7 @@ class Tweak_Loader
 
     private const ALLOWED_TWEAKS = [
         'acf-abilities-api',
+        'ai-mcp-info',
         'acf-faq',
         'acf-locations',
         'acf-projects',
@@ -28,6 +29,7 @@ class Tweak_Loader
         'bricks-toolbar-logo',
         'change-howdy-greeting',
         'disable-comments',
+        'enable-application-passwords',
         'disable-dashboard-widgets',
         'disable-image-compression',
         'disable-update-nags',
@@ -74,6 +76,12 @@ class Tweak_Loader
 
             if (!$this->validate($def)) continue;
 
+            // Render-only tweaks have no settings or callback to wire up.
+            if (isset($def['render'])) {
+                $tweaks[] = $def;
+                continue;
+            }
+
             // AUTO-PREFIX SETTINGS
             foreach ($def['settings'] as &$setting) {
                 if (!str_starts_with($setting['id'], $def['id'])) {
@@ -108,7 +116,10 @@ class Tweak_Loader
 
     private function validate($tweak)
     {
-        return is_array($tweak)
-            && isset($tweak['id'], $tweak['label'], $tweak['settings'], $tweak['callback']);
+        if (!is_array($tweak) || !isset($tweak['id'])) return false;
+        // Render-only tweak: just needs an id and a render callable.
+        if (isset($tweak['render'])) return is_callable($tweak['render']);
+        // Standard tweak: needs label, settings array, and callback.
+        return isset($tweak['label'], $tweak['settings'], $tweak['callback']);
     }
 }

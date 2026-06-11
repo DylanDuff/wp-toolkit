@@ -142,7 +142,7 @@ class Plugin
         $no_persist = ["faq_import", "acf_export", "service_area_import", "team_member_import", "testimonial_import", "location_import", "project_import", "acf_keys"];
 
         foreach ($this->tweaks as $tweak) {
-            foreach ($tweak["settings"] as $setting) {
+            foreach ($tweak["settings"] ?? [] as $setting) {
                 if (in_array($setting["type"], $no_persist, true)) continue;
                 register_setting($this->settings_group, $setting["id"], [
                     "sanitize_callback" => $sanitize_map[$setting["type"]] ?? "sanitize_text_field",
@@ -276,16 +276,21 @@ class Plugin
 
                     <div class="ddwpt-content">
                         <?php foreach ($tabs as $tab_id => $tab_label): ?>
+                        <?php
+                            $all_tweaks      = $this->get_tweaks_for_tab($tab_id);
+                            $settings_tweaks = array_values(array_filter($all_tweaks, fn($t) => !isset($t['render'])));
+                            $render_tweaks   = array_values(array_filter($all_tweaks, fn($t) => isset($t['render'])));
+                        ?>
                         <div class="ddwpt-panel" data-tab="<?php echo esc_attr($tab_id); ?>" style="display:none;">
+                            <?php if (!empty($settings_tweaks)): ?>
                             <div class="ddwpt-panel-actions">
                                 <button type="submit" class="ddwpt-save-btn"><?php esc_html_e("Save Changes", "wp-toolkit"); ?></button>
                             </div>
-                            <?php foreach ($this->get_tweaks_for_tab($tab_id) as $tweak):
-                                $this->render_tweak_card($tweak);
-                            endforeach; ?>
-                            <div class="ddwpt-panel-actions">
-                                <button type="submit" class="ddwpt-save-btn"><?php esc_html_e("Save Changes", "wp-toolkit"); ?></button>
-                            </div>
+                            <?php foreach ($settings_tweaks as $tweak): $this->render_tweak_card($tweak); endforeach; ?>
+                            <?php endif; ?>
+                            <?php foreach ($render_tweaks as $tweak): ?>
+                                <?php call_user_func($tweak['render'], $this); ?>
+                            <?php endforeach; ?>
                         </div>
                         <?php endforeach; ?>
                     </div>
@@ -774,11 +779,46 @@ class Plugin
         }
     }
 
+    public function render_info_card(string $title, string $desc = '', array $fields = [], array $badge = []): void
+    {
+        ?>
+        <div class="ddwpt-card">
+            <div class="ddwpt-card-header">
+                <div class="ddwpt-card-info">
+                    <h3 class="ddwpt-card-title"><?php echo esc_html($title); ?></h3>
+                    <?php if ($desc): ?>
+                    <p class="ddwpt-card-desc"><?php echo wp_kses_post($desc); ?></p>
+                    <?php endif; ?>
+                </div>
+                <?php if ($badge): ?>
+                <span class="ddwpt-status-badge <?php echo esc_attr($badge['class'] ?? ''); ?>">
+                    <?php echo esc_html($badge['label'] ?? ''); ?>
+                </span>
+                <?php endif; ?>
+            </div>
+            <?php if (!empty($fields)): ?>
+            <div class="ddwpt-card-body">
+                <?php foreach ($fields as $field): ?>
+                <?php if (!empty($field['full'])): ?>
+                <div class="ddwpt-field-full"><?php echo $field['html'] ?? ''; ?></div>
+                <?php else: ?>
+                <div class="ddwpt-field-row">
+                    <label class="ddwpt-field-label"><?php echo esc_html($field['label'] ?? ''); ?></label>
+                    <div class="ddwpt-field-input"><?php echo $field['html'] ?? ''; ?></div>
+                </div>
+                <?php endif; ?>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+
     private function get_active_tweak_count()
     {
         $count = 0;
         foreach ($this->tweaks as $tweak) {
-            foreach ($tweak["settings"] as $setting) {
+            foreach ($tweak["settings"] ?? [] as $setting) {
                 if (str_ends_with($setting["id"], "_enabled") && get_option($setting["id"])) {
                     $count++;
                     break;
@@ -790,9 +830,9 @@ class Plugin
 
     private function get_all_tabs()
     {
-        $preferred = ["general", "acf", "dashboard", "admin-bar", "admin-tables", "sidebar", "animations", "bricks", "experimental", "settings"];
+        $preferred = ["general", "acf", "dashboard", "admin-bar", "admin-tables", "sidebar", "animations", "bricks", "experimental", "ai", "settings"];
 
-        $tabs       = [];
+        $tabs        = [];
         $has_general = false;
 
         $show_experimental = get_option("ddwpt_experiments_enabled");
@@ -810,6 +850,8 @@ class Plugin
         if ($has_general) {
             $tabs["general"] = "General";
         }
+
+        $tabs["ai"] = "AI";
 
         $sorted = [];
         foreach ($preferred as $key) {
@@ -851,6 +893,7 @@ class Plugin
             "security"     => "Globe-Lock-Lucide.svg",
             "debug"        => "Bug-Play-Lucide.svg",
             "experimental" => "Flask-Conical-Lucide.svg",
+            "ai"           => "Sparkles-Lucide.svg",
             "settings"     => "Swatch-Book-Lucide.svg",
         ];
         $file = $icons[$tab_id] ?? "Boxes-Lucide.svg";

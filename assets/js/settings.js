@@ -418,4 +418,20 @@
             });
         });
     }
+
+    // ── Copy-to-clipboard buttons ─────────────────────────────────
+    document.querySelectorAll('.ddwpt-copy-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var text = this.dataset.copy;
+            if (!text) return;
+            navigator.clipboard.writeText(text).then(function () {
+                btn.textContent = 'Copied!';
+                btn.classList.add('is-copied');
+                setTimeout(function () {
+                    btn.textContent = 'Copy';
+                    btn.classList.remove('is-copied');
+                }, 2000);
+            });
+        });
+    });
 })();
