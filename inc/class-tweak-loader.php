@@ -8,6 +8,7 @@ class Tweak_Loader
 {
 
     private const ALLOWED_TWEAKS = [
+        'acf-abilities-api',
         'acf-faq',
         'acf-locations',
         'acf-projects',
