@@ -10,6 +10,7 @@ class Tweak_Loader
     private const ALLOWED_TWEAKS = [
         'acf-abilities-api',
         'ai-mcp-info',
+        'ai-site-instructions',
         'acf-faq',
         'acf-locations',
         'acf-projects',

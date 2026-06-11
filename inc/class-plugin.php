@@ -332,7 +332,7 @@ class Plugin
                 <div class="ddwpt-card-info">
                     <h3 class="ddwpt-card-title"><?php echo esc_html($tweak["label"]); ?></h3>
                     <?php if ($description): ?>
-                    <p class="ddwpt-card-desc"><?php echo esc_html($description); ?></p>
+                    <p class="ddwpt-card-desc"><?php echo $this->kses_desc($description); ?></p>
                     <?php endif; ?>
                 </div>
                 <?php if ($enabled_setting): ?>
@@ -366,7 +366,7 @@ class Plugin
                     <div class="ddwpt-field-accordion-body">
                         <?php $this->render_field($setting, $value, $setting["id"]); ?>
                         <?php if (!empty($setting["description"])): ?>
-                        <p class="description"><?php echo esc_html($setting["description"]); ?></p>
+                        <p class="description"><?php echo $this->kses_desc($setting["description"]); ?></p>
                         <?php endif; ?>
                     </div>
                 </details>
@@ -378,7 +378,7 @@ class Plugin
                     <div class="ddwpt-field-input">
                         <?php $this->render_field($setting, $value, $setting["id"]); ?>
                         <?php if (!empty($setting["description"])): ?>
-                        <p class="description"><?php echo esc_html($setting["description"]); ?></p>
+                        <p class="description"><?php echo $this->kses_desc($setting["description"]); ?></p>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -812,6 +812,16 @@ class Plugin
             <?php endif; ?>
         </div>
         <?php
+    }
+
+    private function kses_desc(string $text): string
+    {
+        return wp_kses($text, [
+            'code'   => [],
+            'strong' => [],
+            'em'     => [],
+            'a'      => ['href' => [], 'target' => [], 'rel' => []],
+        ]);
     }
 
     private function get_active_tweak_count()
