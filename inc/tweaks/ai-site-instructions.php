@@ -95,6 +95,26 @@ The following custom post types may be active on this site. Check which are in u
 
 ---
 
+## Adding New Collections
+
+If asked to add a new content type ("collection"), use ACF's built-in AI abilities to create it — do not write PHP or edit plugin/theme files:
+
+- `acf/register-custom-post-type` — registers the post type itself.
+- `acf/register-field-group` — registers its custom fields, attached to the new post type via a `post_type` location rule.
+
+Follow the same conventions used by the collections above so the new type behaves consistently with the rest of the site:
+
+- **Post type slug:** lowercase, hyphenated, singular (e.g. `case-study`, not `CaseStudies` or `case_studies`).
+- **Name/description fields:** use `post_title` and `post_content` for the primary name and long-text description — don't create custom ACF fields that duplicate these.
+- **Custom field names:** prefix with a short lowercase code unique to the collection, matching the existing pattern (`tm_` team members, `tb_` testimonials, `lc_` locations, `pj_` projects, `so_` site options) — e.g. `cs_client`, `cs_industry` for a `case-study` collection.
+- **Relationship fields:** name them `linked_{plural_snake_case}` (e.g. `linked_case_studies`), storing an array of post IDs — matching `linked_team_members` / `linked_testimonials` / `linked_projects`.
+- **Taxonomy:** if the collection needs categorization, register one taxonomy named `{collection}-tag`, `{collection}-type`, or `{collection}-category` as appropriate, hyphenated — matching `faq-tag` / `location-type` / `testimonial-category`.
+- **Required settings:** set `show_in_rest: true` on both the post type and field group, and `allow_ai_access: true` on the field group — otherwise the new collection won't be usable by any AI ability, including the ones you just created.
+
+Once created, that post type's own ACF-provided abilities (query, create, view, update — and delete, if enabled) become available automatically. To also use WP Toolkit's generic `get-post` / `list-posts` / `create-post` / `update-post` abilities on it, a site admin must check the new post type under WP Toolkit's "Expose post types" setting (Tools → WP Toolkit → AI tab) — that step can't be done by an AI agent.
+
+---
+
 ## Global Site Options
 
 Site-wide settings are stored on an ACF options page. Read and write these with `get_field('field_name', 'option')` / `update_field('field_name', $value, 'option')`.
