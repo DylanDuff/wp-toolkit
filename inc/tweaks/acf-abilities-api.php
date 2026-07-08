@@ -11,6 +11,7 @@ return [
     'id'    => 'ddwpt_acf_abilities_api',
     'label' => 'Enable ACF Abilities',
     'tab'   => 'ai',
+    'group' => 'abilities',
 
     'settings' => [
         [

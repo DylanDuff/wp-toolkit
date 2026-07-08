@@ -5,7 +5,8 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_admin_footer_text',
     'label' => 'Admin Footer Text',
-    'tab'   => 'footer',
+    'tab'   => 'wp-admin',
+    'group' => 'footer',
 
     'settings' => [
         [

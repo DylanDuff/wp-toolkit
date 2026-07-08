@@ -6,6 +6,7 @@ return [
     'id'    => 'ddwpt_acf_service_areas',
     'label' => 'Service Areas',
     'tab'   => 'acf',
+    'group' => 'presets',
 
     'settings' => [
         [

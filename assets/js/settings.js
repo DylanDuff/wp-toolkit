@@ -60,6 +60,31 @@
     var firstTab = tabs[0] ? tabs[0].dataset.tab : '';
     activateTab(hash && document.querySelector('.ddwpt-panel[data-tab="' + hash + '"]') ? hash : firstTab);
 
+    // ── Sub-tabs (within a top-level tab) ─────────────────────────────
+    document.querySelectorAll('.ddwpt-panel').forEach(function (panel) {
+        var subtabs   = panel.querySelectorAll('.ddwpt-subtab');
+        var subpanels = panel.querySelectorAll('.ddwpt-subpanel');
+        if (!subtabs.length) return;
+
+        function activateSubtab(id) {
+            subtabs.forEach(function (t) {
+                t.classList.toggle('is-active', t.dataset.subtab === id);
+            });
+            subpanels.forEach(function (p) {
+                p.style.display = p.dataset.subtab === id ? '' : 'none';
+            });
+        }
+
+        subtabs.forEach(function (tab) {
+            tab.addEventListener('click', function (e) {
+                e.preventDefault();
+                activateSubtab(this.dataset.subtab);
+            });
+        });
+
+        activateSubtab(subtabs[0].dataset.subtab);
+    });
+
     // ── Card toggle — disabled state ──────────────────────────────────
     document.querySelectorAll('.ddwpt-card .ddwpt-toggle input[type="checkbox"]').forEach(function (toggle) {
         var card = toggle.closest('.ddwpt-card');
@@ -418,6 +443,23 @@
             });
         });
     }
+
+    // ── Reset-to-default buttons ──────────────────────────────────
+    document.querySelectorAll('.ddwpt-reset-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var input = document.getElementById(btn.dataset.input);
+            if (!input) return;
+            if (!confirm('Reset this field to the plugin\'s default value? Your current text will be replaced (not saved until you click Save Changes).')) return;
+
+            input.value = btn.dataset.default;
+            btn.textContent = 'Reset!';
+            btn.classList.add('is-reset');
+            setTimeout(function () {
+                btn.textContent = 'Reset to Default';
+                btn.classList.remove('is-reset');
+            }, 2000);
+        });
+    });
 
     // ── Copy-to-clipboard buttons ─────────────────────────────────
     document.querySelectorAll('.ddwpt-copy-btn').forEach(function (btn) {

@@ -6,6 +6,7 @@ return [
     'id'    => 'ddwpt_acf_testimonials',
     'label' => 'Testimonials',
     'tab'   => 'acf',
+    'group' => 'presets',
 
     'settings' => [
         [

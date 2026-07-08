@@ -5,7 +5,8 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_whitelabel_adminbar_logo',
     'label' => 'Whitelabel Admin Bar Logo',
-    'tab'   => 'admin-bar',
+    'tab'   => 'wp-admin',
+    'group' => 'admin-bar',
 
     'settings' => [
         [

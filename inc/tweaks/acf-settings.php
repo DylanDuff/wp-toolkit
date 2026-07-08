@@ -20,6 +20,7 @@ return [
     'id'    => 'ddwpt_acf_settings',
     'label' => 'Group CPTs',
     'tab'   => 'acf',
+    'group' => 'general',
 
     'settings' => [
         [

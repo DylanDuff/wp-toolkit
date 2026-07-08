@@ -45,7 +45,8 @@ function environment_badge($wp_admin_bar)
 return [
     'id'    => 'ddwpt_environment_indicator',
     'label' => 'Environment Indicator',
-    'tab'   => 'admin-bar',
+    'tab'   => 'wp-admin',
+    'group' => 'admin-bar',
 
     'settings' => [
         [

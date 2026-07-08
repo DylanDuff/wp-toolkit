@@ -277,20 +277,33 @@ class Plugin
                     <div class="ddwpt-content">
                         <?php foreach ($tabs as $tab_id => $tab_label): ?>
                         <?php
-                            $all_tweaks      = $this->get_tweaks_for_tab($tab_id);
-                            $settings_tweaks = array_values(array_filter($all_tweaks, fn($t) => !isset($t['render'])));
-                            $render_tweaks   = array_values(array_filter($all_tweaks, fn($t) => isset($t['render'])));
+                            $all_tweaks   = $this->get_tweaks_for_tab($tab_id);
+                            $has_settings = (bool) array_filter($all_tweaks, fn($t) => !isset($t['render']));
+                            $groups       = $this->get_groups_for_tab($all_tweaks);
                         ?>
                         <div class="ddwpt-panel" data-tab="<?php echo esc_attr($tab_id); ?>" style="display:none;">
-                            <?php if (!empty($settings_tweaks)): ?>
+                            <?php if ($has_settings): ?>
                             <div class="ddwpt-panel-actions">
                                 <button type="submit" class="ddwpt-save-btn"><?php esc_html_e("Save Changes", "wp-toolkit"); ?></button>
                             </div>
-                            <?php foreach ($settings_tweaks as $tweak): $this->render_tweak_card($tweak); endforeach; ?>
                             <?php endif; ?>
-                            <?php foreach ($render_tweaks as $tweak): ?>
-                                <?php call_user_func($tweak['render'], $this); ?>
+
+                            <?php if (!empty($groups)): ?>
+                            <div class="ddwpt-subtabs-nav">
+                                <?php foreach ($groups as $group_id => $group_label): ?>
+                                <a href="#" class="ddwpt-subtab" data-subtab="<?php echo esc_attr($group_id); ?>">
+                                    <?php echo esc_html($group_label); ?>
+                                </a>
+                                <?php endforeach; ?>
+                            </div>
+                            <?php foreach ($groups as $group_id => $group_label): ?>
+                            <div class="ddwpt-subpanel" data-subtab="<?php echo esc_attr($group_id); ?>" style="display:none;">
+                                <?php $this->render_tweak_group($this->get_tweaks_for_group($all_tweaks, $group_id)); ?>
+                            </div>
                             <?php endforeach; ?>
+                            <?php else: ?>
+                            <?php $this->render_tweak_group($all_tweaks); ?>
+                            <?php endif; ?>
                         </div>
                         <?php endforeach; ?>
                     </div>
@@ -394,7 +407,11 @@ class Plugin
     {
         switch ($field["type"]) {
             case "textarea":
-                echo '<textarea class="large-text" rows="8" id="' . esc_attr($field_id) . '" name="' . esc_attr($field_id) . '" style="font-family:monospace;font-size:12px;">' . esc_textarea($value) . '</textarea>';
+                $safe_id = esc_attr($field_id);
+                echo '<textarea class="large-text" rows="8" id="' . $safe_id . '" name="' . $safe_id . '" style="font-family:monospace;font-size:12px;">' . esc_textarea($value) . '</textarea>';
+                if (!empty($field["resettable"]) && isset($field["default"])) {
+                    echo '<button type="button" class="ddwpt-btn ddwpt-reset-btn" data-input="' . $safe_id . '" data-default="' . esc_attr($field["default"]) . '">Reset to Default</button>';
+                }
                 break;
 
             case "url":
@@ -840,7 +857,7 @@ class Plugin
 
     private function get_all_tabs()
     {
-        $preferred = ["general", "acf", "dashboard", "admin-bar", "admin-tables", "sidebar", "animations", "bricks", "experimental", "ai", "settings"];
+        $preferred = ["general", "acf", "wp-admin", "animations", "bricks", "experimental", "ai", "settings"];
 
         $tabs        = [];
         $has_general = false;
@@ -862,6 +879,12 @@ class Plugin
         }
 
         $tabs["ai"] = "AI";
+        if (isset($tabs["acf"])) {
+            $tabs["acf"] = "ACF";
+        }
+        if (isset($tabs["wp-admin"])) {
+            $tabs["wp-admin"] = "WP Admin";
+        }
 
         $sorted = [];
         foreach ($preferred as $key) {
@@ -885,17 +908,63 @@ class Plugin
         });
     }
 
+    private function render_tweak_group(array $tweaks)
+    {
+        $settings_tweaks = array_values(array_filter($tweaks, fn($t) => !isset($t['render'])));
+        $render_tweaks   = array_values(array_filter($tweaks, fn($t) => isset($t['render'])));
+
+        foreach ($settings_tweaks as $tweak) {
+            $this->render_tweak_card($tweak);
+        }
+        foreach ($render_tweaks as $tweak) {
+            call_user_func($tweak['render'], $this);
+        }
+    }
+
+    // Sub-tabs within a top-level tab. A tab opts in by giving at least one
+    // of its tweaks a 'group' key; tweaks in that tab without one fall back
+    // to a "General" group so nothing silently disappears. Tabs where no
+    // tweak declares a group return [] here, which skips sub-tab rendering
+    // entirely and keeps existing tabs unchanged.
+    private function get_groups_for_tab(array $tweaks): array
+    {
+        $has_group = false;
+        foreach ($tweaks as $tweak) {
+            if (!empty($tweak['group'])) {
+                $has_group = true;
+                break;
+            }
+        }
+        if (!$has_group) {
+            return [];
+        }
+
+        $groups = [];
+        foreach ($tweaks as $tweak) {
+            $group_id = !empty($tweak['group']) ? $tweak['group'] : 'general';
+            if (!isset($groups[$group_id])) {
+                $groups[$group_id] = ucfirst(str_replace('-', ' ', $group_id));
+            }
+        }
+
+        return $groups;
+    }
+
+    private function get_tweaks_for_group(array $tweaks, string $group_id): array
+    {
+        return array_values(array_filter($tweaks, function ($tweak) use ($group_id) {
+            $tweak_group = !empty($tweak['group']) ? $tweak['group'] : 'general';
+            return $tweak_group === $group_id;
+        }));
+    }
+
     private function get_tab_icon($tab_id)
     {
         $icons = [
             "general"      => "Boxes-Lucide.svg",
             "acf"          => "App-Window-Lucide.svg",
-            "dashboard"    => "Gauge-Lucide.svg",
-            "admin-bar"    => "Credit-Card-Lucide.svg",
-            "admin-tables" => "Table-Properties-Lucide.svg",
-            "sidebar"      => "Panel-Left-Lucide.svg",
+            "wp-admin"     => "Gauge-Lucide.svg",
             "bricks"       => "Layout-Dashboard-Lucide.svg",
-            "footer"       => "Dock-Lucide.svg",
             "media"        => "Image-Lucide.svg",
             "animations"   => "Sparkles-Lucide.svg",
             "notifications"       => "Message-Square-Warning-Lucide.svg",

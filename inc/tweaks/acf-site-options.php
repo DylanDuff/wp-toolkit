@@ -6,6 +6,7 @@ return [
     'id'    => 'ddwpt_acf_site_options',
     'label' => 'ACF Site Options',
     'tab'   => 'acf',
+    'group' => 'general',
 
     'settings' => [
         [

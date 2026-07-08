@@ -6,6 +6,7 @@ return [
     'id'    => 'ddwpt_acf_projects',
     'label' => 'Projects',
     'tab'   => 'acf',
+    'group' => 'presets',
 
     'settings' => [
         [

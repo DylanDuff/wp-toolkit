@@ -5,7 +5,8 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_reorder_sidebar',
     'label' => 'Reorder Sidebar Menu',
-    'tab'   => 'sidebar',
+    'tab'   => 'wp-admin',
+    'group' => 'sidebar',
 
     'settings' => [
         [

@@ -5,7 +5,8 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_hide_footer_version',
     'label' => 'Hide Footer Version',
-    'tab'   => 'footer',
+    'tab'   => 'wp-admin',
+    'group' => 'footer',
 
     'settings' => [
         [

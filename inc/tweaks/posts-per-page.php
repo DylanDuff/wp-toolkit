@@ -5,7 +5,8 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_posts_per_page',
     'label' => 'Posts Per Page',
-    'tab'   => 'admin-tables',
+    'tab'   => 'wp-admin',
+    'group' => 'admin-tables',
 
     'settings' => [
         [

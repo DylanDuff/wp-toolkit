@@ -6,6 +6,7 @@ return [
     'id'    => 'ddwpt_acf_team_members',
     'label' => 'Team Members',
     'tab'   => 'acf',
+    'group' => 'presets',
 
     'settings' => [
         [

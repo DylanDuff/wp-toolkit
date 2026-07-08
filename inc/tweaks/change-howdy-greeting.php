@@ -5,7 +5,8 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_change_howdy',
     'label' => 'Change "Howdy" Greeting',
-    'tab'   => 'admin-bar',
+    'tab'   => 'wp-admin',
+    'group' => 'admin-bar',
 
     'settings' => [
         [

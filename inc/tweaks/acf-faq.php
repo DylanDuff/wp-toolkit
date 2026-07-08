@@ -6,6 +6,7 @@ return [
     'id'    => 'ddwpt_acf_faq',
     'label' => 'FAQs',
     'tab'   => 'acf',
+    'group' => 'presets',
 
     'settings' => [
         [

@@ -32,7 +32,8 @@ function invert_admin()
 return [
     'id'    => 'ddwpt_invert_admin_bar',
     'label' => 'Invert Admin Bar',
-    'tab'   => 'admin-bar',
+    'tab'   => 'wp-admin',
+    'group' => 'admin-bar',
 
     'settings' => [
         [

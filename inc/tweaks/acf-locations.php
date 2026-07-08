@@ -6,6 +6,7 @@ return [
     'id'    => 'ddwpt_acf_locations',
     'label' => 'Locations',
     'tab'   => 'acf',
+    'group' => 'presets',
 
     'settings' => [
         [

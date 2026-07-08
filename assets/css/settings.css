@@ -263,6 +263,47 @@
   padding: 24px;
 }
 
+/* ── Sub-tab nav (horizontal, scoped to one top-level tab) ────────── */
+.ddwpt-subtabs-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 16px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--ddwpt-border);
+}
+
+.ddwpt-subtab {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ddwpt-text-muted);
+  background: var(--ddwpt-surface);
+  border: 1px solid var(--ddwpt-border);
+  text-decoration: none !important;
+  white-space: nowrap;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.ddwpt-subtab:hover {
+  color: var(--ddwpt-text);
+  border-color: var(--ddwpt-text-muted);
+}
+
+.ddwpt-subtab.is-active {
+  color: #fff;
+  background: var(--ddwpt-accent);
+  border-color: var(--ddwpt-accent);
+}
+
+.ddwpt-subtab:focus {
+  outline: none;
+  box-shadow: none;
+}
+
 /* ── Card ──────────────────────────────────────────────────────── */
 .ddwpt-card {
   background: var(--ddwpt-surface);
@@ -581,6 +622,15 @@
   color: var(--ddwpt-text) !important;
   border-color: var(--ddwpt-text-muted) !important;
   background: var(--ddwpt-surface-alt) !important;
+}
+
+.ddwpt-reset-btn {
+  margin-top: 8px !important;
+}
+
+.ddwpt-reset-btn.is-reset {
+  color: #065f46 !important;
+  border-color: #6ee7b7 !important;
 }
 
 /* ── Accordion field rows ───────────────────────────────────────── */

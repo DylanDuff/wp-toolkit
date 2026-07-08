@@ -20,7 +20,8 @@ function inset_subposts()
 return [
     'id'    => 'ddwpt_inset_subposts',
     'label' => 'Inset Sub-Posts',
-    'tab'   => 'admin-tables',
+    'tab'   => 'wp-admin',
+    'group' => 'admin-tables',
 
     'settings' => [
         [

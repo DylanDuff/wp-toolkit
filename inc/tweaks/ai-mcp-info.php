@@ -5,6 +5,7 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'     => 'ddwpt_ai_mcp_info',
     'tab'    => 'ai',
+    'group'  => 'overview',
     'render' => function (\DDWPTweaks\Plugin $plugin) {
         $mcp_file      = 'mcp-adapter/mcp-adapter.php';
         $mcp_installed = file_exists(WP_PLUGIN_DIR . '/' . $mcp_file);

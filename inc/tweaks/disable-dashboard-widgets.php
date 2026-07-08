@@ -5,7 +5,8 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_disable_dashboard_widgets',
     'label' => 'Disable Dashboard Widgets',
-    'tab'   => 'dashboard',
+    'tab'   => 'wp-admin',
+    'group' => 'dashboard',
 
     'settings' => [
         [
