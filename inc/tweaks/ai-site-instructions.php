@@ -171,6 +171,11 @@ if (get_option('ddwpt_ai_site_instructions_enabled')) {
                 'label'               => 'Get Site Instructions',
                 'description'         => 'Returns configuration instructions for this WordPress site, describing how it is structured and how AI agents should interact with it.',
                 'category'            => 'site',
+                'input_schema'        => [
+                    'type'                 => ['object', 'null'],
+                    'properties'           => [],
+                    'additionalProperties' => false,
+                ],
                 'output_schema'       => [
                     'type'        => 'string',
                     'description' => 'The site instructions document in plain text or Markdown format.',
@@ -187,6 +192,9 @@ if (get_option('ddwpt_ai_site_instructions_enabled')) {
                         'idempotent' => true,
                     ],
                     'show_in_rest' => true,
+                    'mcp'          => [
+                        'public' => true,
+                    ],
                 ],
             ]
         );
