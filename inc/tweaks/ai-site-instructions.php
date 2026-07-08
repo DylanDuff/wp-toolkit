@@ -30,68 +30,16 @@ Groups of structured content entries that share a layout — things like Blog Po
 
 ---
 
-## Collections Reference
+## Discovering Collections
 
-The following custom post types may be active on this site. Check which are in use before assuming any are present.
+Collections vary per site — do not assume any specific ones (FAQs, Team Members, Projects, etc.) exist. Discover what's actually registered before creating or updating entries:
 
-### FAQs (`faq`)
-| Field | Key |
-|---|---|
-| Question | `post_title` |
-| Answer | `post_content` |
-| Tag | taxonomy: `faq-tag` |
+1. **`list-post-types`** — every collection (custom post type) registered on this site, its label, whether it's hierarchical, its attached taxonomies, and whether AI agents currently have read/write access to it.
+2. **`list-taxonomies`** — every taxonomy registered on this site and the post types it's attached to.
+3. **`list-posts`** (with the target `post_type`) or **`get-post`** on a single entry — samples real content. ACF field names come back as plain keys in the `meta` object, so an existing entry doubles as a live schema reference (field names + example values).
+4. If the ACF Abilities API is enabled (WP Toolkit → AI → Abilities → "Enable ACF Abilities"), ACF's own `acf/field-groups` ability gives the authoritative field schema per collection — names, types, and choices — without needing a sample post.
 
-### Service Areas (`service-area`)
-| Field | Key |
-|---|---|
-| Name | `post_title` |
-| Content | `post_content` |
-| Region | taxonomy: `region` |
-
-### Team Members (`team-member`)
-| Field | Key |
-|---|---|
-| Name | `post_title` |
-| Bio | `post_content` |
-| Job Title | taxonomy: `job-title` |
-| Email | `tm_email` |
-| Phone | `tm_phone` |
-| LinkedIn URL | `tm_linkedin_url` |
-| Linked pages | `linked_team_members` (relationship field) |
-
-### Testimonials (`testimonial`)
-| Field | Key |
-|---|---|
-| Reviewer name | `post_title` |
-| Quote | `post_content` |
-| Category | taxonomy: `testimonial-category` |
-| Company | `tb_company` |
-| Role | `tb_role` |
-| Rating (1–5) | `tb_rating` |
-| Linked pages | `linked_testimonials` (relationship field) |
-
-### Locations (`location`)
-| Field | Key |
-|---|---|
-| Name | `post_title` |
-| Description | `post_content` |
-| Location type | taxonomy: `location-type` |
-| Address | `lc_address` |
-| Phone | `lc_phone` |
-| Email | `lc_email` |
-| Hours | `lc_hours` |
-| Map embed | `lc_map_embed` |
-
-### Projects (`project`)
-| Field | Key |
-|---|---|
-| Name | `post_title` |
-| Description | `post_content` |
-| Project type | taxonomy: `project-type` |
-| Client | `pj_client` |
-| URL | `pj_url` |
-| Year | `pj_year` |
-| Linked pages | `linked_projects` (relationship field) |
+Use `list-terms` (or `get-or-create-term`) to see what terms already exist in a taxonomy before creating a new one.
 
 ---
 
@@ -102,16 +50,18 @@ If asked to add a new content type ("collection"), use ACF's built-in AI abiliti
 - `acf/register-custom-post-type` — registers the post type itself.
 - `acf/register-field-group` — registers its custom fields, attached to the new post type via a `post_type` location rule.
 
-Follow the same conventions used by the collections above so the new type behaves consistently with the rest of the site:
+Check `list-post-types` first for collections that already exist on this site and match whatever naming conventions they use. If this is the first collection being added, follow these conventions:
 
 - **Post type slug:** lowercase, hyphenated, singular (e.g. `case-study`, not `CaseStudies` or `case_studies`).
 - **Name/description fields:** use `post_title` and `post_content` for the primary name and long-text description — don't create custom ACF fields that duplicate these.
-- **Custom field names:** prefix with a short lowercase code unique to the collection, matching the existing pattern (`tm_` team members, `tb_` testimonials, `lc_` locations, `pj_` projects, `so_` site options) — e.g. `cs_client`, `cs_industry` for a `case-study` collection.
-- **Relationship fields:** name them `linked_{plural_snake_case}` (e.g. `linked_case_studies`), storing an array of post IDs — matching `linked_team_members` / `linked_testimonials` / `linked_projects`.
-- **Taxonomy:** if the collection needs categorization, register one taxonomy named `{collection}-tag`, `{collection}-type`, or `{collection}-category` as appropriate, hyphenated — matching `faq-tag` / `location-type` / `testimonial-category`.
+- **Custom field names:** prefix with a short lowercase code unique to the collection (e.g. `cs_client`, `cs_industry` for a `case-study` collection). This applies to flat, per-entry structured data — a rating, a phone number, a price.
+- **Relationship fields:** name them `linked_{plural_snake_case}` (e.g. `linked_case_studies`), storing an array of post IDs.
+- **Taxonomy:** if the collection needs categorization, register one taxonomy named `{collection}-tag`, `{collection}-type`, or `{collection}-category` as appropriate, hyphenated.
 - **Required settings:** set `show_in_rest: true` on both the post type and field group, and `allow_ai_access: true` on the field group — otherwise the new collection won't be usable by any AI ability, including the ones you just created.
 
 Once created, that post type's own ACF-provided abilities (query, create, view, update — and delete, if enabled) become available automatically. To also use WP Toolkit's generic `get-post` / `list-posts` / `create-post` / `update-post` abilities on it, a site admin must check the new post type under WP Toolkit's "Expose post types" setting (Tools → WP Toolkit → AI tab) — that step can't be done by an AI agent.
+
+If the collection also needs visually laid-out sections rendered via Bricks (a hero, pricing, feature grid, etc.) rather than just flat data fields, call **`get-acf-architecture-guide`** for the Tab → Group → Fields pattern to use for those field groups — a separate, more detailed convention from the flat naming above.
 
 ---
 
@@ -151,7 +101,7 @@ Site-wide settings are stored on an ACF options page. Read and write these with 
 ## Conventions
 
 - **Taxonomy terms:** use slugs derived from the term name (lowercase, hyphenated). Create missing terms before assigning them to a post.
-- **Relationship fields** (`linked_team_members`, `linked_testimonials`, `linked_projects`): store an array of post IDs. Read the existing value first and append rather than overwrite unless asked to replace.
+- **Relationship fields** (named `linked_{plural}` by convention — see "Adding New Collections"): store an array of post IDs. Read the existing value first and append rather than overwrite unless asked to replace.
 - **Images:** stored as media attachment IDs in ACF image fields, or as URLs in URL fields. Upload to the media library first, then reference by attachment ID.
 - **Blog posts:** standard WordPress `post` post type. Use `post_title`, `post_content`, categories, and tags.
 - **Drafts:** set `post_status` to `draft` to save without publishing. Use `publish` to make live.
@@ -225,6 +175,7 @@ return [
     'id'    => 'ddwpt_ai_site_instructions',
     'label' => 'Site Instructions',
     'tab'   => 'ai',
+    'group' => 'instructions',
 
     'settings' => [
         [
@@ -239,6 +190,7 @@ return [
             'label'       => 'Site Instructions',
             'description' => 'Plain text or Markdown. Returned by the <code>wp-toolkit/get-site-instructions</code> ability so AI agents understand how your site is structured and how they should work with it.',
             'default'     => $default_instructions,
+            'resettable'  => true,
         ],
     ],
 

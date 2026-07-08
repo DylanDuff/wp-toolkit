@@ -104,6 +104,17 @@ function ai_content_save_meta(int $post_id, array $meta): void
     }
 }
 
+function ai_content_get_meta_value(int $post_id, string $key)
+{
+    $has_acf = function_exists('get_field') && function_exists('acf_get_field');
+
+    if ($has_acf && acf_get_field($key)) {
+        return get_field($key, $post_id);
+    }
+
+    return get_post_meta($post_id, $key, true);
+}
+
 function ai_content_save_terms(int $post_id, array $allowed_taxonomies, array $terms, bool $append): void
 {
     foreach ($terms as $taxonomy => $slugs) {
@@ -420,42 +431,145 @@ if (get_option('ddwpt_ai_content_abilities_enabled')) {
             ],
         ]);
 
-        if (function_exists('get_field')) {
-            wp_register_ability('wp-toolkit/get-option-field', [
-                'label'               => 'Get Site Option Field',
-                'description'         => 'Read a single field from the ACF site options page.',
-                'category'            => 'wp-toolkit-content',
-                'input_schema'        => [
-                    'type'                 => 'object',
-                    'properties'           => [
-                        'field_key' => ['type' => 'string', 'pattern' => '^[a-z][a-z0-9_]*$'],
-                    ],
-                    'required'             => ['field_key'],
-                    'additionalProperties' => false,
+        wp_register_ability('wp-toolkit/list-terms', [
+            'label'               => 'List Terms',
+            'description'         => 'List or search existing terms in a taxonomy exposed to AI agents. Use before get-or-create-term to check what already exists.',
+            'category'            => 'wp-toolkit-content',
+            'input_schema'        => [
+                'type'                 => 'object',
+                'properties'           => [
+                    'taxonomy' => ['type' => 'string', 'enum' => $allowed_taxonomies],
+                    'search'   => ['type' => 'string'],
+                    'per_page' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 20],
+                    'page'     => ['type' => 'integer', 'minimum' => 1, 'default' => 1],
                 ],
-                'output_schema'       => [
-                    'type'       => 'object',
-                    'properties' => [
-                        'field_key' => ['type' => 'string'],
-                        'value'     => ['type' => ['string', 'integer', 'number', 'boolean', 'array', 'object', 'null']],
+                'required'             => ['taxonomy'],
+                'additionalProperties' => false,
+            ],
+            'output_schema'       => [
+                'type'       => 'object',
+                'properties' => [
+                    'terms'       => [
+                        'type'  => 'array',
+                        'items' => [
+                            'type'       => 'object',
+                            'properties' => [
+                                'id'    => ['type' => 'integer'],
+                                'name'  => ['type' => 'string'],
+                                'slug'  => ['type' => 'string'],
+                                'count' => ['type' => 'integer'],
+                            ],
+                        ],
                     ],
+                    'total'       => ['type' => 'integer'],
+                    'total_pages' => ['type' => 'integer'],
                 ],
-                'execute_callback'    => static function ($input) {
+            ],
+            'execute_callback'    => static function ($input) use ($allowed_taxonomies) {
+                $taxonomy = $input['taxonomy'] ?? '';
+                if (!in_array($taxonomy, $allowed_taxonomies, true)) {
+                    return new \WP_Error('ddwpt_taxonomy_not_allowed', sprintf('Taxonomy "%s" is not exposed to AI agents.', $taxonomy));
+                }
+
+                $per_page = min(100, max(1, (int) ($input['per_page'] ?? 20)));
+                $page     = max(1, (int) ($input['page'] ?? 1));
+
+                $args = [
+                    'taxonomy'   => $taxonomy,
+                    'hide_empty' => false,
+                    'number'     => $per_page,
+                    'offset'     => ($page - 1) * $per_page,
+                ];
+                if (!empty($input['search'])) {
+                    $args['search'] = sanitize_text_field($input['search']);
+                }
+
+                $terms = get_terms($args);
+                if (is_wp_error($terms)) {
+                    return $terms;
+                }
+
+                $count_args              = $args;
+                $count_args['number']    = 0;
+                $count_args['offset']    = 0;
+                $count_args['fields']    = 'count';
+                $total                   = (int) get_terms($count_args);
+
+                return [
+                    'terms'       => array_map(
+                        fn($term) => ['id' => $term->term_id, 'name' => $term->name, 'slug' => $term->slug, 'count' => (int) $term->count],
+                        $terms
+                    ),
+                    'total'       => $total,
+                    'total_pages' => (int) ceil($total / $per_page),
+                ];
+            },
+            'permission_callback' => static function () use ($read_capability) {
+                return current_user_can($read_capability);
+            },
+            'meta'                => [
+                'annotations'  => ['readonly' => true, 'idempotent' => true],
+                'show_in_rest' => true,
+                'mcp'          => ['public' => true],
+            ],
+        ]);
+
+        wp_register_ability('wp-toolkit/get-option-field', [
+            'label'               => 'Get Meta Field',
+            'description'         => 'Read a single meta field from a post (via "id"), or from the ACF site options page if "id" is omitted. Reads through ACF when the field is registered there, otherwise falls back to plain post meta.',
+            'category'            => 'wp-toolkit-content',
+            'input_schema'        => [
+                'type'                 => 'object',
+                'properties'           => [
+                    'field_key' => ['type' => 'string', 'pattern' => '^[a-z][a-z0-9_]*$'],
+                    'id'        => ['type' => 'integer', 'minimum' => 1, 'description' => 'Post ID. Omit to read from the ACF site options page instead.'],
+                ],
+                'required'             => ['field_key'],
+                'additionalProperties' => false,
+            ],
+            'output_schema'       => [
+                'type'       => 'object',
+                'properties' => [
+                    'field_key' => ['type' => 'string'],
+                    'id'        => ['type' => ['integer', 'null']],
+                    'value'     => ['type' => ['string', 'integer', 'number', 'boolean', 'array', 'object', 'null']],
+                ],
+            ],
+            'execute_callback'    => static function ($input) use ($allowed_post_types) {
+                $field_key = $input['field_key'];
+
+                if (!empty($input['id'])) {
+                    $post = get_post((int) $input['id']);
+                    if (!$post instanceof \WP_Post || !in_array($post->post_type, $allowed_post_types, true)) {
+                        return new \WP_Error('ddwpt_post_not_found', 'No matching post found among the post types exposed to AI agents.');
+                    }
+
                     return [
-                        'field_key' => $input['field_key'],
-                        'value'     => get_field($input['field_key'], 'option'),
+                        'field_key' => $field_key,
+                        'id'        => $post->ID,
+                        'value'     => ai_content_get_meta_value($post->ID, $field_key),
                     ];
-                },
-                'permission_callback' => static function () use ($read_capability) {
-                    return current_user_can($read_capability);
-                },
-                'meta'                => [
-                    'annotations'  => ['readonly' => true, 'idempotent' => true],
-                    'show_in_rest' => true,
-                    'mcp'          => ['public' => true],
-                ],
-            ]);
-        }
+                }
+
+                if (!function_exists('get_field')) {
+                    return new \WP_Error('ddwpt_acf_required', 'Reading the site options page requires ACF to be active. Provide "id" to read a post\'s meta instead.');
+                }
+
+                return [
+                    'field_key' => $field_key,
+                    'id'        => null,
+                    'value'     => get_field($field_key, 'option'),
+                ];
+            },
+            'permission_callback' => static function () use ($read_capability) {
+                return current_user_can($read_capability);
+            },
+            'meta'                => [
+                'annotations'  => ['readonly' => true, 'idempotent' => true],
+                'show_in_rest' => true,
+                'mcp'          => ['public' => true],
+            ],
+        ]);
 
         if (!$allow_write) {
             return;
@@ -768,47 +882,77 @@ if (get_option('ddwpt_ai_content_abilities_enabled')) {
             ],
         ]);
 
-        if (function_exists('update_field')) {
-            wp_register_ability('wp-toolkit/update-option-field', [
-                'label'               => 'Update Site Option Field',
-                'description'         => 'Write a single field on the ACF site options page.',
-                'category'            => 'wp-toolkit-content',
-                'input_schema'        => [
-                    'type'                 => 'object',
-                    'properties'           => [
-                        'field_key' => ['type' => 'string', 'pattern' => '^[a-z][a-z0-9_]*$'],
-                        'value'     => ['type' => ['string', 'integer', 'number', 'boolean', 'array', 'object', 'null']],
-                    ],
-                    'required'             => ['field_key', 'value'],
-                    'additionalProperties' => false,
+        wp_register_ability('wp-toolkit/update-option-field', [
+            'label'               => 'Update Meta Field',
+            'description'         => 'Write a single meta field on a post (via "id"), or on the ACF site options page if "id" is omitted. Writes through ACF when the field is registered there, otherwise falls back to plain post meta.',
+            'category'            => 'wp-toolkit-content',
+            'input_schema'        => [
+                'type'                 => 'object',
+                'properties'           => [
+                    'field_key' => ['type' => 'string', 'pattern' => '^[a-z][a-z0-9_]*$'],
+                    'value'     => ['type' => ['string', 'integer', 'number', 'boolean', 'array', 'object', 'null']],
+                    'id'        => ['type' => 'integer', 'minimum' => 1, 'description' => 'Post ID. Omit to write to the ACF site options page instead.'],
                 ],
-                'output_schema'       => [
-                    'type'       => 'object',
-                    'properties' => [
-                        'success'   => ['type' => 'boolean'],
-                        'field_key' => ['type' => 'string'],
-                        'value'     => ['type' => ['string', 'integer', 'number', 'boolean', 'array', 'object', 'null']],
-                    ],
+                'required'             => ['field_key', 'value'],
+                'additionalProperties' => false,
+            ],
+            'output_schema'       => [
+                'type'       => 'object',
+                'properties' => [
+                    'success'   => ['type' => 'boolean'],
+                    'field_key' => ['type' => 'string'],
+                    'id'        => ['type' => ['integer', 'null']],
+                    'value'     => ['type' => ['string', 'integer', 'number', 'boolean', 'array', 'object', 'null']],
                 ],
-                'execute_callback'    => static function ($input) {
-                    update_field($input['field_key'], $input['value'], 'option');
+            ],
+            'execute_callback'    => static function ($input) use ($allowed_post_types) {
+                $field_key = $input['field_key'];
+
+                if (!empty($input['id'])) {
+                    $post = get_post((int) $input['id']);
+                    if (!$post instanceof \WP_Post || !in_array($post->post_type, $allowed_post_types, true)) {
+                        return new \WP_Error('ddwpt_post_not_found', 'No matching post found among the post types exposed to AI agents.');
+                    }
+
+                    ai_content_save_meta($post->ID, [$field_key => $input['value']]);
 
                     return [
                         'success'   => true,
-                        'field_key' => $input['field_key'],
-                        'value'     => get_field($input['field_key'], 'option'),
+                        'field_key' => $field_key,
+                        'id'        => $post->ID,
+                        'value'     => ai_content_get_meta_value($post->ID, $field_key),
                     ];
-                },
-                'permission_callback' => static function () {
-                    return current_user_can('manage_options');
-                },
-                'meta'                => [
-                    'annotations'  => ['destructive' => false, 'idempotent' => true],
-                    'show_in_rest' => true,
-                    'mcp'          => ['public' => true],
-                ],
-            ]);
-        }
+                }
+
+                if (!function_exists('update_field')) {
+                    return new \WP_Error('ddwpt_acf_required', 'Writing to the site options page requires ACF to be active. Provide "id" to update a post\'s meta instead.');
+                }
+
+                update_field($field_key, $input['value'], 'option');
+
+                return [
+                    'success'   => true,
+                    'field_key' => $field_key,
+                    'id'        => null,
+                    'value'     => get_field($field_key, 'option'),
+                ];
+            },
+            'permission_callback' => static function ($input) use ($write_capability, $allowed_post_types) {
+                if (!empty($input['id'])) {
+                    $post = get_post((int) $input['id']);
+                    return $post instanceof \WP_Post
+                        && in_array($post->post_type, $allowed_post_types, true)
+                        && current_user_can($write_capability);
+                }
+
+                return current_user_can('manage_options');
+            },
+            'meta'                => [
+                'annotations'  => ['destructive' => false, 'idempotent' => true],
+                'show_in_rest' => true,
+                'mcp'          => ['public' => true],
+            ],
+        ]);
 
         if (defined('SEOPRESS_VERSION')) {
             wp_register_ability('wp-toolkit/set-seo-meta', [
@@ -883,19 +1027,20 @@ return [
     'id'    => 'ddwpt_ai_content_abilities',
     'label' => 'AI Content Abilities',
     'tab'   => 'ai',
+    'group' => 'abilities',
 
     'settings' => [
         [
             'id'          => 'enabled',
             'type'        => 'checkbox',
             'label'       => 'Enable tweak',
-            'description' => 'Registers read abilities (<code>get-post</code>, <code>list-posts</code>, <code>list-post-types</code>, <code>list-taxonomies</code>, <code>get-option-field</code>) via the WordPress Abilities API. <code>list-post-types</code> and <code>list-taxonomies</code> report on every post type/taxonomy on the site regardless of the whitelist below, so agents always have full context.',
+            'description' => 'Registers read abilities (<code>get-post</code>, <code>list-posts</code>, <code>list-post-types</code>, <code>list-taxonomies</code>, <code>list-terms</code>, <code>get-option-field</code>) via the WordPress Abilities API. <code>get-option-field</code> reads a post\'s meta (ACF or plain) when given an <code>id</code>, or the ACF site options page when omitted. <code>list-post-types</code> and <code>list-taxonomies</code> report on every post type/taxonomy on the site regardless of the whitelist below, so agents always have full context.',
         ],
         [
             'id'          => 'allow_write',
             'type'        => 'checkbox',
             'label'       => 'Allow content creation & updates',
-            'description' => 'Also registers write abilities: <code>create-post</code>, <code>update-post</code>, <code>get-or-create-term</code>, <code>upload-media</code>, <code>update-option-field</code>, and <code>set-seo-meta</code> (if SEOPress is active). No delete ability is provided.',
+            'description' => 'Also registers write abilities: <code>create-post</code>, <code>update-post</code>, <code>get-or-create-term</code>, <code>upload-media</code>, <code>update-option-field</code> (a post\'s meta via <code>id</code>, or the ACF site options page if omitted), and <code>set-seo-meta</code> (if SEOPress is active). No delete ability is provided.',
         ],
         [
             'id'      => 'post_types',

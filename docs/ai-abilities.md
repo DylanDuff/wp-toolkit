@@ -30,19 +30,38 @@ Without this, the ability exists in `wp_get_abilities()` and shows up in the AI 
 | Ability | Tweak | Guard | Capability |
 |---|---|---|---|
 | `wp-toolkit/get-site-instructions` | `ai-site-instructions` | — | `read` |
+| `wp-toolkit/get-acf-architecture-guide` | `ai-field-architecture` | enabled | `read` |
 | `wp-toolkit/list-post-types` | `ai-content-abilities` | enabled | `edit_posts` |
 | `wp-toolkit/list-taxonomies` | `ai-content-abilities` | enabled | `edit_posts` |
 | `wp-toolkit/get-post` | `ai-content-abilities` | enabled | `edit_posts` |
 | `wp-toolkit/list-posts` | `ai-content-abilities` | enabled | `edit_posts` |
-| `wp-toolkit/get-option-field` | `ai-content-abilities` | ACF active | `edit_posts` |
+| `wp-toolkit/list-terms` | `ai-content-abilities` | enabled | `edit_posts` |
+| `wp-toolkit/get-option-field` | `ai-content-abilities` | enabled | `edit_posts` |
 | `wp-toolkit/create-post` | `ai-content-abilities` | allow_write | `publish_posts` |
 | `wp-toolkit/update-post` | `ai-content-abilities` | allow_write | `publish_posts` |
 | `wp-toolkit/get-or-create-term` | `ai-content-abilities` | allow_write | `publish_posts` |
 | `wp-toolkit/upload-media` | `ai-content-abilities` | allow_write | `publish_posts` + `upload_files` |
-| `wp-toolkit/update-option-field` | `ai-content-abilities` | allow_write + ACF active | `manage_options` |
+| `wp-toolkit/update-option-field` | `ai-content-abilities` | allow_write | `publish_posts` (post) / `manage_options` (options page) |
 | `wp-toolkit/set-seo-meta` | `ai-content-abilities` | allow_write + SEOPress active | `publish_posts` |
+| `wp-toolkit/list-redirects` | `ai-redirection-abilities` | enabled + Redirection active | `redirection_cap_redirect_manage`* |
+| `wp-toolkit/get-redirect` | `ai-redirection-abilities` | enabled + Redirection active | `redirection_cap_redirect_manage`* |
+| `wp-toolkit/list-redirect-groups` | `ai-redirection-abilities` | enabled + Redirection active | `redirection_cap_redirect_manage`* |
+| `wp-toolkit/create-redirect` | `ai-redirection-abilities` | allow_write + Redirection active | `redirection_cap_redirect_add`* |
+| `wp-toolkit/update-redirect` | `ai-redirection-abilities` | allow_write + Redirection active | `redirection_cap_redirect_add`* |
+| `wp-toolkit/create-redirect-group` | `ai-redirection-abilities` | allow_write + Redirection active | `redirection_cap_group_add`* |
 
-There is deliberately no delete ability.
+\* Resolved via `Redirection_Capabilities::has_access()`, which defaults to `manage_options` unless the site filters `redirection_capability_check`. Falls back to a plain `manage_options` check if the Redirection plugin's capability class isn't loaded.
+
+There is deliberately no delete ability for content or redirects — disable a redirect via `update-redirect`'s `enabled` flag instead.
+
+## `get-site-instructions` vs. `get-acf-architecture-guide`
+
+Two separate abilities, both editable per-site text blobs (`ai-site-instructions.php` / `ai-field-architecture.php`), split by how often they're relevant rather than merged into one document:
+
+- **`get-site-instructions`** is meant to be read once per session/task — stack, content model, what not to touch, global conventions. It intentionally no longer hardcodes a specific site's collections (see `## Discovering Collections` in the default text) — that's runtime state, discoverable via `list-post-types`/`list-taxonomies`/`get-post`, not something to bake into a static doc that ships identically to every install.
+- **`get-acf-architecture-guide`** is narrower and only relevant when actually building a new ACF field group's Tab → Group → Fields structure for a CPT's visually laid-out sections — a different, more detailed convention than the flat per-entry field naming covered in `get-site-instructions`' "Adding New Collections" section. Keeping it a separate ability means the common case (an agent reading, creating, or updating content) doesn't pull in a page's worth of field-architecture rules it doesn't need for that task.
+
+Both follow the exact same pattern: a `<<<'INSTRUCTIONS'` heredoc default, an `enabled` checkbox, and a `resettable` textarea setting (see `render_field()`'s `textarea` case in `class-plugin.php`) so a site can customize the text and reset back to the plugin's shipped default without losing the option entirely.
 
 ## Site context vs. the exposure whitelist
 
@@ -64,6 +83,24 @@ If no post types are selected, `get-post`/`list-posts`/`create-post`/etc. still 
 
 - **meta**: if ACF is active and `acf_get_field($key)` resolves, writes go through `update_field()`; otherwise falls back to `update_post_meta()` with `sanitize_text_field()` on scalar strings. Arrays pass through untouched (ACF repeater/gallery support).
 - **terms**: only assigns *existing* terms — call `get-or-create-term` first. `update-post` takes an `append_terms` flag (default `true`) to add rather than replace, matching the append-don't-overwrite convention in the site instructions doc (`ai-site-instructions.php`).
+
+## `get-option-field` / `update-option-field` are dual-mode
+
+Both abilities target a post's meta when the input includes `id`, or the ACF site options page when `id` is omitted — they're not ACF-only. Reads/writes go through `ai_content_get_meta_value()` / `ai_content_save_meta()`, the same ACF-field-if-registered-else-`get_post_meta()`/`update_post_meta()` fallback used by `create-post`/`update-post`'s `meta` object, so a site without ACF at all can still read and write arbitrary post meta through these two abilities.
+
+The options-page branch (`id` omitted) is still ACF-only — there's no generic "site option" concept safe to expose the way post meta is, since the WP options table holds things like API keys, cron state, and serialized internal data that shouldn't be blindly readable/writable by an agent. That branch returns a `ddwpt_acf_required` error if ACF isn't active, telling the caller to pass `id` instead. Both abilities register unconditionally (not gated by `function_exists('get_field')`) precisely because the post-meta branch works without ACF.
+
+Permission differs by branch: writing to a post uses the standard `publish_posts` write capability plus the `allowed_post_types` exposure check (same as `update-post`); writing to the options page requires `manage_options`, since it isn't scoped to the post-type whitelist at all. `update-option-field`'s `permission_callback` receives `$input` (abilities API passes it whenever `input_schema` is non-empty) specifically to branch on `id` for this.
+
+## Redirection abilities (`ai-redirection-abilities.php`)
+
+Guarded by `defined('REDIRECTION_VERSION')` rather than `class_exists()` — Redirection's `Red_Item`/`Red_Group` classes are required unconditionally at the top of its main plugin file, so they're always loaded whenever the plugin is active, regardless of admin context.
+
+- **Module gating:** Redirection groups belong to a "module" — WordPress (id `1`, matched in PHP on every request), Apache, or Nginx (both written out to server config files instead). `list-redirect-groups` and the default group picked by `create-redirect` only ever consider WordPress-module groups (`ai_redirection_wp_groups()`), since a redirect filed under an Apache/Nginx group would silently never fire through this plugin.
+- **`Red_Item::update()` replaces the full sanitized field set, not a diff.** `Red_Item_Sanitize::get()` reads `action_type`/`match_type`/etc. directly off the details array with no per-field fallback to the object's current value — omit `action_type` and the sanitizer's `Red_Action::create('', ...)` call returns `null`, which surfaces as an opaque "Invalid redirect action" `WP_Error`. `update-redirect` works around this by loading the current `to_json()` state first and merging user-supplied fields over it before calling `->update()`, so a partial update (e.g. just flipping `title`) doesn't require the caller to resupply everything.
+- **Status isn't part of the sanitized field set at all.** `->update()` never touches `status` — enabling/disabling goes through the dedicated `->enable()`/`->disable()` methods, called separately after `->update()` succeeds when the `enabled` input is present.
+- **Capability check:** uses `Redirection_Capabilities::has_access()` (falls back to `manage_options` if the class isn't loaded) rather than a WordPress capability string directly, so a site that has filtered `redirection_capability_check` to grant editors redirect access is respected instead of silently requiring `manage_options`.
+- **Scope is deliberately narrower than the full Redirection API:** `action_type` is restricted to `url` (redirect to another URL) and `error` (return an HTTP error status) — the two common cases. Match types other than plain `url` matching (cookie, header, IP, role, etc.) and bulk/global actions aren't exposed; use the Redirection admin UI for those.
 
 ## Registering a new ability here
 
