@@ -6,6 +6,7 @@ return [
     'id'    => 'ddwpt_mapbox_bricks',
     'label' => 'Mapbox Bricks Element',
     'tab'   => 'bricks',
+    'group' => 'elements',
 
     'settings' => [
         [

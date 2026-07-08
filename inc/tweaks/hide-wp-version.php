@@ -13,7 +13,8 @@ function strip_version_query($src, $handle)
 return [
     'id'    => 'ddwpt_hide_wp_version',
     'label' => 'Hide WP Version',
-    'tab'   => 'security',
+    'tab'   => 'general',
+    'group' => 'security',
 
     'settings' => [
         [

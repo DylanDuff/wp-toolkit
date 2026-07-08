@@ -248,12 +248,18 @@ class Plugin
                             <?php echo esc_html($active_count); ?> / <?php echo esc_html($total_count); ?> tweaks enabled
                         </span>
                     </div>
-                    <div class="ddwpt-header-actions">
-                        <button type="button" class="ddwpt-import-btn"><?php esc_html_e("Import", "wp-toolkit"); ?></button>
-                        <button type="button" class="ddwpt-export-btn"><?php esc_html_e("Export", "wp-toolkit"); ?></button>
-                    </div>
                 </div>
-                <input type="file" id="ddwpt-import-file" accept=".json" style="display:none;" />
+
+                <?php
+                    // Computed once and shared by both the sidebar (nested sub-tab
+                    // links) and the content panels below, so a tab's groups are
+                    // only derived a single time.
+                    $tab_groups = [];
+                    foreach ($tabs as $tab_id => $tab_label) {
+                        $tab_groups[$tab_id] = $this->get_groups_for_tab($this->get_tweaks_for_tab($tab_id));
+                    }
+                    $has_any_settings = (bool) array_filter($this->tweaks, fn($t) => !isset($t['render']));
+                ?>
 
                 <div class="ddwpt-body">
 
@@ -268,8 +274,25 @@ class Plugin
                                     <?php echo $this->get_tab_icon($tab_id); ?>
                                     <?php echo esc_html($tab_label); ?>
                                 </a>
+                                <?php if (!empty($tab_groups[$tab_id])): ?>
+                                <div class="ddwpt-subtabs-nested" data-tab="<?php echo esc_attr($tab_id); ?>">
+                                    <?php foreach ($tab_groups[$tab_id] as $group_id => $group_label): ?>
+                                    <a href="#"
+                                       class="ddwpt-subtab-nested"
+                                       data-tab="<?php echo esc_attr($tab_id); ?>"
+                                       data-subtab="<?php echo esc_attr($group_id); ?>">
+                                        <?php echo esc_html($group_label); ?>
+                                    </a>
+                                    <?php endforeach; ?>
+                                </div>
+                                <?php endif; ?>
                                 <?php endforeach; ?>
                             </div>
+                            <?php if ($has_any_settings): ?>
+                            <div class="ddwpt-tabs-nav-actions">
+                                <button type="submit" class="ddwpt-save-btn"><?php esc_html_e("Save Changes", "wp-toolkit"); ?></button>
+                            </div>
+                            <?php endif; ?>
                         </div>
                     </nav>
                     <?php endif; ?>
@@ -277,25 +300,11 @@ class Plugin
                     <div class="ddwpt-content">
                         <?php foreach ($tabs as $tab_id => $tab_label): ?>
                         <?php
-                            $all_tweaks   = $this->get_tweaks_for_tab($tab_id);
-                            $has_settings = (bool) array_filter($all_tweaks, fn($t) => !isset($t['render']));
-                            $groups       = $this->get_groups_for_tab($all_tweaks);
+                            $all_tweaks = $this->get_tweaks_for_tab($tab_id);
+                            $groups     = $tab_groups[$tab_id];
                         ?>
                         <div class="ddwpt-panel" data-tab="<?php echo esc_attr($tab_id); ?>" style="display:none;">
-                            <?php if ($has_settings): ?>
-                            <div class="ddwpt-panel-actions">
-                                <button type="submit" class="ddwpt-save-btn"><?php esc_html_e("Save Changes", "wp-toolkit"); ?></button>
-                            </div>
-                            <?php endif; ?>
-
                             <?php if (!empty($groups)): ?>
-                            <div class="ddwpt-subtabs-nav">
-                                <?php foreach ($groups as $group_id => $group_label): ?>
-                                <a href="#" class="ddwpt-subtab" data-subtab="<?php echo esc_attr($group_id); ?>">
-                                    <?php echo esc_html($group_label); ?>
-                                </a>
-                                <?php endforeach; ?>
-                            </div>
                             <?php foreach ($groups as $group_id => $group_label): ?>
                             <div class="ddwpt-subpanel" data-subtab="<?php echo esc_attr($group_id); ?>" style="display:none;">
                                 <?php $this->render_tweak_group($this->get_tweaks_for_group($all_tweaks, $group_id)); ?>
@@ -923,9 +932,9 @@ class Plugin
 
     // Sub-tabs within a top-level tab. A tab opts in by giving at least one
     // of its tweaks a 'group' key; tweaks in that tab without one fall back
-    // to a "General" group so nothing silently disappears. Tabs where no
-    // tweak declares a group return [] here, which skips sub-tab rendering
-    // entirely and keeps existing tabs unchanged.
+    // to a "Miscellaneous" group so nothing silently disappears. Tabs where
+    // no tweak declares a group return [] here, which skips sub-tab
+    // rendering entirely and keeps existing tabs unchanged.
     private function get_groups_for_tab(array $tweaks): array
     {
         $has_group = false;
@@ -941,9 +950,9 @@ class Plugin
 
         $groups = [];
         foreach ($tweaks as $tweak) {
-            $group_id = !empty($tweak['group']) ? $tweak['group'] : 'general';
+            $group_id = !empty($tweak['group']) ? $tweak['group'] : 'miscellaneous';
             if (!isset($groups[$group_id])) {
-                $groups[$group_id] = ucfirst(str_replace('-', ' ', $group_id));
+                $groups[$group_id] = ucwords(str_replace('-', ' ', $group_id));
             }
         }
 
@@ -953,7 +962,7 @@ class Plugin
     private function get_tweaks_for_group(array $tweaks, string $group_id): array
     {
         return array_values(array_filter($tweaks, function ($tweak) use ($group_id) {
-            $tweak_group = !empty($tweak['group']) ? $tweak['group'] : 'general';
+            $tweak_group = !empty($tweak['group']) ? $tweak['group'] : 'miscellaneous';
             return $tweak_group === $group_id;
         }));
     }
@@ -961,15 +970,12 @@ class Plugin
     private function get_tab_icon($tab_id)
     {
         $icons = [
-            "general"      => "Boxes-Lucide.svg",
-            "acf"          => "App-Window-Lucide.svg",
+            "general"      => "App-Window-Lucide.svg",
+            "acf"          => "Boxes-Lucide.svg",
             "wp-admin"     => "Gauge-Lucide.svg",
             "bricks"       => "Layout-Dashboard-Lucide.svg",
-            "media"        => "Image-Lucide.svg",
             "animations"   => "Sparkles-Lucide.svg",
-            "notifications"       => "Message-Square-Warning-Lucide.svg",
             "themes"       => "Swatch-Book-Lucide.svg",
-            "security"     => "Globe-Lock-Lucide.svg",
             "debug"        => "Bug-Play-Lucide.svg",
             "experimental" => "Flask-Conical-Lucide.svg",
             "ai"           => "Sparkles-Lucide.svg",

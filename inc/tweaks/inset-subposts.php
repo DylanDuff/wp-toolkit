@@ -21,7 +21,7 @@ return [
     'id'    => 'ddwpt_inset_subposts',
     'label' => 'Inset Sub-Posts',
     'tab'   => 'wp-admin',
-    'group' => 'admin-tables',
+    'group' => 'tables',
 
     'settings' => [
         [

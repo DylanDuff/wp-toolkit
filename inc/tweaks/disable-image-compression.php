@@ -5,7 +5,8 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_disable_image_compression',
     'label' => 'Disable Image Compression',
-    'tab'   => 'media',
+    'tab'   => 'general',
+    'group' => 'media',
 
     'settings' => [
         [

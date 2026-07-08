@@ -6,6 +6,7 @@ return [
     'id'    => 'ddwpt_unicorn_studio_bricks',
     'label' => 'Unicorn Studio Bricks Element',
     'tab'   => 'bricks',
+    'group' => 'elements',
 
     'settings' => [
         [

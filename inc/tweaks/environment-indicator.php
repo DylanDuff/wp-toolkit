@@ -46,7 +46,7 @@ return [
     'id'    => 'ddwpt_environment_indicator',
     'label' => 'Environment Indicator',
     'tab'   => 'wp-admin',
-    'group' => 'admin-bar',
+    'group' => 'top-bar',
 
     'settings' => [
         [

@@ -6,6 +6,7 @@ return [
     'id'    => 'ddwpt_bricks_toolbar_logo',
     'label' => 'Bricks Toolbar Logo',
     'tab'   => 'bricks',
+    'group' => 'builder',
 
     'settings' => [
         [

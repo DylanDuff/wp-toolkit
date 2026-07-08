@@ -6,7 +6,7 @@ return [
     'id'    => 'ddwpt_hide_adminbar_logo',
     'label' => 'Hide Admin Bar Logo',
     'tab'   => 'wp-admin',
-    'group' => 'admin-bar',
+    'group' => 'top-bar',
 
     'settings' => [
         [

@@ -6,7 +6,7 @@ return [
     'id'    => 'ddwpt_change_howdy',
     'label' => 'Change "Howdy" Greeting',
     'tab'   => 'wp-admin',
-    'group' => 'admin-bar',
+    'group' => 'top-bar',
 
     'settings' => [
         [

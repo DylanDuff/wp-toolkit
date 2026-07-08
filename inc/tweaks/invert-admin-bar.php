@@ -33,7 +33,7 @@ return [
     'id'    => 'ddwpt_invert_admin_bar',
     'label' => 'Invert Admin Bar',
     'tab'   => 'wp-admin',
-    'group' => 'admin-bar',
+    'group' => 'top-bar',
 
     'settings' => [
         [

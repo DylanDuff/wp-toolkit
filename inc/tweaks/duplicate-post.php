@@ -58,7 +58,7 @@ return [
     'id'    => 'ddwpt_duplicate_post',
     'label' => 'Duplicate Post',
     'tab'   => 'wp-admin',
-    'group' => 'admin-tables',
+    'group' => 'tables',
 
     'settings' => [
         [

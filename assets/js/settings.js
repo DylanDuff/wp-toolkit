@@ -2,9 +2,11 @@
     'use strict';
 
     // ── Tab switching ─────────────────────────────────────────────────
-    var tabs   = document.querySelectorAll('.ddwpt-tab');
-    var panels = document.querySelectorAll('.ddwpt-panel');
-    var initialized = {};
+    var tabs         = document.querySelectorAll('.ddwpt-tab');
+    var panels       = document.querySelectorAll('.ddwpt-panel');
+    var nestedGroups = document.querySelectorAll('.ddwpt-subtabs-nested');
+    var nestedLinks  = document.querySelectorAll('.ddwpt-subtab-nested');
+    var initialized  = {};
 
     function initEditors(panel) {
         if (initialized[panel.dataset.tab]) return;
@@ -23,7 +25,26 @@
         });
     }
 
-    function activateTab(tabId) {
+    // Sub-panel switching within a single top-level tab. Falls back to the
+    // first sub-panel when no specific one is requested (e.g. switching
+    // tabs via the top-level nav rather than a nested sub-tab link).
+    function activateSubtab(tabId, subtabId) {
+        var panel     = document.querySelector('.ddwpt-panel[data-tab="' + tabId + '"]');
+        var subpanels = panel ? panel.querySelectorAll('.ddwpt-subpanel') : [];
+        if (!subpanels.length) return;
+
+        var target = subtabId || subpanels[0].dataset.subtab;
+        subpanels.forEach(function (p) {
+            p.style.display = p.dataset.subtab === target ? '' : 'none';
+        });
+        nestedLinks.forEach(function (link) {
+            if (link.dataset.tab === tabId) {
+                link.classList.toggle('is-active', link.dataset.subtab === target);
+            }
+        });
+    }
+
+    function activateTab(tabId, subtabId) {
         tabs.forEach(function (t) {
             t.classList.toggle('is-active', t.dataset.tab === tabId);
         });
@@ -32,6 +53,10 @@
             p.style.display = active ? '' : 'none';
             if (active) initEditors(p);
         });
+        nestedGroups.forEach(function (wrap) {
+            wrap.classList.toggle('is-open', wrap.dataset.tab === tabId);
+        });
+        activateSubtab(tabId, subtabId);
     }
 
     tabs.forEach(function (tab) {
@@ -40,6 +65,15 @@
             var id = this.dataset.tab;
             history.replaceState(null, '', '#' + id);
             activateTab(id);
+        });
+    });
+
+    nestedLinks.forEach(function (link) {
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            var tabId = this.dataset.tab;
+            history.replaceState(null, '', '#' + tabId);
+            activateTab(tabId, this.dataset.subtab);
         });
     });
 
@@ -59,31 +93,6 @@
     var hash = location.hash.replace('#', '');
     var firstTab = tabs[0] ? tabs[0].dataset.tab : '';
     activateTab(hash && document.querySelector('.ddwpt-panel[data-tab="' + hash + '"]') ? hash : firstTab);
-
-    // ── Sub-tabs (within a top-level tab) ─────────────────────────────
-    document.querySelectorAll('.ddwpt-panel').forEach(function (panel) {
-        var subtabs   = panel.querySelectorAll('.ddwpt-subtab');
-        var subpanels = panel.querySelectorAll('.ddwpt-subpanel');
-        if (!subtabs.length) return;
-
-        function activateSubtab(id) {
-            subtabs.forEach(function (t) {
-                t.classList.toggle('is-active', t.dataset.subtab === id);
-            });
-            subpanels.forEach(function (p) {
-                p.style.display = p.dataset.subtab === id ? '' : 'none';
-            });
-        }
-
-        subtabs.forEach(function (tab) {
-            tab.addEventListener('click', function (e) {
-                e.preventDefault();
-                activateSubtab(this.dataset.subtab);
-            });
-        });
-
-        activateSubtab(subtabs[0].dataset.subtab);
-    });
 
     // ── Card toggle — disabled state ──────────────────────────────────
     document.querySelectorAll('.ddwpt-card .ddwpt-toggle input[type="checkbox"]').forEach(function (toggle) {

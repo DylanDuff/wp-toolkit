@@ -6,6 +6,7 @@ return [
   "id" => "ddwpt_bricks_post_editor",
   "label" => "Bricks Post Editor",
   "tab" => "bricks",
+  "group" => "gutenberg",
 
   "settings" => [
     [

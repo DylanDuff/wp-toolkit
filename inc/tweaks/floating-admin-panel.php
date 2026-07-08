@@ -517,7 +517,7 @@ return [
     'id'    => 'ddwpt_floating_admin_panel',
     'label' => 'Floating Admin Panel',
     'tab'   => 'wp-admin',
-    'group' => 'admin-bar',
+    'group' => 'top-bar',
 
     'settings' => [
         [

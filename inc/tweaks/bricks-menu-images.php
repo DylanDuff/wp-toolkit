@@ -6,6 +6,7 @@ return [
     'id'    => 'ddwpt_bricks_menu_images',
     'label' => 'Menu Item Images',
     'tab'   => 'bricks',
+    'group' => 'builder',
 
     'settings' => [
         [

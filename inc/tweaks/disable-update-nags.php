@@ -5,7 +5,8 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_disable_update_nags',
     'label' => 'Disable Update Nags',
-    'tab'   => 'notifications',
+    'tab'   => 'general',
+    'group' => 'notifications',
 
     'settings' => [
         [

@@ -6,6 +6,7 @@ return [
   "id" => "ddwpt_bricks_combine_panels",
   "label" => "Compact Editor Experience",
   "tab" => "bricks",
+  "group" => "builder",
 
   "settings" => [
     [

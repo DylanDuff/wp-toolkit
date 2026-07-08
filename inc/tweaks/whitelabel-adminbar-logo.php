@@ -6,7 +6,7 @@ return [
     'id'    => 'ddwpt_whitelabel_adminbar_logo',
     'label' => 'Whitelabel Admin Bar Logo',
     'tab'   => 'wp-admin',
-    'group' => 'admin-bar',
+    'group' => 'top-bar',
 
     'settings' => [
         [

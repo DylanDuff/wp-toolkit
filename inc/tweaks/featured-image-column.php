@@ -6,7 +6,7 @@ return [
     'id'    => 'ddwpt_featured_image_column',
     'label' => 'Show Featured Image Column',
     'tab'   => 'wp-admin',
-    'group' => 'admin-tables',
+    'group' => 'tables',
 
     'settings' => [
         [

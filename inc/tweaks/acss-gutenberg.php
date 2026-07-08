@@ -6,6 +6,7 @@ return [
     'id'    => 'ddwpt_acss_gutenberg',
     'label' => 'ACSS in Gutenberg',
     'tab'   => 'bricks',
+    'group' => 'gutenberg',
 
     'settings' => [
         [

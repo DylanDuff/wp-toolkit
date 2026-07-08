@@ -45,7 +45,6 @@
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   color: var(--ddwpt-text);
-  padding-bottom: 40px;
 }
 
 /* ── Hero header ────────────────────────────────────────────────── */
@@ -98,53 +97,19 @@
   letter-spacing: 0.2px;
 }
 
-.ddwpt-header-actions {
-  position: absolute;
-  bottom: 16px;
-  right: 20px;
+.ddwpt-import-export-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
-.ddwpt-export-btn,
-.ddwpt-import-btn {
-  background: rgba(255, 255, 255, 0.12) !important;
-  color: rgba(255, 255, 255, 0.85) !important;
-  border: 1px solid rgba(255, 255, 255, 0.22) !important;
-  border-radius: 6px !important;
-  padding: 0 12px !important;
-  height: 28px !important;
-  font-size: 11px !important;
-  font-weight: 500 !important;
-  cursor: pointer !important;
-  transition: background 0.15s ease, border-color 0.15s ease !important;
-  line-height: 1 !important;
-  box-shadow: none !important;
-}
-
-.ddwpt-export-btn:hover,
-.ddwpt-import-btn:hover {
-  background: rgba(255, 255, 255, 0.22) !important;
-  border-color: rgba(255, 255, 255, 0.4) !important;
-  color: #fff !important;
-}
-
-.ddwpt-export-btn:disabled,
-.ddwpt-import-btn:disabled {
-  opacity: 0.5 !important;
-  cursor: not-allowed !important;
-}
-
-/* ── Panel save button ──────────────────────────────────────────── */
-.ddwpt-panel-actions {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0 0 16px;
-}
-
-.ddwpt-panel-actions:last-child {
-  padding: 16px 0 0;
+/* ── Sidebar save button ───────────────────────────────────────── */
+.ddwpt-tabs-nav-actions {
+  position: sticky;
+  bottom: 0;
+  background: var(--ddwpt-surface);
+  padding: 12px 16px;
+  border-top: 1px solid var(--ddwpt-border);
 }
 
 .ddwpt-save-btn {
@@ -154,6 +119,7 @@
   border-radius: 6px !important;
   padding: 0 20px !important;
   height: 36px !important;
+  width: 100% !important;
   font-size: 13px !important;
   font-weight: 600 !important;
   cursor: pointer !important;
@@ -192,28 +158,36 @@
 .ddwpt-tabs-nav {
   width: 200px;
   flex-shrink: 0;
+  min-height: 100vh;
   background: var(--ddwpt-surface);
   border-right: 1px solid var(--ddwpt-border);
 }
 
-/* Sticky container scrolls independently */
 .ddwpt-tabs-nav-sticky {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The tab list sticks to the top and the actions bar sticks to the
+   bottom, independently — since .ddwpt-tabs-nav is stretched to the
+   height of .ddwpt-content (its flex sibling) by .ddwpt-body's
+   align-items: stretch (and floored at one viewport by min-height above),
+   there's always room between the two for them to pull apart from each
+   other as the page scrolls. margin-bottom: auto claims exactly the
+   scroll block's own height and pushes the actions bar the rest of the
+   way down, so the two sticky offsets never fight over the same space. */
+.ddwpt-tabs-nav-scroll {
   position: sticky;
   top: 32px;
-  max-height: calc(100vh - 32px);
-  overflow-y: auto;
-  scrollbar-width: thin;
+  margin-bottom: auto;
+  padding: 8px 0;
 }
 
 @media screen and (max-width: 782px) {
-  .ddwpt-tabs-nav-sticky {
+  .ddwpt-tabs-nav-scroll {
     top: 46px;
-    max-height: calc(100vh - 46px);
   }
-}
-
-.ddwpt-tabs-nav-scroll {
-  padding: 8px 0;
 }
 
 .ddwpt-tab {
@@ -225,12 +199,10 @@
   font-weight: 500;
   color: var(--ddwpt-text-muted);
   text-decoration: none !important;
-  border-left: 3px solid transparent;
   white-space: nowrap;
   transition:
     color 0.15s ease,
-    background 0.15s ease,
-    border-color 0.15s ease;
+    background 0.15s ease;
 }
 
 .ddwpt-tab:hover {
@@ -240,8 +212,7 @@
 
 .ddwpt-tab.is-active {
   color: var(--ddwpt-accent);
-  border-left-color: var(--ddwpt-accent);
-  background: var(--ddwpt-accent-light);
+  font-weight: 600;
 }
 
 .ddwpt-tab:focus {
@@ -256,52 +227,65 @@
   stroke-width: 1.75;
 }
 
+/* ── Nested sub-tabs (within the sidebar, under their parent tab) ── */
+.ddwpt-subtabs-nested {
+  display: none;
+  flex-direction: column;
+  position: relative;
+  margin: 2px 0 8px;
+}
+
+.ddwpt-subtabs-nested.is-open {
+  display: flex;
+}
+
+/* Thin guide line connecting the sub-tabs back to their parent, aligned
+   under the parent tab's icon. */
+.ddwpt-subtabs-nested::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: 10px;
+  left: 30px;
+  width: 1px;
+  background: var(--ddwpt-border);
+}
+
+.ddwpt-subtab-nested {
+  display: flex;
+  align-items: center;
+  margin: 1px 14px 1px 40px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ddwpt-text-muted);
+  text-decoration: none !important;
+  white-space: nowrap;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.ddwpt-subtab-nested:hover {
+  color: var(--ddwpt-text);
+  background: var(--ddwpt-surface-alt);
+}
+
+.ddwpt-subtab-nested.is-active {
+  color: var(--ddwpt-accent);
+  background: var(--ddwpt-accent-light);
+  font-weight: 600;
+}
+
+.ddwpt-subtab-nested:focus {
+  outline: none;
+  box-shadow: none;
+}
+
 /* ── Content ───────────────────────────────────────────────────── */
 .ddwpt-content {
   flex: 1;
   min-width: 0;
   padding: 24px;
-}
-
-/* ── Sub-tab nav (horizontal, scoped to one top-level tab) ────────── */
-.ddwpt-subtabs-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding-bottom: 16px;
-  margin-bottom: 4px;
-  border-bottom: 1px solid var(--ddwpt-border);
-}
-
-.ddwpt-subtab {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--ddwpt-text-muted);
-  background: var(--ddwpt-surface);
-  border: 1px solid var(--ddwpt-border);
-  text-decoration: none !important;
-  white-space: nowrap;
-  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
-}
-
-.ddwpt-subtab:hover {
-  color: var(--ddwpt-text);
-  border-color: var(--ddwpt-text-muted);
-}
-
-.ddwpt-subtab.is-active {
-  color: #fff;
-  background: var(--ddwpt-accent);
-  border-color: var(--ddwpt-accent);
-}
-
-.ddwpt-subtab:focus {
-  outline: none;
-  box-shadow: none;
 }
 
 /* ── Card ──────────────────────────────────────────────────────── */
@@ -622,6 +606,11 @@
   color: var(--ddwpt-text) !important;
   border-color: var(--ddwpt-text-muted) !important;
   background: var(--ddwpt-surface-alt) !important;
+}
+
+.ddwpt-btn:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
 }
 
 .ddwpt-reset-btn {

@@ -6,7 +6,7 @@ return [
     'id'    => 'ddwpt_post_id_column',
     'label' => 'Show Post ID Column',
     'tab'   => 'wp-admin',
-    'group' => 'admin-tables',
+    'group' => 'tables',
 
     'settings' => [
         [

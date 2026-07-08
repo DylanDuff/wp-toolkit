@@ -88,6 +88,7 @@ return [
     'id'    => 'ddwpt_wpsr_bricks',
     'label' => 'WP Social Ninja — Bricks',
     'tab'   => 'bricks',
+    'group' => 'elements',
 
     'settings' => [
         [

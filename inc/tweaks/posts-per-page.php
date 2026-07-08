@@ -6,7 +6,7 @@ return [
     'id'    => 'ddwpt_posts_per_page',
     'label' => 'Posts Per Page',
     'tab'   => 'wp-admin',
-    'group' => 'admin-tables',
+    'group' => 'tables',
 
     'settings' => [
         [

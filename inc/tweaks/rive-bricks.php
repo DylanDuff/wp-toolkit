@@ -6,6 +6,7 @@ return [
     'id'    => 'ddwpt_rive_bricks',
     'label' => 'Rive Bricks Element',
     'tab'   => 'bricks',
+    'group' => 'elements',
 
     'settings' => [
         [
