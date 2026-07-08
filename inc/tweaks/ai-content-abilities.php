@@ -2,13 +2,21 @@
 
 namespace DDWPTweaks\Tweaks;
 
-// Post types WP Toolkit itself knows how to manage (core + the CPTs its own
-// ACF tweaks register). This is the ceiling for the "Expose post types"
-// setting below — CPTs from unrelated plugins are never exposed, even if
-// an admin somehow injects the slug into the option value.
-const AI_CONTENT_ABILITIES_POST_TYPES = ['post', 'page', 'faq', 'service-area', 'team-member', 'testimonial', 'location', 'project'];
-
 const AI_CONTENT_ABILITIES_STATUSES = ['draft', 'pending', 'private', 'publish'];
+
+// The pool of post types/taxonomies an admin can choose to expose, and that
+// list-post-types/list-taxonomies report on. show_ui mirrors what the admin
+// would actually see and manage in wp-admin — internal types (revisions,
+// nav menu items, etc.) are excluded.
+function ai_content_site_post_types(): array
+{
+    return get_post_types(['show_ui' => true], 'objects');
+}
+
+function ai_content_site_taxonomies(): array
+{
+    return get_taxonomies(['show_ui' => true], 'objects');
+}
 
 function ai_content_allowed_post_types(array $settings): array
 {
@@ -17,10 +25,7 @@ function ai_content_allowed_post_types(array $settings): array
         $selected = [];
     }
 
-    return array_values(array_filter(
-        AI_CONTENT_ABILITIES_POST_TYPES,
-        fn($slug) => in_array($slug, $selected, true) && post_type_exists($slug)
-    ));
+    return array_values(array_intersect($selected, array_keys(ai_content_site_post_types())));
 }
 
 function ai_content_allowed_taxonomies(array $post_types): array
@@ -137,15 +142,124 @@ if (get_option('ddwpt_ai_content_abilities_enabled')) {
         $settings          = [
             'post_types' => get_option('ddwpt_ai_content_abilities_post_types', '["post","page"]'),
         ];
-        $allow_write       = (bool) get_option('ddwpt_ai_content_abilities_allow_write');
+        $allow_write        = (bool) get_option('ddwpt_ai_content_abilities_allow_write');
         $allowed_post_types = ai_content_allowed_post_types($settings);
-        if (empty($allowed_post_types)) {
-            return;
-        }
         $allowed_taxonomies = ai_content_allowed_taxonomies($allowed_post_types);
 
         $read_capability  = 'edit_posts';
         $write_capability = 'publish_posts';
+
+        wp_register_ability('wp-toolkit/list-post-types', [
+            'label'               => 'List Post Types',
+            'description'         => 'List every post type registered on this site (labels, whether it\'s hierarchical, its taxonomies), and whether AI agents currently have read and/or write access to it. Use this for full site context even for content you can\'t touch.',
+            'category'            => 'wp-toolkit-content',
+            'input_schema'        => [
+                'type'                 => ['object', 'null'],
+                'properties'           => [],
+                'additionalProperties' => false,
+            ],
+            'output_schema'       => [
+                'type'       => 'object',
+                'properties' => [
+                    'post_types' => [
+                        'type'  => 'array',
+                        'items' => [
+                            'type'       => 'object',
+                            'properties' => [
+                                'slug'          => ['type' => 'string'],
+                                'label'         => ['type' => 'string'],
+                                'public'        => ['type' => 'boolean'],
+                                'hierarchical'  => ['type' => 'boolean'],
+                                'taxonomies'    => ['type' => 'array', 'items' => ['type' => 'string']],
+                                'read_access'   => ['type' => 'boolean'],
+                                'write_access'  => ['type' => 'boolean'],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            'execute_callback'    => static function () use ($allowed_post_types, $allow_write) {
+                $result = [];
+                foreach (ai_content_site_post_types() as $slug => $obj) {
+                    $is_exposed = in_array($slug, $allowed_post_types, true);
+                    $result[]   = [
+                        'slug'         => $slug,
+                        'label'        => $obj->labels->singular_name,
+                        'public'       => (bool) $obj->public,
+                        'hierarchical' => (bool) $obj->hierarchical,
+                        'taxonomies'   => array_values(get_object_taxonomies($slug, 'names')),
+                        'read_access'  => $is_exposed,
+                        'write_access' => $is_exposed && $allow_write,
+                    ];
+                }
+
+                return ['post_types' => $result];
+            },
+            'permission_callback' => static function () use ($read_capability) {
+                return current_user_can($read_capability);
+            },
+            'meta'                => [
+                'annotations'  => ['readonly' => true, 'idempotent' => true],
+                'show_in_rest' => true,
+                'mcp'          => ['public' => true],
+            ],
+        ]);
+
+        wp_register_ability('wp-toolkit/list-taxonomies', [
+            'label'               => 'List Taxonomies',
+            'description'         => 'List every taxonomy registered on this site (labels, attached post types), and whether AI agents currently have write access to it (via get-or-create-term). Use this for full site context even for taxonomies you can\'t touch.',
+            'category'            => 'wp-toolkit-content',
+            'input_schema'        => [
+                'type'                 => ['object', 'null'],
+                'properties'           => [],
+                'additionalProperties' => false,
+            ],
+            'output_schema'       => [
+                'type'       => 'object',
+                'properties' => [
+                    'taxonomies' => [
+                        'type'  => 'array',
+                        'items' => [
+                            'type'       => 'object',
+                            'properties' => [
+                                'slug'          => ['type' => 'string'],
+                                'label'         => ['type' => 'string'],
+                                'public'        => ['type' => 'boolean'],
+                                'hierarchical'  => ['type' => 'boolean'],
+                                'post_types'    => ['type' => 'array', 'items' => ['type' => 'string']],
+                                'exposed'       => ['type' => 'boolean'],
+                                'write_access'  => ['type' => 'boolean'],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            'execute_callback'    => static function () use ($allowed_taxonomies, $allow_write) {
+                $result = [];
+                foreach (ai_content_site_taxonomies() as $slug => $obj) {
+                    $is_exposed = in_array($slug, $allowed_taxonomies, true);
+                    $result[]   = [
+                        'slug'         => $slug,
+                        'label'        => $obj->labels->singular_name,
+                        'public'       => (bool) $obj->public,
+                        'hierarchical' => (bool) $obj->hierarchical,
+                        'post_types'   => array_values($obj->object_type),
+                        'exposed'      => $is_exposed,
+                        'write_access' => $is_exposed && $allow_write,
+                    ];
+                }
+
+                return ['taxonomies' => $result];
+            },
+            'permission_callback' => static function () use ($read_capability) {
+                return current_user_can($read_capability);
+            },
+            'meta'                => [
+                'annotations'  => ['readonly' => true, 'idempotent' => true],
+                'show_in_rest' => true,
+                'mcp'          => ['public' => true],
+            ],
+        ]);
 
         wp_register_ability('wp-toolkit/get-post', [
             'label'               => 'Get Post',
@@ -204,7 +318,11 @@ if (get_option('ddwpt_ai_content_abilities_enabled')) {
             'input_schema'        => [
                 'type'                 => ['object', 'null'],
                 'properties'           => [
-                    'post_type' => ['type' => 'string', 'enum' => $allowed_post_types, 'default' => $allowed_post_types[0]],
+                    'post_type' => array_filter([
+                        'type'    => 'string',
+                        'enum'    => $allowed_post_types,
+                        'default' => $allowed_post_types[0] ?? null,
+                    ], fn($v) => $v !== null),
                     'status'    => ['type' => 'string', 'enum' => array_merge(AI_CONTENT_ABILITIES_STATUSES, ['any']), 'default' => 'publish'],
                     'search'    => ['type' => 'string'],
                     'taxonomy'  => ['type' => 'string', 'enum' => $allowed_taxonomies],
@@ -237,8 +355,8 @@ if (get_option('ddwpt_ai_content_abilities_enabled')) {
                     'total_pages' => ['type' => 'integer'],
                 ],
             ],
-            'execute_callback'    => static function ($input) use ($allowed_post_types) {
-                $post_type = $input['post_type'] ?? $allowed_post_types[0];
+            'execute_callback'    => static function ($input) use ($allowed_post_types, $allowed_taxonomies) {
+                $post_type = $input['post_type'] ?? ($allowed_post_types[0] ?? '');
                 if (!in_array($post_type, $allowed_post_types, true)) {
                     return new \WP_Error('ddwpt_post_type_not_allowed', sprintf('Post type "%s" is not exposed to AI agents.', $post_type));
                 }
@@ -254,12 +372,17 @@ if (get_option('ddwpt_ai_content_abilities_enabled')) {
                     $args['s'] = sanitize_text_field($input['search']);
                 }
 
-                if (!empty($input['taxonomy']) && !empty($input['term'])) {
-                    $args['tax_query'] = [[
-                        'taxonomy' => $input['taxonomy'],
-                        'field'    => 'slug',
-                        'terms'    => sanitize_title($input['term']),
-                    ]];
+                if (!empty($input['taxonomy'])) {
+                    if (!in_array($input['taxonomy'], $allowed_taxonomies, true)) {
+                        return new \WP_Error('ddwpt_taxonomy_not_allowed', sprintf('Taxonomy "%s" is not exposed to AI agents.', $input['taxonomy']));
+                    }
+                    if (!empty($input['term'])) {
+                        $args['tax_query'] = [[
+                            'taxonomy' => $input['taxonomy'],
+                            'field'    => 'slug',
+                            'terms'    => sanitize_title($input['term']),
+                        ]];
+                    }
                 }
 
                 if (!empty($input['meta_key'])) {
@@ -766,7 +889,7 @@ return [
             'id'          => 'enabled',
             'type'        => 'checkbox',
             'label'       => 'Enable tweak',
-            'description' => 'Registers read abilities (<code>get-post</code>, <code>list-posts</code>, <code>get-option-field</code>) via the WordPress Abilities API, scoped to the post types selected below.',
+            'description' => 'Registers read abilities (<code>get-post</code>, <code>list-posts</code>, <code>list-post-types</code>, <code>list-taxonomies</code>, <code>get-option-field</code>) via the WordPress Abilities API. <code>list-post-types</code> and <code>list-taxonomies</code> report on every post type/taxonomy on the site regardless of the whitelist below, so agents always have full context.',
         ],
         [
             'id'          => 'allow_write',
@@ -778,15 +901,11 @@ return [
             'id'      => 'post_types',
             'type'    => 'checkboxes',
             'label'   => 'Expose post types',
-            'description' => 'Only post types WP Toolkit itself registers (core Posts/Pages plus its own ACF collections) can be exposed to AI agents.',
+            'description' => 'Any post type registered on this site can be exposed to AI agents for reading and (if allowed above) writing. Nothing is exposed until checked here, regardless of what <code>list-post-types</code> reports.',
             'options' => function () {
                 $options = [];
-                foreach (AI_CONTENT_ABILITIES_POST_TYPES as $slug) {
-                    if (!post_type_exists($slug)) {
-                        continue;
-                    }
-                    $obj = get_post_type_object($slug);
-                    $options[$slug] = $obj ? $obj->labels->singular_name : $slug;
+                foreach (ai_content_site_post_types() as $slug => $obj) {
+                    $options[$slug] = $obj->labels->singular_name;
                 }
                 return $options;
             },

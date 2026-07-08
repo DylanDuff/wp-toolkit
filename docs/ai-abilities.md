@@ -30,6 +30,8 @@ Without this, the ability exists in `wp_get_abilities()` and shows up in the AI 
 | Ability | Tweak | Guard | Capability |
 |---|---|---|---|
 | `wp-toolkit/get-site-instructions` | `ai-site-instructions` | — | `read` |
+| `wp-toolkit/list-post-types` | `ai-content-abilities` | enabled | `edit_posts` |
+| `wp-toolkit/list-taxonomies` | `ai-content-abilities` | enabled | `edit_posts` |
 | `wp-toolkit/get-post` | `ai-content-abilities` | enabled | `edit_posts` |
 | `wp-toolkit/list-posts` | `ai-content-abilities` | enabled | `edit_posts` |
 | `wp-toolkit/get-option-field` | `ai-content-abilities` | ACF active | `edit_posts` |
@@ -42,13 +44,19 @@ Without this, the ability exists in `wp_get_abilities()` and shows up in the AI 
 
 There is deliberately no delete ability.
 
+## Site context vs. the exposure whitelist
+
+`list-post-types` and `list-taxonomies` always report on **every** post type / taxonomy registered on the site (`show_ui => true`, i.e. anything an admin would see in wp-admin) — not just the ones exposed to AI agents. Each item carries `read_access`/`write_access` (post types) or `exposed`/`write_access` (taxonomies) flags reflecting the current whitelist, so an agent always has full site context even for content it can't touch, and can explain *why* a call to `get-post` or `create-post` failed for a given type rather than just seeing an opaque error.
+
+This is deliberate: visibility (what exists) and access (what can be read/written) are separate concerns. Don't gate `list-post-types`/`list-taxonomies` behind the whitelist — they must stay independent of it or they lose their purpose.
+
 ## Post type / taxonomy whitelist
 
-`AI_CONTENT_ABILITIES_POST_TYPES` in `ai-content-abilities.php` is the hard ceiling: `post`, `page`, plus the CPTs WP Toolkit's own ACF tweaks register (`faq`, `service-area`, `team-member`, `testimonial`, `location`, `project`). CPTs from unrelated plugins are never exposed, regardless of admin settings.
+There is no hardcoded ceiling — any post type registered on the site with `show_ui => true` can be selected in the "Expose post types" checkbox setting (`ai_content_site_post_types()`), the same pool `list-post-types` reports on. Nothing is exposed until explicitly checked; the checkbox list is itself intersected with the current site's post types at registration time (`ai_content_allowed_post_types()`), so a deactivated plugin's CPT silently drops out of exposure even if it's still checked in the option value.
 
-The "Expose post types" checkbox setting (default: `post`, `page` only) selects a subset of that ceiling — and is further intersected with `post_type_exists()` at registration time, so disabling a CPT's own tweak (e.g. `acf-faq`) removes it from exposure even if it's still checked in the AI tab.
+Allowed taxonomies are derived from `get_object_taxonomies()` on the allowed (exposed) post types — not independently configurable via a setting. `list-taxonomies`, however, reports on all `show_ui => true` taxonomies regardless of exposure, per above.
 
-Allowed taxonomies are derived from `get_object_taxonomies()` on the allowed post types (not independently configurable) — there's no separate taxonomy whitelist setting.
+If no post types are selected, `get-post`/`list-posts`/`create-post`/etc. still register (so `list-post-types` and `get-option-field` keep working), with an empty `post_type`/`taxonomy` schema `enum`. WP core's `rest_validate_value_from_schema()` skips the enum check entirely when `enum` is empty (`!empty($args['enum'])` guards it) — it does **not** reject every value — so the real gate is the `in_array($post_type, $allowed_post_types, true)` check every execute_callback does at runtime, which returns a clear "not exposed" `WP_Error`. The schema `enum` is a discoverability hint for the calling agent when non-empty; it is not the enforcement boundary.
 
 ## Content write conventions
 
