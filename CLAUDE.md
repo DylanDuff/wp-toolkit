@@ -156,16 +156,26 @@ if (get_option('ddwpt_my_tweak_enabled')) {
             'label'               => 'My Ability',
             'description'         => 'What this ability does.',
             'category'            => 'site',     // core categories: 'site', 'user'
+            'input_schema'        => [            // required even for no-arg abilities — see docs/ai-abilities.md
+                'type'                 => ['object', 'null'],
+                'properties'           => [],
+                'additionalProperties' => false,
+            ],
             'output_schema'       => ['type' => 'string', 'description' => '...'],
             'execute_callback'    => static function () { return '...'; },
             'permission_callback' => static function () { return current_user_can('read'); },
-            'meta'                => ['show_in_rest' => true],
+            'meta'                => [
+                'show_in_rest' => true,
+                'mcp'          => ['public' => true], // required or mcp-adapter silently excludes it from tool discovery
+            ],
         ]);
     });
 }
 ```
 
 Ability names must match `/^[a-z0-9-]+\/[a-z0-9-]+$/`. Categories must be registered on `wp_abilities_api_categories_init` before use; core provides `site` and `user`. The tweak `callback` can be a no-op when registration is handled at file-load time.
+
+**`meta.mcp.public` and `input_schema` are both easy to forget and fail silently** (the ability just never shows up as an MCP tool, or errors out on empty-arg calls). See `docs/ai-abilities.md` for why, plus the full pattern used by the content abilities in `ai-content-abilities.php`.
 
 ---
 
@@ -200,5 +210,6 @@ Markdown articles auto-discovered from the directory. `manifest.php` provides in
 | `tweak-system.md` | Full tweak definition reference, all field types |
 | `knowledge-base.md` | KB article authoring, display modes |
 | `settings-export-import.md` | Export/import security and portability |
+| `ai-abilities.md` | Registered AI abilities, MCP visibility gotchas, whitelist mechanism |
 
 Keep docs current when features change materially.
