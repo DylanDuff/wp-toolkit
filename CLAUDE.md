@@ -192,6 +192,7 @@ Tweaks under the `bricks` tab. Custom Bricks elements live in `inc/elements/` as
 | WordPress | Yes | 6.9+ recommended for AI tab abilities list |
 | ACF PRO | No | Multiple tweaks; guard with `class_exists('ACF')` |
 | Bricks Builder | No | 6+ tweaks; guard with `defined('BRICKS_VERSION')` |
+| Redirection | No | AI redirect-management abilities; guard with `defined('REDIRECTION_VERSION')` |
 
 `plugin-update-checker/` is vendored (YahnisElsts v5.6+). Do not remove.
 
