@@ -1,0 +1,111 @@
+.brxe-prefix-embla-slider {
+    position: relative;
+}
+
+.brxe-prefix-embla-slider .embla__viewport {
+    overflow: hidden;
+}
+
+.brxe-prefix-embla-slider.embla--auto-height .embla__viewport {
+    transition: height 0.3s ease;
+}
+
+.brxe-prefix-embla-slider .embla__container {
+    display: flex;
+    touch-action: pan-y pinch-zoom;
+    backface-visibility: hidden;
+    /* column-gap is set via Bricks CSS control */
+}
+
+.brxe-prefix-embla-slider[data-embla-axis="y"] .embla__container {
+    flex-direction: column;
+}
+
+.brxe-prefix-embla-slider .embla__slide {
+    min-width: 0;
+    flex: 0 0 var(--embla-slide-size, 100%);
+    /* height is set via Bricks CSS controls */
+}
+
+.brxe-prefix-embla-slider[data-embla-axis="y"] .embla__slide {
+    min-height: 0;
+    flex: 0 0 var(--embla-slide-size, auto);
+}
+
+/* Arrows */
+
+.brxe-prefix-embla-slider .embla__button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    padding: 0;
+    cursor: pointer;
+    background-color: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    appearance: none;
+    -webkit-appearance: none;
+    font-size: 1.25rem;
+    line-height: 1;
+    color: inherit;
+}
+
+.brxe-prefix-embla-slider .embla__button--prev {
+    left: 0;
+}
+
+.brxe-prefix-embla-slider .embla__button--next {
+    right: 0;
+}
+
+.brxe-prefix-embla-slider .embla__button:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.brxe-prefix-embla-slider .embla__button svg {
+    width: 1em;
+    height: 1em;
+    pointer-events: none;
+    flex-shrink: 0;
+}
+
+/* Pagination dots */
+
+.brxe-prefix-embla-slider .embla__dots {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.brxe-prefix-embla-slider .embla__dot {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 0;
+    padding: 0;
+    margin: 5px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: currentColor;
+    opacity: 0.3;
+    transition: opacity 0.2s ease, width 0.2s ease, height 0.2s ease;
+}
+
+.brxe-prefix-embla-slider .embla__dot.is-active {
+    opacity: 1;
+}
