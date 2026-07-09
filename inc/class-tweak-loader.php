@@ -70,15 +70,26 @@ class Tweak_Loader
     public function load_all()
     {
         $directory = __DIR__ . '/tweaks/';
-        $files = array_map(
-            fn($slug) => $directory . $slug . '.php',
-            self::ALLOWED_TWEAKS
-        );
+        $tweaks    = [];
+        $failed    = [];
 
-        $tweaks = [];
+        foreach (self::ALLOWED_TWEAKS as $slug) {
+            $file = $directory . $slug . '.php';
 
-        foreach ($files as $file) {
-            $def = require $file;
+            // Missing files used to fatal the whole site via require().
+            if (!file_exists($file)) {
+                $failed[] = $slug;
+                error_log("WP Toolkit: tweak file missing, skipped '{$slug}' ({$file})");
+                continue;
+            }
+
+            try {
+                $def = require $file;
+            } catch (\Throwable $e) {
+                $failed[] = $slug;
+                error_log("WP Toolkit: tweak '{$slug}' failed to load: " . $e->getMessage());
+                continue;
+            }
 
             if (!$this->validate($def)) continue;
 
@@ -114,6 +125,17 @@ class Tweak_Loader
                 }
 
                 call_user_func($def['callback'], $settings);
+            });
+        }
+
+        if (!empty($failed)) {
+            add_action('admin_notices', function () use ($failed) {
+                if (!current_user_can('manage_options')) return;
+                printf(
+                    '<div class="notice notice-error"><p><strong>WP Toolkit:</strong> %d tweak(s) failed to load and were skipped, so the rest of the site keeps working: <code>%s</code>. Check the PHP error log for details.</p></div>',
+                    count($failed),
+                    esc_html(implode(', ', $failed))
+                );
             });
         }
 
