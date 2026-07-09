@@ -13,6 +13,7 @@ class Tweak_Loader
         'ai-redirection-abilities',
         'ai-site-instructions',
         'ai-field-architecture',
+        'ai-acf-field-abilities',
         'acf-abilities-api',
         'acf-settings',
         'acf-site-options',
