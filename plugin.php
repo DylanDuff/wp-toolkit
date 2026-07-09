@@ -3,7 +3,7 @@
 /**
  * Plugin Name: WP Toolkit
  * Description: Modular WP admin tweaks loaded from individual drop-in files.
- * Version: 1.4.5
+ * Version: 1.4.6
  * Author:      Dylan Duff
  * Author URI:  https://dylanduff.com
  * GitHub URI:  https://github.com/DylanDuff/wp-toolkit
