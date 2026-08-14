@@ -1,5 +1,7 @@
+/* Full width by default; the Bricks width control (#brxe-{id}) overrides this. */
 .brxe-prefix-embla-slider {
     position: relative;
+    width: 100%;
 }
 
 .brxe-prefix-embla-slider .embla__viewport {
@@ -14,22 +16,63 @@
     display: flex;
     touch-action: pan-y pinch-zoom;
     backface-visibility: hidden;
-    /* column-gap is set via Bricks CSS control */
+    column-gap: var(--embla-gap, 1rem);
 }
 
 .brxe-prefix-embla-slider[data-embla-axis="y"] .embla__container {
     flex-direction: column;
+    column-gap: normal;
+    row-gap: var(--embla-gap, 1rem);
 }
 
+/*
+ * Slide size. Gaps sit *between* slides, so showing N per view means the
+ * viewport also has to fit N-1 gaps — subtract them before dividing, or the
+ * last visible slide is clipped by the accumulated gap width.
+ * Both custom properties come from breakpoint-aware Bricks controls: --embla-per-page
+ * from "Items to show", --embla-gap from "Spacing". The fallbacks mirror those
+ * controls' defaults (see Prefix_Element_Embla_Slider::DEFAULT_PER_PAGE).
+ */
 .brxe-prefix-embla-slider .embla__slide {
     min-width: 0;
-    flex: 0 0 var(--embla-slide-size, 100%);
+    flex: 0 0 calc((100% - (var(--embla-per-page, 2) - 1) * var(--embla-gap, 1rem)) / var(--embla-per-page, 2));
     /* height is set via Bricks CSS controls */
 }
 
 .brxe-prefix-embla-slider[data-embla-axis="y"] .embla__slide {
     min-height: 0;
-    flex: 0 0 var(--embla-slide-size, auto);
+}
+
+/*
+ * Loop seam gap. Embla loops by translating slides, and a transform does not carry
+ * the container's column-gap — so the wrap point between last and first is flush.
+ *
+ * Embla's fix is a trailing margin on the LAST SLIDE, which it reads directly:
+ *   getComputedStyle(lastSlide).getPropertyValue('margin-' + endEdge)
+ * and adds to that slide's measured size-with-gap. Three consequences:
+ *
+ * 1. It must be on .embla__slide:last-child. A margin on .embla__container is
+ *    never looked at.
+ * 2. Physical properties only, matching the axis Embla reads: margin-right for
+ *    horizontal LTR, margin-left for RTL, margin-bottom for vertical. A logical
+ *    margin-inline-end resolves to margin-right regardless of Embla's direction
+ *    option unless the document dir is also set, so it silently misses on RTL.
+ * 3. .embla--loop must already be on the root when EmblaCarousel() measures.
+ *    Margin does not change the border box, so ResizeObserver will not fire and
+ *    a class added after init is never picked up. The JS sets it before init.
+ */
+.brxe-prefix-embla-slider.embla--loop .embla__slide:last-child {
+    margin-right: var(--embla-gap, 1rem);
+}
+
+.brxe-prefix-embla-slider.embla--loop[data-embla-dir="rtl"] .embla__slide:last-child {
+    margin-right: 0;
+    margin-left: var(--embla-gap, 1rem);
+}
+
+.brxe-prefix-embla-slider.embla--loop[data-embla-axis="y"] .embla__slide:last-child {
+    margin-right: 0;
+    margin-bottom: var(--embla-gap, 1rem);
 }
 
 /* Arrows */

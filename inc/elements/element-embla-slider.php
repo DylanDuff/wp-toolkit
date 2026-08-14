@@ -7,6 +7,22 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
     public $icon     = 'ti-layout-slider';
     public $nestable = true;
 
+    /**
+     * Global JS functions Bricks calls after it (re-)renders this element.
+     *
+     * The builder replaces element markup via Vue, so any <script> we output in
+     * render() never executes there. Bricks' own mechanism is this array: it
+     * calls window[<name>]() in the canvas iframe on every re-render.
+     * @see Bricks Elements::register_element() + builder runElementScripts()
+     */
+    public $scripts = [ 'prefixEmblaInit' ];
+
+    /**
+     * Default for the 'perPage' control. The --embla-per-page fallback in
+     * prefix-embla-slider.css mirrors this — keep the two in step.
+     */
+    const DEFAULT_PER_PAGE = 2;
+
     public function get_label() {
         return esc_html__( 'Embla Slider', 'bricks' ) . ' (' . esc_html__( 'Nestable', 'bricks' ) . ')';
     }
@@ -15,20 +31,27 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
         return [ 'slider', 'carousel', 'nestable', 'embla' ];
     }
 
+    /**
+     * Vendored Embla version — see inc/elements/js/vendor/README.md before bumping.
+     * Embla 9 renamed several options we pass (startIndex, watchResize, watchSlides,
+     * watchDrag), so a major bump needs render() updated in the same commit.
+     */
+    const EMBLA_VERSION = '8.6.0';
+
     public function enqueue_scripts() {
         wp_enqueue_script(
             'embla-carousel',
-            'https://cdn.jsdelivr.net/npm/embla-carousel@8/embla-carousel.umd.js',
+            plugin_dir_url( __FILE__ ) . 'js/vendor/embla-carousel.umd.js',
             [],
-            null,
+            self::EMBLA_VERSION,
             true
         );
 
         wp_enqueue_script(
             'embla-carousel-autoplay',
-            'https://cdn.jsdelivr.net/npm/embla-carousel-autoplay@8/embla-carousel-autoplay.umd.js',
+            plugin_dir_url( __FILE__ ) . 'js/vendor/embla-carousel-autoplay.umd.js',
             [ 'embla-carousel' ],
-            null,
+            self::EMBLA_VERSION,
             true
         );
 
@@ -36,7 +59,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
             'prefix-embla-slider',
             plugin_dir_url( __FILE__ ) . 'js/prefix-embla-slider.js',
             [ 'embla-carousel', 'embla-carousel-autoplay' ],
-            '1.0',
+            DDWPT_VERSION,
             true
         );
 
@@ -44,7 +67,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
             'prefix-embla-slider',
             plugin_dir_url( __FILE__ ) . 'css/prefix-embla-slider.css',
             [],
-            '1.0'
+            DDWPT_VERSION
         );
     }
 
@@ -70,11 +93,8 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
         // Redirect built-in height control to slides
         $this->controls['_height']['css'][0]['selector'] = '.embla__slide';
 
-        $this->controls['_background']['default'] = [
-            'color' => [
-                'hex' => '#e6e7e8',
-            ],
-        ];
+        // Slider is full width unless the width control overrides it (see CSS)
+        $this->controls['_width']['placeholder'] = '100%';
 
         $this->controls['_children'] = [
             'type'          => 'repeater',
@@ -94,6 +114,15 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
             ],
             'inline'      => true,
             'placeholder' => esc_html__( 'Loop', 'bricks' ),
+        ];
+
+        // '!=' rather than "= loop" so this also shows while Type is untouched,
+        // which renders as loop (see render()).
+        $this->controls['typeLoopInfo'] = [
+            'group'    => 'options',
+            'content'  => esc_html__( 'Embla automatically falls back to false if slide content isn\'t enough to create the loop effect without visible glitches.', 'bricks' ),
+            'type'     => 'info',
+            'required' => [ 'type', '!=', 'slide' ],
         ];
 
         $this->controls['direction'] = [
@@ -157,14 +186,16 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
             'label'       => esc_html__( 'Spacing', 'bricks' ),
             'type'        => 'number',
             'units'       => true,
-            'placeholder' => 0,
             'breakpoints' => true,
+            // Written as a custom property (not column-gap directly) so the slide
+            // size calc can subtract the gaps — see prefix-embla-slider.css.
             'css'         => [
                 [
-                    'property' => 'column-gap',
-                    'selector' => '.embla__container',
+                    'property' => '--embla-gap',
+                    'selector' => '',
                 ],
             ],
+            'default'     => '1rem',
         ];
 
         $this->controls['start'] = [
@@ -174,12 +205,27 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
             'placeholder' => 0,
         ];
 
+        // Written as a unitless custom property so it can vary per breakpoint. A
+        // 'number' control with no 'unit'/'units' key emits the bare value (Bricks
+        // Assets::generate_css_from_element) — adding units here would yield "3px".
         $this->controls['perPage'] = [
             'group'       => 'options',
             'label'       => esc_html__( 'Items to show', 'bricks' ),
             'type'        => 'number',
-            'placeholder' => 1,
             'min'         => 1,
+            // Fractional values are valid (2.5, 3.5 for a peek effect) — Embla has no
+            // per-page concept, it measures whatever width the CSS gives each slide.
+            // Without this the input defaults to step="1" and rejects decimals.
+            'step'        => 'any',
+            'breakpoints' => true,
+            'css'         => [
+                [
+                    'property' => '--embla-per-page',
+                    'selector' => '',
+                ],
+            ],
+            'default'     => self::DEFAULT_PER_PAGE,
+            'desc'        => esc_html__( 'Decimals allowed, e.g. 3.5 to peek the next slide.', 'bricks' ),
         ];
 
         $this->controls['perMove'] = [
@@ -249,17 +295,25 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
         // SLIDE
 
         $this->controls['slidePadding'] = [
-            'group' => 'slide',
-            'label' => esc_html__( 'Padding', 'bricks' ),
-            'type'  => 'spacing',
-            'css'   => [
+            'group'   => 'slide',
+            'label'   => esc_html__( 'Padding', 'bricks' ),
+            'type'    => 'spacing',
+            'css'     => [
                 [
                     'property' => 'padding',
                     'selector' => '.embla__slide',
                 ],
             ],
+            'default' => [
+                'top'    => '1rem',
+                'right'  => '1rem',
+                'bottom' => '1rem',
+                'left'   => '1rem',
+            ],
         ];
 
+        // Slides are Bricks blocks (flex column), so align-items is the horizontal
+        // axis and justify-content the vertical one — hence the label/property pairing.
         $this->controls['slideAlignHorizontal'] = [
             'group'   => 'slide',
             'label'   => esc_html__( 'Align horizontal', 'bricks' ),
@@ -272,6 +326,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                     'selector' => '.embla__slide',
                 ],
             ],
+            'default' => 'center',
         ];
 
         $this->controls['slideAlignVertical'] = [
@@ -286,6 +341,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                     'selector' => '.embla__slide',
                 ],
             ],
+            'default' => 'center',
         ];
 
         $this->controls['slideBackground'] = [
@@ -302,25 +358,46 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
         ];
 
         $this->controls['slideBorder'] = [
-            'group' => 'slide',
-            'label' => esc_html__( 'Border', 'bricks' ),
-            'type'  => 'border',
-            'css'   => [
+            'group'   => 'slide',
+            'label'   => esc_html__( 'Border', 'bricks' ),
+            'type'    => 'border',
+            'css'     => [
                 [
                     'property' => 'border',
                     'selector' => '.embla__slide',
+                ],
+            ],
+            'default' => [
+                'width' => [
+                    'top'    => 1,
+                    'right'  => 1,
+                    'bottom' => 1,
+                    'left'   => 1,
+                ],
+                'style' => 'solid',
+                'color' => [
+                    'hex' => '#cccccc',
                 ],
             ],
         ];
 
         // ARROWS
 
+        // 'builtin' renders the arrows inside the element and styles them with the
+        // controls below. 'custom' renders none and binds the user's own elements
+        // anywhere on the page instead — the two are mutually exclusive.
         $this->controls['arrows'] = [
-            'group'    => 'arrows',
-            'label'    => esc_html__( 'Show', 'bricks' ),
-            'type'     => 'checkbox',
-            'inline'   => true,
-            'rerender' => true,
+            'group'       => 'arrows',
+            'label'       => esc_html__( 'Mode', 'bricks' ),
+            'type'        => 'select',
+            'options'     => [
+                'none'    => esc_html__( 'None', 'bricks' ),
+                'builtin' => esc_html__( 'Built-in', 'bricks' ),
+                'custom'  => esc_html__( 'Custom', 'bricks' ),
+            ],
+            'inline'      => true,
+            'placeholder' => esc_html__( 'None', 'bricks' ),
+            'rerender'    => true,
         ];
 
         $this->controls['arrowHeight'] = [
@@ -335,7 +412,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                 ],
             ],
             'placeholder' => 50,
-            'required'    => [ 'arrows', '!=', '' ],
+            'required'    => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['arrowWidth'] = [
@@ -350,7 +427,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                 ],
             ],
             'placeholder' => 50,
-            'required'    => [ 'arrows', '!=', '' ],
+            'required'    => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['arrowBackground'] = [
@@ -363,7 +440,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                     'selector' => '.embla__button',
                 ],
             ],
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['arrowBorder'] = [
@@ -376,7 +453,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                     'selector' => '.embla__button',
                 ],
             ],
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['arrowColor'] = [
@@ -397,7 +474,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                     'selector' => '.embla__button svg',
                 ],
             ],
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['arrowSize'] = [
@@ -427,7 +504,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                     'selector' => '.embla__button',
                 ],
             ],
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['arrowTextShadow'] = [
@@ -440,7 +517,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                     'selector' => '.embla__button',
                 ],
             ],
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         // Disabled state
@@ -449,7 +526,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
             'group'    => 'arrows',
             'label'    => esc_html__( 'Disabled', 'bricks' ),
             'type'     => 'separator',
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['arrowDisabledBackground'] = [
@@ -462,7 +539,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                     'selector' => '.embla__button:disabled',
                 ],
             ],
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['arrowDisabledBorder'] = [
@@ -475,7 +552,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                     'selector' => '.embla__button:disabled',
                 ],
             ],
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['arrowDisabledColor'] = [
@@ -492,7 +569,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                     'selector' => '.embla__button:disabled svg',
                 ],
             ],
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['arrowDisabledOpacity'] = [
@@ -509,7 +586,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                     'selector' => '.embla__button:disabled',
                 ],
             ],
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         // Prev arrow
@@ -518,7 +595,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
             'group'    => 'arrows',
             'label'    => esc_html__( 'Prev arrow', 'bricks' ),
             'type'     => 'separator',
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['prevArrow'] = [
@@ -526,7 +603,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
             'label'    => esc_html__( 'Prev arrow', 'bricks' ),
             'type'     => 'icon',
             'rerender' => true,
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['prevArrowTop'] = [
@@ -541,7 +618,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                 ],
             ],
             'placeholder' => '50%',
-            'required'    => [ 'arrows', '!=', '' ],
+            'required'    => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['prevArrowRight'] = [
@@ -555,7 +632,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                     'selector' => '.embla__button--prev',
                 ],
             ],
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['prevArrowBottom'] = [
@@ -569,7 +646,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                     'selector' => '.embla__button--prev',
                 ],
             ],
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['prevArrowLeft'] = [
@@ -583,7 +660,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                     'selector' => '.embla__button--prev',
                 ],
             ],
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['prevArrowTransform'] = [
@@ -596,7 +673,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                     'selector' => '.embla__button--prev',
                 ],
             ],
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         // Next arrow
@@ -605,7 +682,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
             'group'    => 'arrows',
             'label'    => esc_html__( 'Next arrow', 'bricks' ),
             'type'     => 'separator',
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['nextArrow'] = [
@@ -613,7 +690,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
             'label'    => esc_html__( 'Next arrow', 'bricks' ),
             'type'     => 'icon',
             'rerender' => true,
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['nextArrowTop'] = [
@@ -628,7 +705,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                 ],
             ],
             'placeholder' => '50%',
-            'required'    => [ 'arrows', '!=', '' ],
+            'required'    => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['nextArrowRight'] = [
@@ -642,7 +719,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                     'selector' => '.embla__button--next',
                 ],
             ],
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['nextArrowBottom'] = [
@@ -656,7 +733,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                     'selector' => '.embla__button--next',
                 ],
             ],
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['nextArrowLeft'] = [
@@ -670,7 +747,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                     'selector' => '.embla__button--next',
                 ],
             ],
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
         ];
 
         $this->controls['nextArrowTransform'] = [
@@ -683,7 +760,40 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                     'selector' => '.embla__button--next',
                 ],
             ],
-            'required' => [ 'arrows', '!=', '' ],
+            'required' => [ 'arrows', '=', 'builtin' ],
+        ];
+
+        // Custom arrows
+        //
+        // These deliberately carry no 'css' key. A control with one only patches the
+        // builder stylesheet and skips the AJAX re-render, so prefixEmblaInit() would
+        // never re-run and the new bindings would never attach.
+
+        $this->controls['customArrowsInfo'] = [
+            'group'    => 'arrows',
+            'content'  => esc_html__( 'Bind your own elements anywhere on the page as slider controls. Every element matching the selector is bound, and gets the class "is-disabled" when it can\'t scroll any further.', 'bricks' ),
+            'type'     => 'info',
+            'required' => [ 'arrows', '=', 'custom' ],
+        ];
+
+        $this->controls['prevArrowSelector'] = [
+            'group'       => 'arrows',
+            'label'       => esc_html__( 'Prev selector', 'bricks' ),
+            'type'        => 'text',
+            'placeholder' => '.my-prev-button',
+            'rerender'    => true,
+            'desc'        => esc_html__( 'CSS selector of your own previous control, e.g. .my-prev-button', 'bricks' ),
+            'required'    => [ 'arrows', '=', 'custom' ],
+        ];
+
+        $this->controls['nextArrowSelector'] = [
+            'group'       => 'arrows',
+            'label'       => esc_html__( 'Next selector', 'bricks' ),
+            'type'        => 'text',
+            'placeholder' => '.my-next-button',
+            'rerender'    => true,
+            'desc'        => esc_html__( 'CSS selector of your own next control, e.g. .my-next-button', 'bricks' ),
+            'required'    => [ 'arrows', '=', 'custom' ],
         ];
 
         // PAGINATION (dots)
@@ -982,16 +1092,24 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
     }
 
     public function render() {
-        $settings  = $this->settings;
-        $type      = $settings['type'] ?? 'loop';
-        $direction = $settings['direction'] ?? 'ltr';
-        $per_page  = ! empty( $settings['perPage'] ) ? max( 1, intval( $settings['perPage'] ) ) : 1;
+        $settings    = $this->settings;
+        $type        = $settings['type'] ?? 'loop';
+        $direction   = $settings['direction'] ?? 'ltr';
+        $arrows_mode = $settings['arrows'] ?? 'none';
 
+        // No inline --embla-per-page: it comes from the perPage control's generated
+        // CSS so it can differ per breakpoint. An inline style would outrank the
+        // media queries and pin every breakpoint to one value.
         $this->set_attribute( '_root', 'class', 'embla' );
-        $this->set_attribute( '_root', 'style', '--embla-slide-size:' . ( $per_page > 1 ? 'calc(100% / ' . $per_page . ')' : '100%' ) );
 
         if ( $direction === 'ttb' ) {
             $this->set_attribute( '_root', 'data-embla-axis', 'y' );
+        }
+
+        // Marks which physical edge the loop seam margin belongs on — Embla reads
+        // margin-left rather than margin-right when direction is rtl.
+        if ( $direction === 'rtl' ) {
+            $this->set_attribute( '_root', 'data-embla-dir', 'rtl' );
         }
 
         // Core Embla options
@@ -1024,6 +1142,19 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
             $config['autoHeight'] = true;
         }
 
+        // Selectors are resolved document-wide by the JS — the point is that these
+        // controls can live anywhere on the page, not inside the slider. Only passed
+        // in custom mode so a leftover selector can't keep binding after a switch.
+        if ( $arrows_mode === 'custom' ) {
+            if ( ! empty( $settings['prevArrowSelector'] ) ) {
+                $config['prevArrowSelector'] = trim( $settings['prevArrowSelector'] );
+            }
+
+            if ( ! empty( $settings['nextArrowSelector'] ) ) {
+                $config['nextArrowSelector'] = trim( $settings['nextArrowSelector'] );
+            }
+        }
+
         $this->set_attribute( '_root', 'data-embla', esc_attr( wp_json_encode( $config ) ) );
 
         $output  = "<div {$this->render_attributes( '_root' )}>";
@@ -1033,7 +1164,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
         $output .= '</div>';
         $output .= '</div>';
 
-        if ( isset( $settings['arrows'] ) ) {
+        if ( $arrows_mode === 'builtin' ) {
             $output .= $this->render_arrows();
         }
 
@@ -1043,19 +1174,8 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
 
         $output .= '</div>';
 
-        // Inline loader — mirrors the Mapbox/Unicorn Studio pattern so the builder re-initialises
-        // this element on every settings change without relying on wp_enqueue_script in AJAX context.
-        $embla_cdn    = 'https://cdn.jsdelivr.net/npm/embla-carousel@8/embla-carousel.umd.js';
-        $autoplay_cdn = 'https://cdn.jsdelivr.net/npm/embla-carousel-autoplay@8/embla-carousel-autoplay.umd.js';
-        $init_js_url  = plugin_dir_url( __FILE__ ) . 'js/prefix-embla-slider.js';
-
-        $output .= '<script>(function(){';
-        $output .= 'var e=' . wp_json_encode( $embla_cdn ) . ',a=' . wp_json_encode( $autoplay_cdn ) . ',i=' . wp_json_encode( $init_js_url ) . ';';
-        $output .= 'function run(){if(typeof window.prefixEmblaInit==="function")window.prefixEmblaInit();}';
-        $output .= 'function load(src,cb){if(document.querySelector(\'script[src="\'+src+\'"]\'))return cb();var s=document.createElement("script");s.src=src;s.onload=cb;document.head.appendChild(s);}';
-        $output .= 'if(typeof EmblaCarousel!=="undefined"&&typeof window.prefixEmblaInit==="function"){run();}';
-        $output .= 'else{load(e,function(){load(a,function(){load(i,run);});});}';
-        $output .= '})();</script>';
+        // No inline loader: enqueue_scripts() runs on the frontend (Element::init) and in the
+        // builder iframe (Elements::register_element), and $scripts handles re-initialising.
 
         echo $output;
     }

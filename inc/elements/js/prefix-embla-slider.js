@@ -4,6 +4,74 @@
     // Keyed by element id — lets us destroy stale instances when the builder re-renders
     var instances = {};
 
+    // Keyed by element id, alongside instances. Custom arrows matched by a user
+    // selector live outside the slider root, so they survive the builder's re-render
+    // and would stack a fresh click listener on every init. Aborting the previous
+    // controller removes every listener we attached with its signal in one go.
+    var arrowControllers = {};
+
+    /**
+     * Resolve a user-supplied CSS selector document-wide.
+     *
+     * querySelectorAll throws on invalid selector syntax, so a half-typed selector in
+     * the builder would otherwise take the whole slider init down with it.
+     */
+    function queryCustomArrows(selector) {
+        if (typeof selector !== 'string' || !selector) return [];
+
+        try {
+            return Array.prototype.slice.call(document.querySelectorAll(selector));
+        } catch (e) {
+            return [];
+        }
+    }
+
+    /**
+     * Embla's *effective* loop state, which is not always the requested one — see
+     * warnIfLoopDisabled(). Returns null when it can't be determined, since
+     * internalEngine() is advanced API that may change shape between versions.
+     */
+    function getEffectiveLoop(embla) {
+        var engine;
+
+        try {
+            engine = embla.internalEngine();
+        } catch (e) {
+            return null;
+        }
+
+        if (!engine || !engine.options) return null;
+
+        return !!engine.options.loop;
+    }
+
+    /**
+     * Embla turns `loop` off silently when slide content isn't enough to create the
+     * loop effect without visible glitches. Its canLoop() check requires the sum of
+     * all slide sizes, minus the largest single slide, to cover the viewport — so
+     * gaps, padding and variable slide widths all shift where the threshold lands.
+     *
+     * Nothing is logged by Embla itself, so a slider just quietly stops looping.
+     * Surface it in the builder where it's actionable.
+     */
+    function warnIfLoopDisabled(embla, options, root, container) {
+        if (!isBuilder || !options.loop) return;
+        if (getEffectiveLoop(embla) !== false) return;
+
+        var slideCount = container ? container.children.length : 0;
+        // Computed, not root.style — --embla-per-page lives in a breakpoint-aware
+        // stylesheet rule now, so the inline style attribute no longer carries it.
+        // parseFloat, not parseInt — fractional per-page values (3.5) are valid.
+        var perPage = parseFloat(getComputedStyle(root).getPropertyValue('--embla-per-page')) || 1;
+
+        console.warn(
+            '[Embla Slider] Embla fell back to loop: false — slide content is not enough to ' +
+            'create the loop effect without visible glitches. This slider has ' + slideCount +
+            ' slide(s) showing ' + perPage + ' at a time. Add slides, lower "Items to show", ' +
+            'or set Type to "Slide".'
+        );
+    }
+
     function buildEmbla(root) {
         if (typeof EmblaCarousel === 'undefined') return;
 
@@ -33,6 +101,12 @@
             delete instances[elementId];
         }
 
+        // Drop the previous init's arrow listeners before attaching this init's
+        if (elementId && arrowControllers[elementId]) {
+            arrowControllers[elementId].abort();
+            delete arrowControllers[elementId];
+        }
+
         // Add slide class to each direct child so CSS targeting works
         if (container) {
             Array.prototype.forEach.call(container.children, function (child) {
@@ -45,23 +119,66 @@
             plugins.push(EmblaCarouselAutoplay(config.autoplay));
         }
 
+        // Must be set BEFORE init. Embla reads the last slide's computed trailing
+        // margin once, while measuring, to size the loop seam gap (see the CSS).
+        // Margin does not change the border box, so ResizeObserver never fires for
+        // it — a class applied after init is silently ignored until something else
+        // forces a re-measure. Keyed off the requested option because the effective
+        // one isn't knowable until the engine exists; corrected below if it differs.
+        root.classList.toggle('embla--loop', !!options.loop);
+
         var embla = EmblaCarousel(viewport, options, plugins);
 
         if (elementId) {
             instances[elementId] = embla;
         }
 
-        // Arrows
-        if (prevBtn) {
-            prevBtn.addEventListener('click', function () { embla.scrollPrev(); });
-        }
-        if (nextBtn) {
-            nextBtn.addEventListener('click', function () { embla.scrollNext(); });
+        warnIfLoopDisabled(embla, options, root, container);
+
+        // Embla silently drops loop when slide content is too thin. Strip the seam
+        // margin back off so a non-looping slider doesn't carry phantom trailing
+        // space, and re-measure, since the margin was counted during init.
+        if (options.loop && getEffectiveLoop(embla) === false) {
+            root.classList.remove('embla--loop');
+            embla.reInit();
         }
 
+        // Arrows — the built-in buttons plus any elements matched by the custom selectors
+        var customPrevArrows = queryCustomArrows(config.prevArrowSelector);
+        var customNextArrows = queryCustomArrows(config.nextArrowSelector);
+
+        var arrowController = typeof AbortController === 'undefined' ? null : new AbortController();
+        var arrowListenerOptions = arrowController ? { signal: arrowController.signal } : false;
+
+        if (elementId && arrowController) {
+            arrowControllers[elementId] = arrowController;
+        }
+
+        function bindScrollPrev(arrow) {
+            arrow.addEventListener('click', function () { embla.scrollPrev(); }, arrowListenerOptions);
+        }
+
+        function bindScrollNext(arrow) {
+            arrow.addEventListener('click', function () { embla.scrollNext(); }, arrowListenerOptions);
+        }
+
+        if (prevBtn) bindScrollPrev(prevBtn);
+        if (nextBtn) bindScrollNext(nextBtn);
+
+        customPrevArrows.forEach(bindScrollPrev);
+        customNextArrows.forEach(bindScrollNext);
+
         function syncArrows() {
-            if (prevBtn) prevBtn.disabled = !embla.canScrollPrev();
-            if (nextBtn) nextBtn.disabled = !embla.canScrollNext();
+            var canScrollPrev = embla.canScrollPrev();
+            var canScrollNext = embla.canScrollNext();
+
+            if (prevBtn) prevBtn.disabled = !canScrollPrev;
+            if (nextBtn) nextBtn.disabled = !canScrollNext;
+
+            // Custom arrows are arbitrary elements, not necessarily <button>, so
+            // .disabled would be meaningless on them — expose the state as a class.
+            customPrevArrows.forEach(function (arrow) { arrow.classList.toggle('is-disabled', !canScrollPrev); });
+            customNextArrows.forEach(function (arrow) { arrow.classList.toggle('is-disabled', !canScrollNext); });
         }
 
         embla.on('init', syncArrows);
@@ -142,7 +259,8 @@
     }
     window.bricksFunctions.push({ run: initAll });
 
-    // Expose globally so inline scripts in render() can call us after builder re-renders
+    // Bricks calls this by name after re-rendering the element in the builder canvas.
+    // Must match the element's $scripts entry — see element-embla-slider.php.
     window.prefixEmblaInit = initAll;
 
     if (document.readyState === 'loading') {
