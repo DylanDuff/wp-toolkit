@@ -92,8 +92,10 @@ The knowledge base can be displayed as a **sidebar page** (its own admin menu en
 Detailed documentation is in [`docs/`](docs/):
 
 - [`tweak-system.md`](docs/tweak-system.md) — tweak definition format, all field types, tab system, settings ID prefixing, callback timing
+- [`bricks-elements.md`](docs/bricks-elements.md) — custom element architecture, builder re-render rules, vendored vs CDN policy, Embla Slider reference
 - [`knowledge-base.md`](docs/knowledge-base.md) — adding articles, display modes, manifest structure
 - [`settings-export-import.md`](docs/settings-export-import.md) — export/import behaviour, security model, portability notes
+- [`ai-abilities.md`](docs/ai-abilities.md) — registered AI abilities, MCP visibility gotchas, whitelist mechanism
 
 ---
 

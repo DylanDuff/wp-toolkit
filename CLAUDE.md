@@ -181,7 +181,14 @@ Ability names must match `/^[a-z0-9-]+\/[a-z0-9-]+$/`. Categories must be regist
 
 ## Bricks Builder Integrations
 
-Tweaks under the `bricks` tab. Custom Bricks elements live in `inc/elements/` as classes; companion JS in `elements/js/`. All Bricks code must guard with `defined('BRICKS_VERSION')`.
+Tweaks under the `bricks` tab. Custom Bricks elements live in `inc/elements/` as classes; companion JS in `elements/js/`, vendored third-party runtimes in `elements/js/vendor/`. All Bricks code must guard with `defined('BRICKS_VERSION')`.
+
+Two builder behaviours are undocumented upstream and fail silently — see `docs/bricks-elements.md`:
+
+- **`public $scripts = ['myInitFn']`** is the only way element JS re-runs after a builder re-render. A `<script>` emitted from `render()` works on the frontend and is inert in the canvas.
+- **A control with a `css` key does not trigger a re-render** (stylesheet is patched in place), so `$scripts` won't fire for it. Controls that change a JS runtime option must therefore *not* declare `css`. `'rerender' => true` forces one either way.
+
+Third-party runtimes are vendored or CDN-loaded per element, deliberately: vendor when nothing users author depends on the version (Embla), stay on a CDN when the runtime must track upstream export formats (Rive, Unicorn Studio, Mapbox). Always pin an exact version.
 
 ---
 
@@ -209,6 +216,7 @@ Markdown articles auto-discovered from the directory. `manifest.php` provides in
 | File | Covers |
 |---|---|
 | `tweak-system.md` | Full tweak definition reference, all field types |
+| `bricks-elements.md` | Custom element architecture, builder re-render rules, vendored vs CDN policy |
 | `knowledge-base.md` | KB article authoring, display modes |
 | `settings-export-import.md` | Export/import security and portability |
 | `ai-abilities.md` | Registered AI abilities, MCP visibility gotchas, whitelist mechanism |
