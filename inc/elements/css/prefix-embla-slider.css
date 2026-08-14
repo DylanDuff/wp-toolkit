@@ -44,6 +44,24 @@
 }
 
 /*
+ * Grid mode column wrapper, created by the JS when Rows > 1. Flex column rather
+ * than a CSS grid on purpose: the wrapper becomes the .embla__slide, so the Slide
+ * align controls (align-items / justify-content) have to keep meaning what they
+ * mean on a Bricks block, which is also a flex column. On a grid container those
+ * two properties would silently swap axes.
+ */
+.brxe-prefix-embla-slider .embla__group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--embla-gap, 1rem);
+}
+
+.brxe-prefix-embla-slider .embla__group > * {
+    flex: 1 1 0;
+    min-height: 0;
+}
+
+/*
  * Loop seam gap. Embla loops by translating slides, and a transform does not carry
  * the container's column-gap — so the wrap point between last and first is flush.
  *
@@ -122,7 +140,8 @@
 
 .brxe-prefix-embla-slider .embla__dots {
     position: absolute;
-    bottom: 0;
+    /* Sits below the slider by default; the Pagination position controls override. */
+    bottom: -3rem;
     left: 50%;
     transform: translateX(-50%);
     display: flex;

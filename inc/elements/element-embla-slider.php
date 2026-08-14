@@ -228,6 +228,21 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
             'desc'        => esc_html__( 'Decimals allowed, e.g. 3.5 to peek the next slide.', 'bricks' ),
         ];
 
+        // Grid mode. Embla is strictly one-dimensional — it derives every scroll snap
+        // from each slide's offsetLeft, so any wrapped or grid layout gives slides in
+        // the same column an identical offset and breaks snapping outright. Instead
+        // the JS groups children into columns of N, and Embla still sees a flat line.
+        // Not breakpoint-aware: this changes DOM structure, not CSS.
+        $this->controls['rows'] = [
+            'group'   => 'options',
+            'label'   => esc_html__( 'Rows', 'bricks' ),
+            'type'    => 'number',
+            'min'     => 1,
+            'step'    => 1,
+            'default' => 1,
+            'desc'    => esc_html__( 'Stack this many items per column. 1 is a single row. "Items to show" then counts columns.', 'bricks' ),
+        ];
+
         $this->controls['perMove'] = [
             'group'       => 'options',
             'label'       => esc_html__( 'Items to scroll', 'bricks' ),
@@ -1127,6 +1142,12 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
         $config = [
             'options' => $embla_options,
         ];
+
+        $rows = ! empty( $settings['rows'] ) ? max( 1, intval( $settings['rows'] ) ) : 1;
+
+        if ( $rows > 1 ) {
+            $config['rows'] = $rows;
+        }
 
         if ( isset( $settings['autoplay'] ) ) {
             $config['autoplay'] = [

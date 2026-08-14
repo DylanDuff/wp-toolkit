@@ -27,6 +27,45 @@
     }
 
     /**
+     * Grid mode. Embla is strictly one-dimensional: it measures every slide's
+     * offsetLeft and derives each scroll snap from the gaps between consecutive
+     * edges. A wrapped or CSS-grid layout gives slides in the same column an
+     * identical offset, which computes as a zero-width slide and corrupts both the
+     * snap list and canLoop(). So the DOM is regrouped instead — children are
+     * wrapped into columns of N, and Embla still sees one flat line of slides.
+     *
+     * Idempotent: any previous grouping is undone first, since the builder re-runs
+     * init against markup that may or may not already carry wrappers.
+     */
+    function applyRowGrouping(container, rows) {
+        if (!container) return;
+
+        // Unwrap previous groups, restoring the original children in order
+        var existing = container.querySelectorAll('[data-embla-group]');
+        Array.prototype.forEach.call(existing, function (group) {
+            while (group.firstChild) {
+                container.insertBefore(group.firstChild, group);
+            }
+            container.removeChild(group);
+        });
+
+        if (!(rows > 1)) return;
+
+        var items = Array.prototype.slice.call(container.children);
+
+        for (var i = 0; i < items.length; i += rows) {
+            var group = document.createElement('div');
+            group.setAttribute('data-embla-group', '');
+            group.className = 'embla__group';
+            container.insertBefore(group, items[i]);
+
+            for (var j = i; j < Math.min(i + rows, items.length); j++) {
+                group.appendChild(items[j]);
+            }
+        }
+    }
+
+    /**
      * Embla's *effective* loop state, which is not always the requested one — see
      * warnIfLoopDisabled(). Returns null when it can't be determined, since
      * internalEngine() is advanced API that may change shape between versions.
@@ -107,8 +146,17 @@
             delete arrowControllers[elementId];
         }
 
-        // Add slide class to each direct child so CSS targeting works
+        // Grid mode: regroup children into columns before anything measures them
+        applyRowGrouping(container, config.rows);
+
+        // A slide is whatever ends up a direct child — the items themselves, or the
+        // column wrappers in grid mode. Clear the class off everything first so items
+        // nested by a previous grouping stop claiming to be slides.
         if (container) {
+            Array.prototype.forEach.call(container.querySelectorAll('.embla__slide'), function (el) {
+                el.classList.remove('embla__slide');
+            });
+
             Array.prototype.forEach.call(container.children, function (child) {
                 child.classList.add('embla__slide');
             });

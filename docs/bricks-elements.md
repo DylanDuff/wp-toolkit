@@ -130,6 +130,24 @@ Three things follow from that one line, each of which fails silently on its own:
 
 Embla's *preferred* fix for gaps generally is slide padding plus a negative container margin. That isn't usable here: the Slide → Padding control writes a `padding` shorthand to `.embla__slide` at ID specificity and would clobber it.
 
+### Grid mode (Rows)
+
+`Rows > 1` stacks items into columns: the JS wraps every N children in a `.embla__group`, and "Items to show" then counts columns. `Rows = 1` is the default and skips wrapping entirely, so the normal path is unchanged.
+
+It has to be DOM regrouping rather than a CSS grid. Embla derives every scroll snap from the difference between consecutive slides' `offsetLeft`:
+
+```js
+h = rects.map((r, i, arr) => … arr[i + 1][startEdge] - r[startEdge]);
+```
+
+Any wrapped or `grid-auto-flow: column` layout gives same-column slides an identical offset, which computes as a zero-width slide and corrupts both the snap list and `canLoop()`. Grouping keeps Embla seeing one flat line.
+
+The wrapper is **flex-column, not a CSS grid**. It becomes the `.embla__slide`, so the Slide align controls (`align-items` / `justify-content`) must keep meaning what they mean on a Bricks block, which is also flex-column — on a grid container those two swap axes.
+
+`applyRowGrouping()` unwraps any previous grouping and clears stale `.embla__slide` classes before regrouping, because the builder re-runs init against markup that may or may not already carry wrappers.
+
+Unlike Items to show and Spacing, Rows is **not breakpoint-aware** — it changes DOM structure rather than CSS, so per-breakpoint values would need JS re-chunking on media query changes.
+
 ### Arrows
 
 The `arrows` control is a mode:
