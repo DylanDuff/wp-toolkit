@@ -6,9 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Modular WordPress admin plugin. Core concept: self-contained **tweaks** (PHP files in `inc/tweaks/`) that each define a settings form and a callback. The tweak loader wires everything together — no tweak touches the loader or UI code.
 
-No frontend assets. All JS/CSS is admin-only.
+Admin-only apart from the custom Bricks elements in `inc/elements/`, which enqueue frontend JS/CSS (and vendored runtimes) on pages that render them.
 
 **Slug:** `wp-toolkit` | **Namespace:** `DDWPTweaks` | **Admin URL:** `Tools → WP Toolkit`
+
+---
+
+## Issue tracking
+
+Work in progress, known gaps and follow-ups are tracked as **GitHub issues** on `DylanDuff/wp-toolkit` — not in a TODO file and not in code comments. File one rather than leaving a `TODO:` behind.
+
+```bash
+gh issue list
+gh issue create --title "..." --label enhancement --body "..."
+```
 
 ---
 
@@ -16,6 +27,7 @@ No frontend assets. All JS/CSS is admin-only.
 
 ```bash
 bash release.sh 1.2.3 "Changelog entry describing the change"
+bash release.sh minor "First entry" "Second entry"   # patch|minor|major also accepted
 ```
 
 Bumps `Version:` in `plugin.php`, packages a ZIP, commits/pushes, creates a GitHub release with the ZIP as an asset. A changelog entry argument is required. `Version:` header in `plugin.php` is the single source of truth — read at runtime with `get_file_data()`, not a constant.
