@@ -10,6 +10,10 @@
     // controller removes every listener we attached with its signal in one go.
     var arrowControllers = {};
 
+    // Keyed by element id. Auto-height watches its slides for late content; the
+    // observer outlives destroy(), so it has to be disconnected on re-init too.
+    var heightObservers = {};
+
     /**
      * Resolve a user-supplied CSS selector document-wide.
      *
@@ -26,6 +30,32 @@
         }
     }
 
+    /*
+     * Builder-only node. Bricks renders a nestable PHP element's children as Vue
+     * components held outside the element, then moves them into place at runtime:
+     *
+     *   Frontend::render_children()  → '<div class="brx-nestable-children-placeholder">'
+     *   BricksElementPHP.vue         → placeholder.after(...$refs.children.childNodes)
+     *
+     * The placeholder is the insertion anchor and stays in the DOM, so in the canvas
+     * .embla__container's first child is not a slide. It must be excluded from
+     * grouping and from Embla's slide list, and — critically — never moved into a
+     * group wrapper: Bricks inserts the re-rendered children *after* it, so an
+     * anchor sitting inside column 1 drops every child into column 1.
+     *
+     * On the frontend the placeholder is never emitted, which is why grid mode looked
+     * correct there and collapsed in the builder.
+     */
+    var CHILDREN_PLACEHOLDER = 'brx-nestable-children-placeholder';
+
+    function isSlideNode(node) {
+        return node.nodeType === 1 && !node.classList.contains(CHILDREN_PLACEHOLDER);
+    }
+
+    function slideNodesIn(container) {
+        return Array.prototype.filter.call(container.children, isSlideNode);
+    }
+
     /**
      * Grid mode. Embla is strictly one-dimensional: it measures every slide's
      * offsetLeft and derives each scroll snap from the gaps between consecutive
@@ -37,8 +67,35 @@
      * Idempotent: any previous grouping is undone first, since the builder re-runs
      * init against markup that may or may not already carry wrappers.
      */
+    /**
+     * Is the DOM already grouped the way this row count wants it?
+     *
+     * The frontend renders the groups server-side (Prefix_Element_Embla_Slider::render_slides),
+     * so regrouping there would tear down and rebuild markup that is already correct —
+     * cheap in itself, but moving a node in the DOM reloads any iframe inside it, which
+     * would restart embedded videos and maps on every init.
+     */
+    function groupingIsCurrent(container, rows) {
+        var kids = slideNodesIn(container);
+        if (!kids.length) return false;
+
+        for (var i = 0; i < kids.length; i++) {
+            if (!kids[i].hasAttribute('data-embla-group')) return false;
+
+            var count = kids[i].childElementCount;
+            var isLast = i === kids.length - 1;
+
+            // Only the last column may be short
+            if (isLast ? count < 1 || count > rows : count !== rows) return false;
+        }
+
+        return true;
+    }
+
     function applyRowGrouping(container, rows) {
         if (!container) return;
+
+        if (rows > 1 && groupingIsCurrent(container, rows)) return;
 
         // Unwrap previous groups, restoring the original children in order
         var existing = container.querySelectorAll('[data-embla-group]');
@@ -51,7 +108,7 @@
 
         if (!(rows > 1)) return;
 
-        var items = Array.prototype.slice.call(container.children);
+        var items = slideNodesIn(container);
 
         for (var i = 0; i < items.length; i += rows) {
             var group = document.createElement('div');
@@ -97,7 +154,7 @@
         if (!isBuilder || !options.loop) return;
         if (getEffectiveLoop(embla) !== false) return;
 
-        var slideCount = container ? container.children.length : 0;
+        var slideCount = container ? slideNodesIn(container).length : 0;
         // Computed, not root.style — --embla-per-page lives in a breakpoint-aware
         // stylesheet rule now, so the inline style attribute no longer carries it.
         // parseFloat, not parseInt — fractional per-page values (3.5) are valid.
@@ -146,6 +203,11 @@
             delete arrowControllers[elementId];
         }
 
+        if (elementId && heightObservers[elementId]) {
+            heightObservers[elementId].disconnect();
+            delete heightObservers[elementId];
+        }
+
         // Grid mode: regroup children into columns before anything measures them
         applyRowGrouping(container, config.rows);
 
@@ -157,10 +219,19 @@
                 el.classList.remove('embla__slide');
             });
 
-            Array.prototype.forEach.call(container.children, function (child) {
+            slideNodesIn(container).forEach(function (child) {
                 child.classList.add('embla__slide');
             });
         }
+
+        /*
+         * Be explicit about what Embla should measure. Left unset it takes *every*
+         * direct child of the container (engine.js: `S = [].slice.call(i || b.children)`),
+         * which in the builder includes Bricks' children placeholder — a zero-width
+         * phantom slide that shifts every snap, slide index and slideRegistry entry.
+         * Re-queried on each reInit, so slides added later (query loop) are picked up.
+         */
+        options.slides = ':scope > .embla__slide';
 
         var plugins = [];
         if (config.autoplay && typeof EmblaCarouselAutoplay !== 'undefined') {
@@ -233,6 +304,17 @@
         embla.on('select', syncArrows);
         embla.on('reInit', syncArrows);
 
+        // Cursor states. Driven by Embla's own pointer events rather than :active,
+        // so the grabbing cursor tracks a drag that started on a slide and continued
+        // outside it — and so a click that never moves doesn't flicker.
+        root.classList.toggle('embla--cursor', !!config.cursorStates);
+        root.classList.remove('embla--dragging');
+
+        if (config.cursorStates) {
+            embla.on('pointerDown', function () { root.classList.add('embla--dragging'); });
+            embla.on('pointerUp', function () { root.classList.remove('embla--dragging'); });
+        }
+
         // Pagination dots
         if (dotsEl) {
             var dots = [];
@@ -266,21 +348,87 @@
             embla.on('select', syncDots);
         }
 
-        // Auto height
-        if (config.autoHeight) {
-            root.classList.add('embla--auto-height');
+        // Auto height. The class also drops the container's align-items: stretch
+        // (see the CSS) — without that every slide is already the height of the
+        // tallest one, so measuring them all returns the same number.
+        root.classList.toggle('embla--auto-height', !!config.autoHeight);
 
-            function updateHeight() {
-                if (!container) return;
-                var slide = container.children[embla.selectedScrollSnap()];
-                if (slide) {
-                    viewport.style.height = slide.offsetHeight + 'px';
-                }
-            }
+        if (config.autoHeight) {
+            /**
+             * The slides covered by the current snap, which is not "slide N".
+             * selectedScrollSnap() is a snap index: with "Items to scroll" > 1, or a
+             * snap list trimmed by containScroll, it does not line up with the slide
+             * list — and with "Items to show" > 1 a single snap shows several slides
+             * at once, so the tallest of them has to set the height or the rest clip.
+             *
+             * slideRegistry maps snap → slide indexes and is what Embla itself uses
+             * for this; it is internal API, hence the fallback to the naive lookup.
+             */
+            var slidesForSnap = function () {
+                var snap = embla.selectedScrollSnap();
+                var registry;
+
+                try {
+                    registry = embla.internalEngine().slideRegistry;
+                } catch (e) {}
+
+                var indexes = registry && registry[snap] ? registry[snap] : [snap];
+                var nodes = embla.slideNodes();
+
+                return indexes
+                    .map(function (i) { return nodes[i]; })
+                    .filter(Boolean);
+            };
+
+            var updateHeight = function () {
+                var slides = slidesForSnap();
+                if (!slides.length) return;
+
+                var tallest = slides.reduce(function (max, slide) {
+                    return Math.max(max, slide.getBoundingClientRect().height);
+                }, 0);
+
+                if (tallest) viewport.style.height = tallest + 'px';
+            };
 
             embla.on('init', updateHeight);
             embla.on('select', updateHeight);
             embla.on('settle', updateHeight);
+            // Embla re-measures on resize and on slide changes; both can change how
+            // tall the current snap is (breakpoint-driven per-page, reflowed text).
+            embla.on('reInit', updateHeight);
+
+            /*
+             * Content that resizes after init — images without dimensions, web fonts,
+             * anything toggled by JS. Embla's own ResizeObserver only measures along
+             * the scroll axis (width, for a horizontal slider), so a slide growing
+             * taller never triggers its reInit and the height stays at whatever it
+             * was when the slider initialised.
+             */
+            if (typeof ResizeObserver !== 'undefined') {
+                var heightObserver = new ResizeObserver(function () {
+                    updateHeight();
+                });
+
+                embla.slideNodes().forEach(function (slide) {
+                    heightObserver.observe(slide);
+                });
+
+                if (elementId) heightObservers[elementId] = heightObserver;
+
+                // Embla rebuilds its slide list on reInit (e.g. slides added by a
+                // query loop); re-point the observer at the current nodes.
+                embla.on('reInit', function () {
+                    heightObserver.disconnect();
+                    embla.slideNodes().forEach(function (slide) {
+                        heightObserver.observe(slide);
+                    });
+                });
+            }
+        } else {
+            // Toggled off in the builder — the root survives the re-render, so a
+            // height pinned by a previous init would otherwise stick.
+            viewport.style.height = '';
         }
     }
 

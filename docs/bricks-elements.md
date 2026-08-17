@@ -55,6 +55,24 @@ A control **with** a `css` key only patches the generated stylesheet in the canv
 
 Geometry controls are the interesting middle case — they write CSS only, so no re-render, but the resulting size change still has to reach the JS. For the Embla slider that works because Embla's own `watchResize` ResizeObserver calls `reInit()`. An element without that kind of self-measurement would need `'rerender' => true`.
 
+### 3. `enqueue_scripts()` runs too late for CSS
+
+Bricks calls an element's `enqueue_scripts()` from `Element::init()` — while rendering the page body, after `wp_head()`. WordPress therefore prints the stylesheet as a **late style, in the footer**, and two things follow:
+
+- **The first paint has no element CSS.** For the slider that means no flex container: every slide stacks vertically at full width, then the page reflows into columns when the footer stylesheet lands. Highly visible on a grid-mode slider.
+- **Element defaults beat the user's style controls.** Bricks compiles a style control to `.brxe-{id} .embla__dot` — scope class plus target class, (0,2,0). A base rule written as `.brxe-{element-name} .embla__dot` ties it exactly, so source order decides, and the footer always comes last. The control silently does nothing.
+
+Both are fixed together:
+
+```php
+// Tweak: ahead of Bricks' inline CSS (Frontend::enqueue_inline_css, priority 11)
+add_action( 'wp_enqueue_scripts', fn() => Prefix_Element_Embla_Slider::maybe_enqueue_assets(), 5 );
+```
+
+`maybe_enqueue_assets()` scans `Bricks\Database::$page_data['header'|'content'|'footer']` — flat element lists per area, populated on `wp`, nested elements included — and enqueues only when the element is actually on the page. `enqueue_scripts()` stays as the fallback for what that check can't see: elements inside a Bricks template, popups, AJAX renders.
+
+Independently, base CSS scopes itself with `:where(.brxe-{element-name})` so it contributes a single class of specificity and always loses to the generated control CSS regardless of load order. Scoping without `:where()` is the trap — it looks harmless and quietly outranks every style control the element exposes.
+
 ---
 
 ## Third-party runtimes: vendored vs CDN
@@ -132,7 +150,40 @@ Embla's *preferred* fix for gaps generally is slide padding plus a negative cont
 
 ### Grid mode (Rows)
 
-`Rows > 1` stacks items into columns: the JS wraps every N children in a `.embla__group`, and "Items to show" then counts columns. `Rows = 1` is the default and skips wrapping entirely, so the normal path is unchanged.
+`Rows > 1` stacks items into columns: every N children are wrapped in a `.embla__group`, and "Items to show" then counts columns. `Rows = 1` is the default and skips wrapping entirely, so the normal path is unchanged.
+
+**The frontend renders the final structure server-side** (`render_slides()`): the groups *and* the `.embla__slide` class that carries the slide width are in the HTML Bricks outputs. Doing this in JS alone meant the page painted a flat, unsized row and then reflowed into columns once the script ran — a visible layout shift on every load, proportional to how many rows were configured. `render_slides()` walks the children itself (mirroring `Frontend::render_children()`, component instances included) because the core helper returns one concatenated string with no seam to chunk on; if it can't resolve the child ids it falls back to the flat render rather than dropping the slides.
+
+**Group boundaries are injected per rendered slide, not per child element.** The distinction is everything for a query loop: that is *one* child element which renders N sibling nodes, so chunking the element list puts the whole loop in column 1 — the entire slider in a single stack — and Bricks concatenates the iterations into one string with no seam to split afterwards.
+
+The seam is the `bricks/frontend/render_element` filter (Bricks 2.0+). Bricks runs a query loop by passing `Frontend::render_element` *itself* as the loop callback:
+
+```php
+// Bricks: includes/elements/container.php
+$element['looped'] = true;
+$output = $query->render( 'Bricks\Frontend::render_element', compact( 'element' ) );
+```
+
+so the filter fires once per iteration. `render_slides()` hooks it for the duration of its own `render_children()` call and prefixes `</div><div class="embla__group embla__slide" data-embla-group>` every N slides. Three guards make that safe:
+
+- **Skip the loop element's own render.** It fires again wrapping the concatenated iterations, which already carry their boundaries. Iterations are marked `looped` with `hasLoop` unset; the wrapper is the reverse.
+- **Match direct children only** — the filter fires for every descendant too. Component instances suffix the id with `-{instanceId}`, so compare the base id.
+- **Ignore empty renders**, so a child hidden on the frontend doesn't consume a grid cell.
+
+If the filter never fires (Bricks < 2.0), the children are already rendered flat, and the root gets `data-embla-rows` plus an inline `--embla-rows` instead. That triggers a **pre-init grid** in the CSS:
+
+```css
+:where(.brxe-prefix-embla-slider[data-embla-rows]:not([data-embla-init])) .embla__container {
+    display: grid;
+    grid-template-rows: repeat(var(--embla-rows, 1), 1fr);
+    grid-auto-flow: column;
+    grid-auto-columns: /* same width calc as .embla__slide */;
+}
+```
+
+Column-flow grid over flat children approximates the wrappers — same order, widths and gaps. It is a fallback, not a match: grid rows are shared across every column, so with `1fr` all rows equal the tallest card in the *whole* grid, while the real wrappers size each column independently. On a long loop that overshoots the settled height noticeably. It is scoped to `:not([data-embla-init])` because Embla itself cannot run on a grid: same-column slides share an `offsetLeft`, which it measures as a zero-width slide. It is also a reasonable no-JS fallback.
+
+The JS still derives the same structure, because it has to: the builder never gets server-rendered children (see above), and a Bricks query-loop re-render replaces the markup. `applyRowGrouping()` therefore starts with `groupingIsCurrent()` and returns early when the DOM already matches — not for speed, but because moving a node in the DOM reloads any iframe inside it, so unconditional regrouping would restart embedded videos and maps on every init.
 
 It has to be DOM regrouping rather than a CSS grid. Embla derives every scroll snap from the difference between consecutive slides' `offsetLeft`:
 
@@ -144,9 +195,57 @@ Any wrapped or `grid-auto-flow: column` layout gives same-column slides an ident
 
 The wrapper is **flex-column, not a CSS grid**. It becomes the `.embla__slide`, so the Slide align controls (`align-items` / `justify-content`) must keep meaning what they mean on a Bricks block, which is also flex-column — on a grid container those two swap axes.
 
-`applyRowGrouping()` unwraps any previous grouping and clears stale `.embla__slide` classes before regrouping, because the builder re-runs init against markup that may or may not already carry wrappers.
+When it does regroup, `applyRowGrouping()` unwraps any previous grouping and clears stale `.embla__slide` classes first, because the builder re-runs init against markup that may or may not already carry wrappers.
 
 Unlike Items to show and Spacing, Rows is **not breakpoint-aware** — it changes DOM structure rather than CSS, so per-breakpoint values would need JS re-chunking on media query changes.
+
+### The children placeholder (builder only)
+
+A nestable PHP element does **not** get its children rendered into its markup in the builder. `Frontend::render_children()` returns a placeholder instead, and Vue moves the real child nodes in afterwards:
+
+```php
+// Bricks: includes/frontend.php — builder path
+return '<div class="brx-nestable-children-placeholder"></div>';
+```
+
+```js
+// Bricks: BricksElementPHP.vue → moveChildElements()
+placeholder.after(...this.$refs.children.childNodes)
+this.$nextTick(() => this.$_runElementScripts(this.name))   // ← $scripts fires here
+```
+
+Three consequences for any element that touches its own children in JS:
+
+1. **The placeholder stays in the DOM.** It is `display: none !important` (builder.min.css) so it is invisible, but it is still a direct child of `.embla__container`. Left unfiltered, Embla takes it as a slide — its slide list is `[].slice.call(slidesOption || container.children)` — giving a zero-width phantom slide at index 0 that shifts every snap, slide index and `slideRegistry` entry, and skews `canLoop()`. The JS pins the slide list to `':scope > .embla__slide'` so this can't happen.
+
+2. **It is the insertion anchor, so it must never be moved.** Grid mode's `applyRowGrouping()` originally wrapped it into the first `.embla__group` along with the first item. Every later re-render then ran `placeholder.after(children)` *inside column 1*, dumping every child into that one column — which is why grid mode collapsed to a single visible item in the canvas while rendering correctly on the frontend, where no placeholder exists.
+
+3. **`$scripts` runs on `$nextTick` after the move**, so element JS can rely on the children being present — but it also runs on renders where they are not yet, so init has to tolerate an empty container.
+
+The frontend path emits none of this: `render_children()` returns the actual child HTML. Anything that only breaks in the canvas is worth checking against this mechanism first.
+
+### Auto height
+
+`.embla--auto-height` on the root drives three things that all have to line up, and dropping any one of them makes the feature look like it does nothing:
+
+1. **`align-items: flex-start` on the container.** The container is a flex row, so it defaults to `align-items: stretch` — every slide is already sized to the tallest one. Measure them and you get the same number back regardless of which slide is showing, so the viewport height never changes. Scoped to auto height, because stretch is what keeps a row of cards even the rest of the time; and scoped to horizontal, because on a vertical slider `align-items` is the cross axis (width) and `flex-start` would collapse slides to their content width.
+
+2. **Measure the slides in the current *snap*, not slide N.** `selectedScrollSnap()` returns a snap index. With "Items to scroll" > 1, or a snap list trimmed by `containScroll`, it does not line up with the slide list; with "Items to show" > 1 a single snap covers several slides, and the tallest of them has to win or the rest clip. `internalEngine().slideRegistry[snap]` is the snap → slide-index map (internal API, so the JS falls back to the naive lookup if its shape changes).
+
+3. **A `ResizeObserver` on the slides.** Embla's own resize handling measures along the **scroll axis only** — `measureSize()` returns width for a horizontal slider. A slide growing *taller* after init (images without dimensions, late web fonts, JS-toggled content) therefore never triggers Embla's `reInit`, and the height stays at whatever it was at init. The observer is re-pointed on `reInit`, since Embla rebuilds its slide list there, and disconnected at the top of the next init alongside the arrow `AbortController`.
+
+The inline height is cleared when auto height is off — the root survives a builder re-render, so a pinned height would otherwise stick after toggling the control.
+
+The Layout → Height control still targets `.embla__slide` and will defeat auto height if set; the Options → Height control hides itself instead (`'required' => ['autoHeight', '=', '']`).
+
+### Cursor states
+
+Opt-in via the "Cursor states" control: `cursor: grab` on the viewport, `grabbing` while a drag is in progress. Two decisions worth keeping:
+
+- The control carries **no `css` key**, even though it only produces CSS. A control with one is patched into the stylesheet without a re-render, so `$scripts` would never fire and the drag listeners would never bind. Routing it through the JSON config forces the re-render.
+- The dragging state comes from Embla's `pointerDown` / `pointerUp` events, not `:active`. Embla's pointer-up is document-level, so the cursor stays correct when a drag continues outside the slide, and a click that never moves doesn't flicker.
+
+Styles hang off `.embla--cursor` / `.embla--dragging` on the root and apply to `.embla__viewport`, so the arrows and dots keep their own cursor.
 
 ### Arrows
 

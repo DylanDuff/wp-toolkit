@@ -2,8 +2,10 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 class Prefix_Element_Embla_Slider extends \Bricks\Element {
+    const NAME = 'prefix-embla-slider';
+
     public $category = 'media';
-    public $name     = 'prefix-embla-slider';
+    public $name     = self::NAME;
     public $icon     = 'ti-layout-slider';
     public $nestable = true;
 
@@ -38,7 +40,53 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
      */
     const EMBLA_VERSION = '8.6.0';
 
+    /**
+     * Bricks calls this from Element::init(), i.e. while rendering the page body —
+     * long after wp_head has run, so WordPress prints the stylesheet as a *late
+     * style* in the footer. Two things break as a result:
+     *
+     *   1. The first paint has no slider layout at all. The container isn't a flex
+     *      row yet, so every slide stacks vertically at full width and the page
+     *      reflows into columns once the footer stylesheet lands.
+     *   2. Our defaults beat the user's style controls. Bricks compiles those to
+     *      `.brxe-{id} .embla__dot`, which ties our own selectors on specificity —
+     *      so whichever sheet comes last wins, and the footer always comes last.
+     *
+     * maybe_enqueue_assets() below re-enqueues these on wp_enqueue_scripts when the
+     * page is known to use the element, which puts the <link> in the head *before*
+     * Bricks' inline CSS. This method stays as the fallback for the cases that early
+     * check can't see (elements inside a Bricks template, popups, AJAX renders).
+     */
     public function enqueue_scripts() {
+        self::enqueue_assets();
+    }
+
+    /**
+     * Enqueue the element's assets in the head when this page uses the element.
+     *
+     * Hooked on wp_enqueue_scripts before Bricks enqueues its inline CSS (priority
+     * 11 in Frontend), so the element stylesheet is printed first and the generated
+     * control CSS overrides it. Bricks has already populated Database::$page_data by
+     * this point — it's a flat element list per area, nested elements included.
+     */
+    public static function maybe_enqueue_assets() {
+        if ( ! class_exists( '\Bricks\Database' ) ) {
+            return;
+        }
+
+        $page_data = \Bricks\Database::$page_data;
+
+        foreach ( [ 'header', 'content', 'footer' ] as $area ) {
+            foreach ( (array) ( $page_data[ $area ] ?? [] ) as $element ) {
+                if ( ( $element['name'] ?? '' ) === self::NAME ) {
+                    self::enqueue_assets();
+                    return;
+                }
+            }
+        }
+    }
+
+    public static function enqueue_assets() {
         wp_enqueue_script(
             'embla-carousel',
             plugin_dir_url( __FILE__ ) . 'js/vendor/embla-carousel.umd.js',
@@ -267,6 +315,20 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
             'type'   => 'checkbox',
             'inline' => true,
             'desc'   => esc_html__( 'Drag freely without snapping to slides.', 'bricks' ),
+        ];
+
+        /*
+         * Deliberately no 'css' key: a control that only writes CSS is patched into the
+         * stylesheet without a re-render, so $scripts would never fire and the drag
+         * listeners would not be bound (see docs/bricks-elements.md). Passing it through
+         * the JSON config forces the re-render this needs.
+         */
+        $this->controls['cursorStates'] = [
+            'group'  => 'options',
+            'label'  => esc_html__( 'Cursor states', 'bricks' ),
+            'type'   => 'checkbox',
+            'inline' => true,
+            'desc'   => esc_html__( 'Grab cursor over the slides, grabbing while dragging.', 'bricks' ),
         ];
 
         // AUTOPLAY
@@ -1106,6 +1168,144 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
         return $output;
     }
 
+    /**
+     * Render the children as slides — already in their final structure.
+     *
+     * Everything the layout depends on (the .embla__slide class that carries the
+     * slide width, and the column wrappers in grid mode) is emitted server-side, so
+     * the frontend never paints an ungrouped, unsized row and then reflows into
+     * columns once the JS runs. The JS still derives the same structure at init: it
+     * is the only option in the builder (see below) and it re-derives idempotently
+     * after a Bricks query-loop re-render.
+     *
+     * Builder: Frontend::render_children() returns a placeholder there instead of the
+     * children, which Vue replaces with the real nodes afterwards — nothing to group
+     * at render time — so the canvas keeps using the JS path. See docs/bricks-elements.md.
+     */
+    private function render_slides( $rows ) {
+        if ( $rows < 2 || ! $this->is_frontend ) {
+            // Merged into the child's existing class list by Bricks (Element::set_root_attributes).
+            return \Bricks\Frontend::render_children( $this, 'div', [ 'class' => 'embla__slide' ] );
+        }
+
+        $children = $this->get_child_elements();
+
+        // No child ids resolved (unexpected element shape, a Bricks internals change):
+        // flat render + the pre-init grid, rather than no slides at all.
+        if ( ! $children ) {
+            $this->use_pre_init_grid( $rows );
+
+            return \Bricks\Frontend::render_children( $this, 'div', [ 'class' => 'embla__slide' ] );
+        }
+
+        /*
+         * Group boundaries are injected per *rendered slide*, not per child element.
+         *
+         * The distinction matters for a query loop: that is ONE child element which
+         * renders N sibling nodes, so chunking the element list puts the whole loop in
+         * column 1 — the entire slider in a single stack. Bricks concatenates the
+         * iterations into one string with no seam to split on afterwards.
+         *
+         * The seam is 'bricks/frontend/render_element' (@since Bricks 2.0). Bricks
+         * runs a query loop by passing Frontend::render_element itself as the loop
+         * callback (elements/container.php), so the filter fires once per iteration —
+         * and once more for the element that wraps them, which is skipped below.
+         */
+        $child_ids = array_column( $children, 'id' );
+        $slides    = 0;
+
+        $open_group = function ( $html, $instance ) use ( $rows, $child_ids, &$slides ) {
+            $element = $instance->element ?? [];
+
+            // The loop element's own render, wrapping iterations that already carry
+            // their boundaries. Iterations are marked 'looped' and have hasLoop unset.
+            if ( ! empty( $element['settings']['hasLoop'] ) && empty( $element['looped'] ) ) {
+                return $html;
+            }
+
+            // Direct children of this slider only — the filter fires for every
+            // descendant too. A component instance suffixes the id with '-{instanceId}'
+            // (Bricks container.php), so compare the base id.
+            $id = strtok( (string) ( $element['id'] ?? '' ), '-' );
+
+            // Hidden or empty renders must not consume a grid cell.
+            if ( ! in_array( $id, $child_ids, true ) || trim( $html ) === '' ) {
+                return $html;
+            }
+
+            $boundary = $slides % $rows === 0
+                // data-embla-group is what applyRowGrouping() looks for, so the JS
+                // treats these exactly like the groups it builds itself.
+                ? ( $slides ? '</div>' : '' ) . '<div class="embla__group embla__slide" data-embla-group>'
+                : '';
+
+            $slides++;
+
+            return $boundary . $html;
+        };
+
+        add_filter( 'bricks/frontend/render_element', $open_group, 10, 2 );
+        $output = \Bricks\Frontend::render_children( $this );
+        remove_filter( 'bricks/frontend/render_element', $open_group, 10 );
+
+        if ( $slides ) {
+            return $output . '</div>';
+        }
+
+        // Filter never fired (Bricks < 2.0): the children are already rendered flat,
+        // so let the pre-init grid lay them out and the JS group them.
+        $this->use_pre_init_grid( $rows );
+
+        return $output;
+    }
+
+    /**
+     * Hand the pre-init layout to the CSS grid fallback — see prefix-embla-slider.css.
+     *
+     * Rows is not breakpoint-aware (it changes DOM structure, not CSS), so an inline
+     * custom property is safe here, unlike --embla-per-page.
+     */
+    private function use_pre_init_grid( $rows ) {
+        $this->set_attribute( '_root', 'data-embla-rows', $rows );
+        $this->set_attribute( '_root', 'style', '--embla-rows: ' . $rows . ';' );
+    }
+
+    /**
+     * Child element arrays in order, resolved the same way Frontend::render_children()
+     * does — including component instances, whose children live on the instance and
+     * whose elements have to be registered before they can be rendered.
+     */
+    private function get_child_elements() {
+        $element            = $this->element;
+        $component_instance = $element['componentInstance'] ?? \Bricks\Helpers::get_component_instance( $element );
+        $child_ids          = ! empty( $element['children'] ) && is_array( $element['children'] ) ? $element['children'] : [];
+
+        $component_children = ! empty( $component_instance['children'] ) && is_array( $component_instance['children'] ) ? $component_instance['children'] : [];
+
+        if ( $component_children ) {
+            $child_ids = $component_children;
+
+            foreach ( $component_instance['elements'] ?? [] as $component_child ) {
+                // Marks the child as belonging to this component instance, which is what
+                // gives it the .brxe-{name} class — see Frontend::render_children().
+                $component_child['parentComponent']                    = $component_instance['id'];
+                \Bricks\Frontend::$elements[ $component_child['id'] ] = $component_child;
+            }
+        }
+
+        $children = [];
+
+        foreach ( $child_ids as $child_id ) {
+            $child = \Bricks\Frontend::$elements[ $child_id ] ?? false;
+
+            if ( $child ) {
+                $children[] = $child;
+            }
+        }
+
+        return $children;
+    }
+
     public function render() {
         $settings    = $this->settings;
         $type        = $settings['type'] ?? 'loop';
@@ -1149,6 +1349,11 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
             $config['rows'] = $rows;
         }
 
+        // Rendered up here, not inline in the output below: render_slides() may set
+        // root attributes (data-embla-rows), and render_attributes('_root') freezes
+        // them the moment the opening tag is built.
+        $slides = $this->render_slides( $rows );
+
         if ( isset( $settings['autoplay'] ) ) {
             $config['autoplay'] = [
                 'delay'             => ! empty( $settings['interval'] ) ? intval( $settings['interval'] ) : 3000,
@@ -1161,6 +1366,10 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
 
         if ( isset( $settings['autoHeight'] ) ) {
             $config['autoHeight'] = true;
+        }
+
+        if ( isset( $settings['cursorStates'] ) ) {
+            $config['cursorStates'] = true;
         }
 
         // Selectors are resolved document-wide by the JS — the point is that these
@@ -1181,7 +1390,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
         $output  = "<div {$this->render_attributes( '_root' )}>";
         $output .= '<div class="embla__viewport">';
         $output .= '<div class="embla__container">';
-        $output .= \Bricks\Frontend::render_children( $this );
+        $output .= $slides;
         $output .= '</div>';
         $output .= '</div>';
 

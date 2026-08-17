@@ -1,25 +1,53 @@
-/* Full width by default; the Bricks width control (#brxe-{id}) overrides this. */
-.brxe-prefix-embla-slider {
+/*
+ * Every rule scopes itself with :where(.brxe-prefix-embla-slider), never the bare
+ * class. Bricks compiles a style control to `.brxe-{id} .embla__dot` — one class of
+ * scope plus the target — so a plain `.brxe-prefix-embla-slider .embla__dot` here
+ * ties it at (0,2,0) and whichever stylesheet loads later wins. These are defaults;
+ * the control values have to win. :where() contributes nothing to specificity, so
+ * every rule below is effectively a single class and always loses that tie, while
+ * still being scoped to this element rather than leaking onto any .embla__* markup
+ * on the page.
+ *
+ * Same reason the element stylesheet is enqueued in the head (see enqueue_assets):
+ * it must not sit after Bricks' inline CSS in source order.
+ */
+
+/* Full width by default; the Bricks width control overrides this. */
+:where(.brxe-prefix-embla-slider) {
     position: relative;
     width: 100%;
 }
 
-.brxe-prefix-embla-slider .embla__viewport {
+:where(.brxe-prefix-embla-slider) .embla__viewport {
     overflow: hidden;
 }
 
-.brxe-prefix-embla-slider.embla--auto-height .embla__viewport {
+:where(.brxe-prefix-embla-slider.embla--auto-height) .embla__viewport {
     transition: height 0.3s ease;
 }
 
-.brxe-prefix-embla-slider .embla__container {
+/*
+ * Auto height needs slides that are allowed to differ in height. A flex container
+ * defaults to align-items: stretch, which sizes every slide to the tallest — so
+ * measuring the current slide returns the tallest slide's height no matter which
+ * one is showing, and the viewport height never changes. Scoped to auto height
+ * because stretch is exactly what keeps a row of cards even otherwise.
+ *
+ * Horizontal only: on a vertical slider align-items is the *cross* axis (width),
+ * where flex-start would collapse slides to their content width instead.
+ */
+:where(.brxe-prefix-embla-slider.embla--auto-height:not([data-embla-axis="y"])) .embla__container {
+    align-items: flex-start;
+}
+
+:where(.brxe-prefix-embla-slider) .embla__container {
     display: flex;
     touch-action: pan-y pinch-zoom;
     backface-visibility: hidden;
     column-gap: var(--embla-gap, 1rem);
 }
 
-.brxe-prefix-embla-slider[data-embla-axis="y"] .embla__container {
+:where(.brxe-prefix-embla-slider[data-embla-axis="y"]) .embla__container {
     flex-direction: column;
     column-gap: normal;
     row-gap: var(--embla-gap, 1rem);
@@ -33,14 +61,34 @@
  * from "Items to show", --embla-gap from "Spacing". The fallbacks mirror those
  * controls' defaults (see Prefix_Element_Embla_Slider::DEFAULT_PER_PAGE).
  */
-.brxe-prefix-embla-slider .embla__slide {
+:where(.brxe-prefix-embla-slider) .embla__slide {
     min-width: 0;
     flex: 0 0 calc((100% - (var(--embla-per-page, 2) - 1) * var(--embla-gap, 1rem)) / var(--embla-per-page, 2));
     /* height is set via Bricks CSS controls */
 }
 
-.brxe-prefix-embla-slider[data-embla-axis="y"] .embla__slide {
+:where(.brxe-prefix-embla-slider[data-embla-axis="y"]) .embla__slide {
     min-height: 0;
+}
+
+/*
+ * Pre-init grid, for grid mode when the wrappers can't be rendered server-side —
+ * a child with a query loop is ONE element that becomes N sibling nodes, so there
+ * is no element list to chunk (see render_slides()). The children ship flat with
+ * data-embla-rows on the root, and this lays them out exactly as the wrappers will:
+ * N rows, columns flowing across, same widths and gaps. When the JS then builds the
+ * real .embla__group wrappers, nothing moves.
+ *
+ * Only until init — Embla itself cannot use a grid, since same-column slides share
+ * an offsetLeft, which it measures as a zero-width slide (see docs/bricks-elements.md).
+ * 1fr rows rather than auto to match the wrappers, whose children are flex: 1 1 0.
+ */
+:where(.brxe-prefix-embla-slider[data-embla-rows]:not([data-embla-init])) .embla__container {
+    display: grid;
+    grid-template-rows: repeat(var(--embla-rows, 1), 1fr);
+    grid-auto-flow: column;
+    grid-auto-columns: calc((100% - (var(--embla-per-page, 2) - 1) * var(--embla-gap, 1rem)) / var(--embla-per-page, 2));
+    row-gap: var(--embla-gap, 1rem);
 }
 
 /*
@@ -50,13 +98,13 @@
  * mean on a Bricks block, which is also a flex column. On a grid container those
  * two properties would silently swap axes.
  */
-.brxe-prefix-embla-slider .embla__group {
+:where(.brxe-prefix-embla-slider) .embla__group {
     display: flex;
     flex-direction: column;
     gap: var(--embla-gap, 1rem);
 }
 
-.brxe-prefix-embla-slider .embla__group > * {
+:where(.brxe-prefix-embla-slider) .embla__group > * {
     flex: 1 1 0;
     min-height: 0;
 }
@@ -79,23 +127,36 @@
  *    Margin does not change the border box, so ResizeObserver will not fire and
  *    a class added after init is never picked up. The JS sets it before init.
  */
-.brxe-prefix-embla-slider.embla--loop .embla__slide:last-child {
+:where(.brxe-prefix-embla-slider.embla--loop) .embla__slide:last-child {
     margin-right: var(--embla-gap, 1rem);
 }
 
-.brxe-prefix-embla-slider.embla--loop[data-embla-dir="rtl"] .embla__slide:last-child {
+:where(.brxe-prefix-embla-slider.embla--loop[data-embla-dir="rtl"]) .embla__slide:last-child {
     margin-right: 0;
     margin-left: var(--embla-gap, 1rem);
 }
 
-.brxe-prefix-embla-slider.embla--loop[data-embla-axis="y"] .embla__slide:last-child {
+:where(.brxe-prefix-embla-slider.embla--loop[data-embla-axis="y"]) .embla__slide:last-child {
     margin-right: 0;
     margin-bottom: var(--embla-gap, 1rem);
 }
 
+/*
+ * Cursor states (opt-in via the "Cursor states" control). On the viewport rather
+ * than the root so the arrows and dots keep their own cursor, and class-driven
+ * rather than :active so the grabbing cursor survives a drag that leaves the slide.
+ */
+:where(.brxe-prefix-embla-slider.embla--cursor) .embla__viewport {
+    cursor: grab;
+}
+
+:where(.brxe-prefix-embla-slider.embla--cursor.embla--dragging) .embla__viewport {
+    cursor: grabbing;
+}
+
 /* Arrows */
 
-.brxe-prefix-embla-slider .embla__button {
+:where(.brxe-prefix-embla-slider) .embla__button {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
@@ -116,20 +177,20 @@
     color: inherit;
 }
 
-.brxe-prefix-embla-slider .embla__button--prev {
+:where(.brxe-prefix-embla-slider) .embla__button--prev {
     left: 0;
 }
 
-.brxe-prefix-embla-slider .embla__button--next {
+:where(.brxe-prefix-embla-slider) .embla__button--next {
     right: 0;
 }
 
-.brxe-prefix-embla-slider .embla__button:disabled {
+:where(.brxe-prefix-embla-slider) .embla__button:disabled {
     opacity: 0.3;
     cursor: default;
 }
 
-.brxe-prefix-embla-slider .embla__button svg {
+:where(.brxe-prefix-embla-slider) .embla__button svg {
     width: 1em;
     height: 1em;
     pointer-events: none;
@@ -138,7 +199,7 @@
 
 /* Pagination dots */
 
-.brxe-prefix-embla-slider .embla__dots {
+:where(.brxe-prefix-embla-slider) .embla__dots {
     position: absolute;
     /* Sits below the slider by default; the Pagination position controls override. */
     bottom: -3rem;
@@ -150,7 +211,7 @@
     justify-content: center;
 }
 
-.brxe-prefix-embla-slider .embla__dot {
+:where(.brxe-prefix-embla-slider) .embla__dot {
     appearance: none;
     -webkit-appearance: none;
     display: inline-flex;
@@ -168,6 +229,6 @@
     transition: opacity 0.2s ease, width 0.2s ease, height 0.2s ease;
 }
 
-.brxe-prefix-embla-slider .embla__dot.is-active {
+:where(.brxe-prefix-embla-slider) .embla__dot.is-active {
     opacity: 1;
 }
