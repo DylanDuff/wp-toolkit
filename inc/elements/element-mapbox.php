@@ -10,9 +10,24 @@ if (!defined("ABSPATH")) {
 
 class Element_Mapbox extends \Bricks\Element
 {
+    const NAME = "mapbox-map";
+    const MAPBOX_GL_VERSION = "3.0.1";
+    const DEFAULT_STYLE = "mapbox://styles/mapbox/streets-v12";
+
     public $category = "general";
-    public $name = "mapbox-map";
+    public $name = self::NAME;
     public $icon = "ti-map-alt";
+
+    /**
+     * Global JS function Bricks calls after every (re-)render in the builder canvas.
+     *
+     * The builder replaces element markup via Vue, so a <script> emitted from
+     * render() runs on the frontend and is inert in the canvas — which is why the
+     * map only ever appeared on the frontend. $scripts is the supported mechanism:
+     * Bricks calls window[<name>]() in the iframe on every re-render.
+     * @see docs/bricks-elements.md — "Builder lifecycle"
+     */
+    public $scripts = ["prefixMapboxInit"];
 
     public function get_label()
     {
@@ -24,45 +39,85 @@ class Element_Mapbox extends \Bricks\Element
         return ["map", "mapbox", "location", "marker", "service area"];
     }
 
+    /**
+     * Runs on the frontend via Element::init(), and in the builder iframe via
+     * Elements::register_element() — so the canvas gets the runtime too.
+     */
     public function enqueue_scripts()
     {
         wp_enqueue_style(
-            "mapbox-gl-css",
-            "https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css",
+            "mapbox-gl",
+            "https://api.mapbox.com/mapbox-gl-js/v" .
+                self::MAPBOX_GL_VERSION .
+                "/mapbox-gl.css",
             [],
             null,
         );
 
         wp_enqueue_script(
-            "mapbox-gl-js",
-            "https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js",
+            "mapbox-gl",
+            "https://api.mapbox.com/mapbox-gl-js/v" .
+                self::MAPBOX_GL_VERSION .
+                "/mapbox-gl.js",
             [],
             null,
+            true,
+        );
+
+        wp_enqueue_script(
+            "prefix-mapbox",
+            plugin_dir_url(__FILE__) . "js/prefix-mapbox.js",
+            ["mapbox-gl"],
+            defined("DDWPT_VERSION") ? DDWPT_VERSION : null,
             true,
         );
     }
 
     /**
-     * Render a Bricks icon control value to an HTML string.
-     * Handles font icons (FontAwesome, Themify, Ionicons) and SVG uploads.
+     * Render the marker icon control to HTML.
+     *
+     * Delegates to Bricks' own renderer rather than reimplementing it. A custom SVG
+     * has no 'icon' key at all — it carries only svg.id — so hand-rolled handling
+     * that keys off $icon['icon'] silently drops every uploaded icon. render_icon()
+     * also covers dynamic data icons and inlines the SVG file instead of <img>-ing
+     * its URL, so it can be styled by currentColor.
      */
     private function render_marker_icon($icon)
     {
-        if (empty($icon) || empty($icon["icon"])) {
+        if (empty($icon) || !is_array($icon)) {
             return "";
         }
-        if (isset($icon["library"]) && $icon["library"] === "svg") {
-            $url = $icon["svg"]["url"] ?? ($icon["url"] ?? "");
-            if ($url) {
-                return '<img src="' .
-                    esc_url($url) .
-                    '" style="width:100%;height:100%;object-fit:contain;" alt="">';
-            }
-            return "";
+
+        return (string) self::render_icon($icon, [
+            "class" => ["mapbox-map__marker-icon"],
+            "aria-hidden" => "true",
+        ]);
+    }
+
+    /**
+     * Resolve the Map Style control to a value for the GL JS `style` option.
+     *
+     * Mapbox Studio's Share panel hands out both a `mapbox://styles/…` URI and an
+     * `https://api.mapbox.com/styles/v1/…` URL; GL JS accepts either, so the only
+     * job here is to reject anything that is neither before it reaches a fetch.
+     */
+    private function resolve_map_style()
+    {
+        $style = $this->settings["map_style"] ?? self::DEFAULT_STYLE;
+
+        if ($style !== "custom") {
+            return $style;
         }
-        return '<i class="' .
-            esc_attr($icon["icon"]) .
-            '" aria-hidden="true"></i>';
+
+        $custom = trim($this->settings["map_style_url"] ?? "");
+
+        if (strpos($custom, "mapbox://") === 0) {
+            return $custom;
+        }
+
+        $url = esc_url_raw($custom, ["http", "https"]);
+
+        return $url !== "" ? $url : self::DEFAULT_STYLE;
     }
 
     /**
@@ -184,8 +239,21 @@ class Element_Mapbox extends \Bricks\Element
                     "Satellite Streets",
                     "bricks",
                 ),
+                "custom" => esc_html__("Custom style URL", "bricks"),
             ],
-            "default" => "mapbox://styles/mapbox/streets-v12",
+            "default" => self::DEFAULT_STYLE,
+        ];
+
+        $this->controls["map_style_url"] = [
+            "group" => "general",
+            "label" => esc_html__("Custom Style URL", "bricks"),
+            "type" => "text",
+            "placeholder" => "mapbox://styles/username/clx1234567890",
+            "required" => ["map_style", "=", "custom"],
+            "description" => esc_html__(
+                "Publish the style in Mapbox Studio, then paste its Style URL. Both mapbox://styles/… and https://api.mapbox.com/styles/v1/… are accepted. The style must be public, or owned by the account the access token belongs to.",
+                "bricks",
+            ),
         ];
 
         // ── Map ──────────────────────────────────────────────────────────────
@@ -332,139 +400,102 @@ class Element_Mapbox extends \Bricks\Element
     {
         $s = $this->settings;
 
-        // General
-        $api_key = $s["api_key"] ?? "";
-        $map_style = $s["map_style"] ?? "mapbox://styles/mapbox/streets-v12";
-        $lat = $s["lat"] ?? "-33.767719570242015";
-        $lng = $s["lng"] ?? "150.6844585269858";
-        $zoom = isset($s["zoom"]) ? (int) $s["zoom"] : 11;
-        $map_height = $s["map_height"] ?? "400px";
-        $scroll_zoom = !empty($s["scroll_zoom"]);
+        $api_key = trim($s["api_key"] ?? "");
+
+        if ($api_key === "") {
+            // Builder-only notice; returns nothing on the frontend.
+            return $this->render_element_placeholder([
+                "title" => esc_html__(
+                    "Please enter a Mapbox access token.",
+                    "bricks",
+                ),
+            ]);
+        }
+
         $mode = $s["mode"] ?? "marker";
-
-        // Marker
-        $icon_html = $this->render_marker_icon($s["marker_icon"] ?? []);
-        $icon_width = isset($s["icon_width"]) ? (int) $s["icon_width"] : 35;
-        $icon_height = isset($s["icon_height"]) ? (int) $s["icon_height"] : 35;
-        $description = $s["description"] ?? "";
-
-        // Service area
-        $fill_color = $this->resolve_color("fill_color", "#3b82f6");
-        $fill_opacity = isset($s["fill_opacity"])
-            ? (float) $s["fill_opacity"]
-            : 0.3;
-        $outline_color = $this->resolve_color("outline_color", "#1d4ed8");
-        $outline_width = isset($s["outline_width"])
-            ? (int) $s["outline_width"]
-            : 2;
-        $geojson_data = $this->parse_geojson($s["area_coords"] ?? "");
-
         $show_marker = in_array($mode, ["marker", "both"], true);
         $show_area = in_array($mode, ["area", "both"], true);
 
-        // Unique IDs — supports multiple maps per page.
-        $map_id = "mapbox-map-" . $this->id;
-        $src_id = "service-area-" . $this->id;
+        // Cast: GL JS takes numbers, and a text control hands us strings.
+        $lat = isset($s["lat"]) && $s["lat"] !== ""
+            ? (float) $s["lat"]
+            : -33.767719570242015;
+        $lng = isset($s["lng"]) && $s["lng"] !== ""
+            ? (float) $s["lng"]
+            : 150.6844585269858;
 
-        // Encode everything for safe JS embedding.
-        $js_api_key = json_encode($api_key);
-        $js_map_style = json_encode($map_style);
-        $js_lat = json_encode($lat);
-        $js_lng = json_encode($lng);
-        $js_zoom = json_encode($zoom);
-        $js_map_id = json_encode($map_id);
-        $js_icon_html = json_encode($icon_html);
-        $js_icon_width = json_encode($icon_width);
-        $js_icon_height = json_encode($icon_height);
-        $js_description = json_encode(wp_kses_post($description));
-        $js_scroll_zoom = $scroll_zoom ? "true" : "false";
-        $js_show_marker = $show_marker ? "true" : "false";
-        $js_show_area = $show_area && $geojson_data !== null ? "true" : "false";
-        $js_src_id = json_encode($src_id);
-        $js_geojson = json_encode($geojson_data);
-        $js_fill_color = json_encode($fill_color);
-        $js_fill_opacity = json_encode($fill_opacity);
-        $js_outline_color = json_encode($outline_color);
-        $js_outline_width = json_encode($outline_width);
+        $map_height = $s["map_height"] ?? "400px";
 
-        // Render the map container.
-        printf(
-            '<div id="%s" style="width:100%%;height:%s;"></div>',
-            esc_attr($map_id),
-            esc_attr($map_height),
+        $config = [
+            "apiKey" => $api_key,
+            "style" => $this->resolve_map_style(),
+            "center" => [$lng, $lat],
+            "zoom" => isset($s["zoom"]) ? (int) $s["zoom"] : 11,
+            "scrollZoom" => !empty($s["scroll_zoom"]),
+        ];
+
+        if ($show_marker) {
+            $config["marker"] = [
+                "width" => isset($s["icon_width"]) ? (int) $s["icon_width"] : 35,
+                "height" => isset($s["icon_height"])
+                    ? (int) $s["icon_height"]
+                    : 35,
+                "popup" => wp_kses_post($s["description"] ?? ""),
+            ];
+        }
+
+        $geojson = $this->parse_geojson($s["area_coords"] ?? "");
+
+        if ($show_area && $geojson !== null) {
+            $config["area"] = [
+                "geojson" => $geojson,
+                "fillColor" => $this->resolve_color("fill_color", "#3b82f6"),
+                "fillOpacity" => isset($s["fill_opacity"])
+                    ? (float) $s["fill_opacity"]
+                    : 0.3,
+                "outlineColor" => $this->resolve_color(
+                    "outline_color",
+                    "#1d4ed8",
+                ),
+                "outlineWidth" => isset($s["outline_width"])
+                    ? (int) $s["outline_width"]
+                    : 2,
+            ];
+        }
+
+        // Keyed by element id so the JS can drop a stale map (and its WebGL context)
+        // when the builder re-renders this element.
+        $this->set_attribute("_root", "data-mapbox-id", $this->id);
+        $this->set_attribute(
+            "_root",
+            "data-mapbox",
+            esc_attr(wp_json_encode($config)),
         );
 
-        $init_script = <<<JS
-        (function() {
-          var showMarker = {$js_show_marker};
-          var showArea   = {$js_show_area};
-          var geojson    = {$js_geojson};
+        $icon_html = $show_marker
+            ? $this->render_marker_icon($s["marker_icon"] ?? [])
+            : "";
 
-          function initMap() {
-            mapboxgl.accessToken = {$js_api_key};
+        // The height lives on the inner canvas, not the root: an inline style on the
+        // root would outrank the Layout → Height style control.
+        $output = "<div {$this->render_attributes('_root')}>";
+        $output .=
+            '<div class="mapbox-map__canvas" style="width:100%;height:' .
+            esc_attr($map_height) .
+            ';"></div>';
 
-            var map = new mapboxgl.Map({
-              container: {$js_map_id},
-              style:     {$js_map_style},
-              center:    [{$js_lng}, {$js_lat}],
-              zoom:      {$js_zoom},
-            });
+        // Rendered server-side rather than passed through the JSON config so an
+        // inlined SVG never has to survive a round-trip through an attribute.
+        // The JS unhides it and hands the node to mapboxgl.Marker.
+        if ($icon_html !== "") {
+            $output .=
+                '<div class="mapbox-map__marker" hidden>' . $icon_html . "</div>";
+        }
 
-            // ── Marker ────────────────────────────────────────────────────────────
-            if (showMarker) {
-              var el = document.createElement('div');
-              el.className            = 'mapbox-marker';
-              el.style.width          = {$js_icon_width}  + 'px';
-              el.style.height         = {$js_icon_height} + 'px';
-              el.style.display        = 'flex';
-              el.style.alignItems     = 'center';
-              el.style.justifyContent = 'center';
-              el.style.cursor         = 'pointer';
-              if ({$js_icon_html}) {
-                el.innerHTML = {$js_icon_html};
-              }
+        $output .= "</div>";
 
-              var marker = new mapboxgl.Marker(el).setLngLat([{$js_lng}, {$js_lat}]);
-
-              if ({$js_description}) {
-                marker.setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML({$js_description}));
-              }
-
-              marker.addTo(map);
-            }
-
-            // ── Service Area ──────────────────────────────────────────────────────
-            if (showArea) {
-              var addServiceArea = function() {
-                map.addSource({$js_src_id}, { type: 'geojson', data: geojson });
-
-                map.addLayer({
-                  id: {$js_src_id} + '-fill', type: 'fill', source: {$js_src_id},
-                  paint: { 'fill-color': {$js_fill_color}, 'fill-opacity': {$js_fill_opacity} },
-                });
-
-                map.addLayer({
-                  id: {$js_src_id} + '-outline', type: 'line', source: {$js_src_id},
-                  paint: { 'line-color': {$js_outline_color}, 'line-width': {$js_outline_width} },
-                });
-              };
-
-              if (map.loaded()) { addServiceArea(); } else { map.on('load', addServiceArea); }
-            }
-
-            if (!{$js_scroll_zoom}) { map.scrollZoom.disable(); }
-          }
-
-          if (typeof mapboxgl !== 'undefined') {
-            initMap();
-          } else {
-            var check = setInterval(function() {
-              if (typeof mapboxgl !== 'undefined') { clearInterval(check); initMap(); }
-            }, 50);
-          }
-        })();
-        JS;
-
-        echo "<script>" . $init_script . "</script>"; // phpcs:ignore WordPress.Security.EscapeOutput
+        // No inline loader: enqueue_scripts() covers both contexts and $scripts
+        // re-initialises the map after a builder re-render.
+        echo $output; // phpcs:ignore WordPress.Security.EscapeOutput
     }
 }

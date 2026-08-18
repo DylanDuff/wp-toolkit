@@ -96,6 +96,47 @@ See `inc/elements/js/vendor/README.md` for the Embla update procedure and the op
 
 ---
 
+## Mapbox Map
+
+`inc/elements/element-mapbox.php` — registered by the `mapbox-bricks` tweak. Runtime is `mapbox-gl-js` from the Mapbox CDN, exact-pinned in `MAPBOX_GL_VERSION`; the element's own logic lives in `js/prefix-mapbox.js` and is exposed as `window.prefixMapboxInit` for `$scripts`.
+
+Markup is a Bricks root wrapping `.mapbox-map__canvas` (the Mapbox container) and, when the marker has an icon, a hidden `.mapbox-map__marker` node. Everything else is one JSON blob in `data-mapbox` on the root.
+
+**The map height sits on the inner canvas, not the root.** An inline `height` on the root would outrank the Layout → Height style control, which is generated CSS.
+
+### One WebGL context per map
+
+Each `mapboxgl.Map` holds a WebGL context and browsers cap those at roughly 16. The builder re-renders on every control change, so without teardown a handful of edits exhausts the budget and the canvas dies mid-session. The JS keys live instances by element id and calls `map.remove()` before rebuilding.
+
+### `window.prefixMapboxInstances`
+
+That same registry is exposed on `window` so page-level JS can reach a live `Map` — for anything that belongs to one specific page rather than in the element's controls:
+
+```js
+var map = window.prefixMapboxInstances['abc123']; // key = the Bricks element id
+```
+
+Two things to know before relying on it:
+
+- **It is mutated, never reassigned.** `destroy()` deletes keys off the same object, so a reference captured once stays current. Keep it that way — reassigning `instances` would strand every existing reference.
+- **A map only appears after init runs**, which is on `DOMContentLoaded` at the earliest, and in the builder on every re-render. Page JS that reads the registry at load time can race it, and a builder re-render swaps the instance out from under a captured reference. Read it at point of use, or poll for the key.
+
+### Resize is not automatic
+
+Mapbox measures its container at init and on **window** resize only. Neither covers the builder — the canvas iframe resizes when panels open, and a control carrying a `css` key patches the stylesheet with no re-render — so a `ResizeObserver` on the container calls `map.resize()`. It is disconnected alongside the map instance on re-init.
+
+### The marker icon is rendered server-side
+
+`Bricks\Element::render_icon()` does the work; do not hand-roll it. A custom SVG icon carries **no `icon` key at all** — only `svg.id` — so any check shaped like `empty($icon['icon'])` silently drops every uploaded icon and renders nothing. `render_icon()` also handles dynamic-data icons and inlines the SVG file rather than pointing an `<img>` at its URL, so `currentColor` works.
+
+The node is rendered into the markup `hidden` rather than passed through the JSON config, so an inlined SVG never round-trips through an attribute. The JS unhides it, sizes it, and hands the node to `mapboxgl.Marker`. Font icons take their size from `font-size` and inlined SVGs from their own `width`/`height`, so the JS sets both — otherwise the two libraries render at different sizes in the same box. With no icon configured it falls through to Mapbox's default pin.
+
+### Custom styles
+
+`map_style` is a preset list plus a `custom` option that reveals `map_style_url`. Mapbox Studio's Share panel hands out both `mapbox://styles/…` and `https://api.mapbox.com/styles/v1/…`; GL JS takes either, so `resolve_map_style()` only has to pass those two through (`esc_url_raw` restricted to http/https) and fall back to the default for anything else. A custom style must be published, and public or owned by the token's account.
+
+---
+
 ## Embla Slider
 
 `inc/elements/element-embla-slider.php` — nestable, registered by the `embla-slider-bricks` tweak. Slides are the element's direct children; the init JS adds `.embla__slide` to each.
