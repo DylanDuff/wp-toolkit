@@ -160,8 +160,12 @@ return [
         }, 20, 3 );
 
         // ── Render tags inside content strings ────────────────────────────
-        add_filter( 'bricks/dynamic_data/render_content', __NAMESPACE__ . '\\wpsr_render_tags_in_content', 20, 3 );
-        add_filter( 'bricks/frontend/render_data',        __NAMESPACE__ . '\\wpsr_render_tags_in_content', 20, 2 );
+        // {wpsr_reviews} turns $content into an array (loop source contract), and
+        // WordPress passes that straight to whatever else hooks this filter next.
+        // Running at PHP_INT_MAX lets any other plugin's string-based tag
+        // replacement finish first, so it never receives our array.
+        add_filter( 'bricks/dynamic_data/render_content', __NAMESPACE__ . '\\wpsr_render_tags_in_content', PHP_INT_MAX, 3 );
+        add_filter( 'bricks/frontend/render_data',        __NAMESPACE__ . '\\wpsr_render_tags_in_content', PHP_INT_MAX, 2 );
 
         // ── Custom query type (legacy) ─────────────────────────────────────
         add_filter( 'bricks/setup/control_options', function ( $control_options ) {
