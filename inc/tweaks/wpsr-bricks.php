@@ -58,6 +58,10 @@ function wpsr_field_map() {
 }
 
 function wpsr_render_tags_in_content( $content, $post, $context = 'text' ) {
+    if ( ! is_string( $content ) ) {
+        return $content;
+    }
+
     if ( strpos( $content, '{wpsr_reviews}' ) !== false ) {
         $value = wpsr_get_reviews_array();
         return is_array( $value ) ? $value : str_replace( '{wpsr_reviews}', '', $content );
