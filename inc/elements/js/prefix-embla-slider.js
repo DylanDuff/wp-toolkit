@@ -14,6 +14,28 @@
     // observer outlives destroy(), so it has to be disconnected on re-init too.
     var heightObservers = {};
 
+    var keyCounter = 0;
+
+    /**
+     * Key for the maps above. Bricks only prints an id attribute on an element that
+     * needs one (a custom CSS id, an anchor), so a plain slider root has none, and
+     * keying on root.id alone meant a rebuild never destroyed the previous instance:
+     * two Embla engines fighting over one container, and arrows bound twice.
+     *
+     * Falls back to a key stored on the node itself, which survives a frontend
+     * rebuild of the same root. The builder replaces the node on re-render, but
+     * builder roots always carry their id.
+     */
+    function instanceKey(root) {
+        if (root.id) return root.id;
+
+        if (!root.hasAttribute('data-embla-key')) {
+            root.setAttribute('data-embla-key', 'embla-' + (++keyCounter));
+        }
+
+        return root.getAttribute('data-embla-key');
+    }
+
     /**
      * Resolve a user-supplied CSS selector document-wide.
      *
@@ -218,7 +240,7 @@
         var nextBtn = root.querySelector('.embla__button--next');
         var dotsEl = root.querySelector('.embla__dots');
         var options = config.options || {};
-        var elementId = root.id;
+        var elementId = instanceKey(root);
 
         // Destroy any previous instance for this element (builder re-renders same id)
         if (elementId && instances[elementId]) {
@@ -499,8 +521,10 @@
      * infinite scroll, AJAX pagination. Bricks finds the results it replaces or
      * appends to by walking the loop's own markup (a start marker, the iterations,
      * and the .brx-query-trail it inserts in front of). In grid mode those nodes are
-     * spread over the column wrappers, so Bricks only partly finds them: old cards
-     * survive in the other columns, and new ones pile up wherever the trail is.
+     * spread over the column wrappers. Bricks 2.4 removes the old iterations by
+     * class and inserts the new ones after the start marker, at container level,
+     * which leaves empty column wrappers beside an ungrouped row; other versions and
+     * request types anchor on the trail instead, which can sit inside a column.
      *
      * So the slider steps out of the way for the request: on bricks/ajax/start it
      * destroys its Embla instance and unwraps the columns, handing Bricks the flat
@@ -508,19 +532,26 @@
      * Once Bricks has swapped the results in, the slider is rebuilt from scratch.
      *
      * The queryId on every one of these events is the loop element's id: its
-     * iterations carry .brxe-{id} and its trail carries data-query-element-id.
+     * iterations carry .brxe-{id}, its trail (when present) carries
+     * data-query-element-id, and its start marker is <!--brx-loop-start-{id}-->.
      */
     function slidersForQuery(event) {
         var queryId = event && event.detail && event.detail.queryId;
-        var match = '.' + QUERY_TRAIL;
+        var hasId = typeof queryId === 'string' && /^[\w-]+$/.test(queryId);
 
-        if (typeof queryId === 'string' && /^[\w-]+$/.test(queryId)) {
-            match = '.' + QUERY_TRAIL + '[data-query-element-id="' + queryId + '"], .brxe-' + queryId;
-        }
+        // Bricks 2.x marks where a loop's results start with an HTML comment,
+        // which no selector can reach; checking for it also catches a filter that
+        // came back empty, leaving no .brxe-{id} card to match.
+        var marker = 'brx-loop-start-' + (hasId ? queryId : '');
+        var match = hasId
+            ? '.' + QUERY_TRAIL + '[data-query-element-id="' + queryId + '"], .brxe-' + queryId
+            : '.' + QUERY_TRAIL;
 
         return Array.prototype.filter.call(document.querySelectorAll('.brxe-prefix-embla-slider'), function (root) {
             var container = root.querySelector('.embla__container');
-            return container && container.querySelector(match);
+            if (!container) return false;
+
+            return !!container.querySelector(match) || container.innerHTML.indexOf(marker) !== -1;
         });
     }
 
@@ -530,7 +561,7 @@
 
     function flattenForQuery(event) {
         slidersForQuery(event).forEach(function (root) {
-            var elementId = root.id;
+            var elementId = instanceKey(root);
 
             if (elementId && instances[elementId]) {
                 try { instances[elementId].destroy(); } catch (e) {}
