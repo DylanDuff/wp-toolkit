@@ -59,6 +59,13 @@ if ! git diff --quiet HEAD -- ':!release.sh' ':!.DS_Store' 2>/dev/null; then
     exit 1
 fi
 
+# The update checker only follows main, so a release cut elsewhere would tag a
+# commit the plugin never sees as current.
+if [[ "$(git rev-parse --abbrev-ref HEAD)" != "main" ]]; then
+    echo -e "${RED}Error: Releases are cut from main.${NC}"
+    exit 1
+fi
+
 # ── Argument parsing ─────────────────────────────────────────────────────────
 
 CURRENT_VERSION=$(get_current_version)
@@ -165,7 +172,8 @@ fi
 # ── Bump version in plugin.php ────────────────────────────────────────────────
 
 echo -e "\n${CYAN}[1/5] Bumping version number...${NC}"
-sed -i '' "s/Version:[[:space:]]*${CURRENT_VERSION}/Version: ${NEW_VERSION}/" "$MAIN_FILE"
+# perl rather than sed -i: the in-place flag differs between BSD and GNU sed.
+perl -pi -e "s/Version:[[:space:]]*\Q${CURRENT_VERSION}\E/Version: ${NEW_VERSION}/" "$MAIN_FILE"
 echo -e "  ${GREEN}✓${NC} $MAIN_FILE → $NEW_VERSION"
 
 # ── Create release zip ────────────────────────────────────────────────────────

@@ -30,7 +30,9 @@ bash release.sh 1.2.3 "Changelog entry describing the change"
 bash release.sh minor "First entry" "Second entry"   # patch|minor|major also accepted
 ```
 
-Bumps `Version:` in `plugin.php`, packages a ZIP, commits/pushes, creates a GitHub release with the ZIP as an asset. A changelog entry argument is required. `Version:` header in `plugin.php` is the single source of truth — read at runtime with `get_file_data()`, not a constant.
+Or, with no local `gh` login (agents included), start the **Release** workflow (`.github/workflows/release.yml`) with inputs `bump` and `changelog` (one entry per line): from the Actions tab, `gh workflow run release.yml -f bump=patch -f changelog="…"`, or the GitHub MCP `actions_run_trigger` tool. It runs this same script on a runner with the workflow's own token, so there is one release path, not two.
+
+Run from a clean `main`. Bumps `Version:` in `plugin.php`, packages a ZIP, commits/pushes, creates a GitHub release with the ZIP as an asset. A changelog entry argument is required. `Version:` header in `plugin.php` is the single source of truth — read at runtime with `get_file_data()`, not a constant.
 
 Only these paths are packaged: `plugin.php`, `assets/`, `inc/`, `plugin-update-checker/`.
 
