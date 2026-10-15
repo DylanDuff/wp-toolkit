@@ -48,8 +48,20 @@
      */
     var CHILDREN_PLACEHOLDER = 'brx-nestable-children-placeholder';
 
+    /*
+     * Frontend-only marker. A query loop that can be re-queried over AJAX (filters,
+     * load more, infinite scroll) renders an empty, hidden '.brx-query-trail' after
+     * its last iteration. Bricks uses it as the anchor for swapping results in, so it
+     * is not a slide either: counted as one it is a zero-width phantom at the end of
+     * the slide list, and grouped as one it sits inside the last column, so the
+     * filtered results get inserted into that single column.
+     */
+    var QUERY_TRAIL = 'brx-query-trail';
+
     function isSlideNode(node) {
-        return node.nodeType === 1 && !node.classList.contains(CHILDREN_PLACEHOLDER);
+        return node.nodeType === 1 &&
+            !node.classList.contains(CHILDREN_PLACEHOLDER) &&
+            !node.classList.contains(QUERY_TRAIL);
     }
 
     function slideNodesIn(container) {
@@ -82,7 +94,7 @@
         for (var i = 0; i < kids.length; i++) {
             if (!kids[i].hasAttribute('data-embla-group')) return false;
 
-            var count = kids[i].childElementCount;
+            var count = slideNodesIn(kids[i]).length;
             var isLast = i === kids.length - 1;
 
             // Only the last column may be short
@@ -92,8 +104,25 @@
         return true;
     }
 
+    /**
+     * Move any query trail out of the column wrappers to container level, right after
+     * the column that held it. The server renders it inside the last column (it is
+     * part of the loop element's own output), where Bricks would drop the next set of
+     * AJAX results. Only the trail moves, so slide content (and any iframe in it) is
+     * left alone.
+     */
+    function hoistQueryTrails(container) {
+        var trails = container.querySelectorAll(':scope > [data-embla-group] > .' + QUERY_TRAIL);
+
+        Array.prototype.forEach.call(trails, function (trail) {
+            container.insertBefore(trail, trail.parentNode.nextSibling);
+        });
+    }
+
     function applyRowGrouping(container, rows) {
         if (!container) return;
+
+        hoistQueryTrails(container);
 
         if (rows > 1 && groupingIsCurrent(container, rows)) return;
 
@@ -465,5 +494,38 @@
         initAll();
     }
 
-    document.addEventListener('bricks/ajax/query_result/displayed', initAll);
+    /*
+     * Bricks re-queried a loop over AJAX (query filter, load more, infinite scroll)
+     * and swapped its results into the DOM. initAll() alone is not enough here: on the
+     * frontend it skips sliders that already carry data-embla-init, so a slider whose
+     * slides were just replaced kept its stale Embla instance — and, in grid mode,
+     * the new results sat ungrouped beside emptied column wrappers.
+     *
+     * Rebuild the sliders that contain the re-queried loop. The event's queryId is the
+     * loop element's id: its iterations carry .brxe-{id} and its trail carries
+     * data-query-element-id. Without a usable id, rebuild every slider holding a loop.
+     */
+    function rebuildForQuery(event) {
+        if (typeof EmblaCarousel === 'undefined') return;
+
+        var queryId = event && event.detail && event.detail.queryId;
+        var match = '.' + QUERY_TRAIL;
+
+        if (typeof queryId === 'string' && /^[\w-]+$/.test(queryId)) {
+            match = '.' + QUERY_TRAIL + '[data-query-element-id="' + queryId + '"], .brxe-' + queryId;
+        }
+
+        Array.prototype.forEach.call(document.querySelectorAll('.brxe-prefix-embla-slider'), function (root) {
+            var container = root.querySelector('.embla__container');
+            if (!container || !container.querySelector(match)) return;
+
+            root.setAttribute('data-embla-init', '1');
+            buildEmbla(root);
+        });
+
+        // Sliders that arrived inside the AJAX results themselves
+        initAll();
+    }
+
+    document.addEventListener('bricks/ajax/query_result/displayed', rebuildForQuery);
 })();

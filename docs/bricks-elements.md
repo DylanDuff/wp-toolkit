@@ -226,6 +226,11 @@ Column-flow grid over flat children approximates the wrappers — same order, wi
 
 The JS still derives the same structure, because it has to: the builder never gets server-rendered children (see above), and a Bricks query-loop re-render replaces the markup. `applyRowGrouping()` therefore starts with `groupingIsCurrent()` and returns early when the DOM already matches — not for speed, but because moving a node in the DOM reloads any iframe inside it, so unconditional regrouping would restart embedded videos and maps on every init.
 
+**AJAX query results (filters, load more, infinite scroll).** A loop that can be re-queried renders a hidden `.brx-query-trail[data-query-element-id]` after its last iteration, and Bricks inserts the new results immediately before it. Two things follow:
+
+- The trail is not a slide. `isSlideNode()` excludes it alongside the builder placeholder, and `hoistQueryTrails()` moves it out of the last column to container level (it is part of the loop element's own output, so the server renders it inside the last group). Left in the column, every filtered result would land in that one column.
+- `bricks/ajax/query_result/displayed` rebuilds the sliders that contain the re-queried loop (matched by `detail.queryId`) even though they already carry `data-embla-init`. `initAll()` skips those on the frontend, so before this the old instance and its emptied column wrappers stayed in place.
+
 It has to be DOM regrouping rather than a CSS grid. Embla derives every scroll snap from the difference between consecutive slides' `offsetLeft`:
 
 ```js
