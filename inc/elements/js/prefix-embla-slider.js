@@ -495,19 +495,22 @@
     }
 
     /*
-     * Bricks re-queried a loop over AJAX (query filter, load more, infinite scroll)
-     * and swapped its results into the DOM. initAll() alone is not enough here: on the
-     * frontend it skips sliders that already carry data-embla-init, so a slider whose
-     * slides were just replaced kept its stale Embla instance — and, in grid mode,
-     * the new results sat ungrouped beside emptied column wrappers.
+     * Bricks AJAX on a query loop inside the slider: query filters, load more,
+     * infinite scroll, AJAX pagination. Bricks finds the results it replaces or
+     * appends to by walking the loop's own markup (a start marker, the iterations,
+     * and the .brx-query-trail it inserts in front of). In grid mode those nodes are
+     * spread over the column wrappers, so Bricks only partly finds them: old cards
+     * survive in the other columns, and new ones pile up wherever the trail is.
      *
-     * Rebuild the sliders that contain the re-queried loop. The event's queryId is the
-     * loop element's id: its iterations carry .brxe-{id} and its trail carries
-     * data-query-element-id. Without a usable id, rebuild every slider holding a loop.
+     * So the slider steps out of the way for the request: on bricks/ajax/start it
+     * destroys its Embla instance and unwraps the columns, handing Bricks the flat
+     * markup it rendered, laid out by the pre-init grid so nothing visibly jumps.
+     * Once Bricks has swapped the results in, the slider is rebuilt from scratch.
+     *
+     * The queryId on every one of these events is the loop element's id: its
+     * iterations carry .brxe-{id} and its trail carries data-query-element-id.
      */
-    function rebuildForQuery(event) {
-        if (typeof EmblaCarousel === 'undefined') return;
-
+    function slidersForQuery(event) {
         var queryId = event && event.detail && event.detail.queryId;
         var match = '.' + QUERY_TRAIL;
 
@@ -515,17 +518,76 @@
             match = '.' + QUERY_TRAIL + '[data-query-element-id="' + queryId + '"], .brxe-' + queryId;
         }
 
-        Array.prototype.forEach.call(document.querySelectorAll('.brxe-prefix-embla-slider'), function (root) {
+        return Array.prototype.filter.call(document.querySelectorAll('.brxe-prefix-embla-slider'), function (root) {
             var container = root.querySelector('.embla__container');
-            if (!container || !container.querySelector(match)) return;
-
-            root.setAttribute('data-embla-init', '1');
-            buildEmbla(root);
+            return container && container.querySelector(match);
         });
+    }
+
+    // Roots flattened for an in-flight request, so a request that never reports
+    // its results (failed, aborted) can't leave a slider torn down.
+    var pendingRoots = [];
+
+    function flattenForQuery(event) {
+        slidersForQuery(event).forEach(function (root) {
+            var elementId = root.id;
+
+            if (elementId && instances[elementId]) {
+                try { instances[elementId].destroy(); } catch (e) {}
+                delete instances[elementId];
+            }
+
+            var config = {};
+            try { config = JSON.parse(root.getAttribute('data-embla') || '{}'); } catch (e) {}
+
+            var container = root.querySelector('.embla__container');
+            applyRowGrouping(container, 1);
+
+            if (config.rows > 1) {
+                root.setAttribute('data-embla-rows', config.rows);
+                root.style.setProperty('--embla-rows', config.rows);
+            }
+
+            root.removeAttribute('data-embla-init');
+
+            if (pendingRoots.indexOf(root) === -1) pendingRoots.push(root);
+        });
+    }
+
+    function rebuild(root) {
+        var index = pendingRoots.indexOf(root);
+        if (index !== -1) pendingRoots.splice(index, 1);
+
+        root.setAttribute('data-embla-init', '1');
+        buildEmbla(root);
+    }
+
+    function rebuildForQuery(event) {
+        if (typeof EmblaCarousel === 'undefined') return;
+
+        slidersForQuery(event).forEach(rebuild);
 
         // Sliders that arrived inside the AJAX results themselves
         initAll();
     }
 
+    document.addEventListener('bricks/ajax/start', flattenForQuery);
+
+    // One per kind of request; each fires once its results are in the DOM.
     document.addEventListener('bricks/ajax/query_result/displayed', rebuildForQuery);
+    document.addEventListener('bricks/ajax/load_page/completed', rebuildForQuery);
+    document.addEventListener('bricks/ajax/pagination/completed', rebuildForQuery);
+
+    // Safety net, not the trigger: 'end' can fire before the results are inserted,
+    // and regrouping then would recreate the split-markup problem above.
+    document.addEventListener('bricks/ajax/end', function () {
+        var roots = pendingRoots.slice();
+        if (!roots.length) return;
+
+        setTimeout(function () {
+            roots.forEach(function (root) {
+                if (pendingRoots.indexOf(root) !== -1 && document.contains(root)) rebuild(root);
+            });
+        }, 1000);
+    });
 })();
