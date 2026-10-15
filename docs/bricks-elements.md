@@ -226,6 +226,12 @@ Column-flow grid over flat children approximates the wrappers — same order, wi
 
 The JS still derives the same structure, because it has to: the builder never gets server-rendered children (see above), and a Bricks query-loop re-render replaces the markup. `applyRowGrouping()` therefore starts with `groupingIsCurrent()` and returns early when the DOM already matches — not for speed, but because moving a node in the DOM reloads any iframe inside it, so unconditional regrouping would restart embedded videos and maps on every init.
 
+**AJAX query results (filters, load more, infinite scroll).** Bricks 2.4 marks the start of a loop's results with an `<!--brx-loop-start-{id}-->` comment; on a filter it removes the old iterations by their `.brxe-{id}` class and inserts the new ones straight after that comment, at container level. Some request types also render a hidden `.brx-query-trail[data-query-element-id]` and insert before it. Logged on a live 2.4.3 site, the result with the column wrappers in place was a flat, ungrouped row of cards beside empty wrappers, and nothing rebuilt it because `initAll()` skips sliders that already carry `data-embla-init`. So:
+
+- The trail is not a slide. `isSlideNode()` excludes it alongside the builder placeholder, and `hoistQueryTrails()` moves it out of the last column to container level so results anchored on it don't land in one column.
+- The slider steps out of the way for the request. On `bricks/ajax/start` (matched by `detail.queryId` against `.brxe-{id}`, the trail, or the start comment) it destroys its Embla instance and unwraps the columns, handing Bricks back the flat markup it rendered, laid out by the pre-init grid. Once the results are in (`bricks/ajax/query_result/displayed`, `load_page/completed` or `pagination/completed`) the slider is rebuilt and regrouped. `bricks/ajax/end` only acts as a safety net for a request that never reports results, since it fires before they are inserted.
+- Instances are keyed by `instanceKey()`, not `root.id`. Bricks prints no id attribute on a slider without a custom CSS id, so an id-keyed rebuild never destroyed the previous instance and left two Embla engines on one container.
+
 It has to be DOM regrouping rather than a CSS grid. Embla derives every scroll snap from the difference between consecutive slides' `offsetLeft`:
 
 ```js

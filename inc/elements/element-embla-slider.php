@@ -107,7 +107,7 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
             'prefix-embla-slider',
             plugin_dir_url( __FILE__ ) . 'js/prefix-embla-slider.js',
             [ 'embla-carousel', 'embla-carousel-autoplay' ],
-            DDWPT_VERSION,
+            self::asset_version( 'js/prefix-embla-slider.js' ),
             true
         );
 
@@ -115,8 +115,19 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
             'prefix-embla-slider',
             plugin_dir_url( __FILE__ ) . 'css/prefix-embla-slider.css',
             [],
-            DDWPT_VERSION
+            self::asset_version( 'css/prefix-embla-slider.css' )
         );
+    }
+
+    /**
+     * Plugin version plus the file's mtime, so a changed file gets a new URL even
+     * when the plugin version doesn't (a test build installed over the same version
+     * otherwise keeps serving the browser's cached copy).
+     */
+    private static function asset_version( $relative_path ) {
+        $mtime = @filemtime( __DIR__ . '/' . $relative_path );
+
+        return $mtime ? DDWPT_VERSION . '.' . $mtime : DDWPT_VERSION;
     }
 
     public function set_control_groups() {

@@ -14,6 +14,28 @@
     // observer outlives destroy(), so it has to be disconnected on re-init too.
     var heightObservers = {};
 
+    var keyCounter = 0;
+
+    /**
+     * Key for the maps above. Bricks only prints an id attribute on an element that
+     * needs one (a custom CSS id, an anchor), so a plain slider root has none, and
+     * keying on root.id alone meant a rebuild never destroyed the previous instance:
+     * two Embla engines fighting over one container, and arrows bound twice.
+     *
+     * Falls back to a key stored on the node itself, which survives a frontend
+     * rebuild of the same root. The builder replaces the node on re-render, but
+     * builder roots always carry their id.
+     */
+    function instanceKey(root) {
+        if (root.id) return root.id;
+
+        if (!root.hasAttribute('data-embla-key')) {
+            root.setAttribute('data-embla-key', 'embla-' + (++keyCounter));
+        }
+
+        return root.getAttribute('data-embla-key');
+    }
+
     /**
      * Resolve a user-supplied CSS selector document-wide.
      *
@@ -48,8 +70,20 @@
      */
     var CHILDREN_PLACEHOLDER = 'brx-nestable-children-placeholder';
 
+    /*
+     * Frontend-only marker. A query loop that can be re-queried over AJAX (filters,
+     * load more, infinite scroll) renders an empty, hidden '.brx-query-trail' after
+     * its last iteration. Bricks uses it as the anchor for swapping results in, so it
+     * is not a slide either: counted as one it is a zero-width phantom at the end of
+     * the slide list, and grouped as one it sits inside the last column, so the
+     * filtered results get inserted into that single column.
+     */
+    var QUERY_TRAIL = 'brx-query-trail';
+
     function isSlideNode(node) {
-        return node.nodeType === 1 && !node.classList.contains(CHILDREN_PLACEHOLDER);
+        return node.nodeType === 1 &&
+            !node.classList.contains(CHILDREN_PLACEHOLDER) &&
+            !node.classList.contains(QUERY_TRAIL);
     }
 
     function slideNodesIn(container) {
@@ -82,7 +116,7 @@
         for (var i = 0; i < kids.length; i++) {
             if (!kids[i].hasAttribute('data-embla-group')) return false;
 
-            var count = kids[i].childElementCount;
+            var count = slideNodesIn(kids[i]).length;
             var isLast = i === kids.length - 1;
 
             // Only the last column may be short
@@ -92,8 +126,25 @@
         return true;
     }
 
+    /**
+     * Move any query trail out of the column wrappers to container level, right after
+     * the column that held it. The server renders it inside the last column (it is
+     * part of the loop element's own output), where Bricks would drop the next set of
+     * AJAX results. Only the trail moves, so slide content (and any iframe in it) is
+     * left alone.
+     */
+    function hoistQueryTrails(container) {
+        var trails = container.querySelectorAll(':scope > [data-embla-group] > .' + QUERY_TRAIL);
+
+        Array.prototype.forEach.call(trails, function (trail) {
+            container.insertBefore(trail, trail.parentNode.nextSibling);
+        });
+    }
+
     function applyRowGrouping(container, rows) {
         if (!container) return;
+
+        hoistQueryTrails(container);
 
         if (rows > 1 && groupingIsCurrent(container, rows)) return;
 
@@ -189,7 +240,7 @@
         var nextBtn = root.querySelector('.embla__button--next');
         var dotsEl = root.querySelector('.embla__dots');
         var options = config.options || {};
-        var elementId = root.id;
+        var elementId = instanceKey(root);
 
         // Destroy any previous instance for this element (builder re-renders same id)
         if (elementId && instances[elementId]) {
@@ -465,5 +516,109 @@
         initAll();
     }
 
-    document.addEventListener('bricks/ajax/query_result/displayed', initAll);
+    /*
+     * Bricks AJAX on a query loop inside the slider: query filters, load more,
+     * infinite scroll, AJAX pagination. Bricks finds the results it replaces or
+     * appends to by walking the loop's own markup (a start marker, the iterations,
+     * and the .brx-query-trail it inserts in front of). In grid mode those nodes are
+     * spread over the column wrappers. Bricks 2.4 removes the old iterations by
+     * class and inserts the new ones after the start marker, at container level,
+     * which leaves empty column wrappers beside an ungrouped row; other versions and
+     * request types anchor on the trail instead, which can sit inside a column.
+     *
+     * So the slider steps out of the way for the request: on bricks/ajax/start it
+     * destroys its Embla instance and unwraps the columns, handing Bricks the flat
+     * markup it rendered, laid out by the pre-init grid so nothing visibly jumps.
+     * Once Bricks has swapped the results in, the slider is rebuilt from scratch.
+     *
+     * The queryId on every one of these events is the loop element's id: its
+     * iterations carry .brxe-{id}, its trail (when present) carries
+     * data-query-element-id, and its start marker is <!--brx-loop-start-{id}-->.
+     */
+    function slidersForQuery(event) {
+        var queryId = event && event.detail && event.detail.queryId;
+        var hasId = typeof queryId === 'string' && /^[\w-]+$/.test(queryId);
+
+        // Bricks 2.x marks where a loop's results start with an HTML comment,
+        // which no selector can reach; checking for it also catches a filter that
+        // came back empty, leaving no .brxe-{id} card to match.
+        var marker = 'brx-loop-start-' + (hasId ? queryId : '');
+        var match = hasId
+            ? '.' + QUERY_TRAIL + '[data-query-element-id="' + queryId + '"], .brxe-' + queryId
+            : '.' + QUERY_TRAIL;
+
+        return Array.prototype.filter.call(document.querySelectorAll('.brxe-prefix-embla-slider'), function (root) {
+            var container = root.querySelector('.embla__container');
+            if (!container) return false;
+
+            return !!container.querySelector(match) || container.innerHTML.indexOf(marker) !== -1;
+        });
+    }
+
+    // Roots flattened for an in-flight request, so a request that never reports
+    // its results (failed, aborted) can't leave a slider torn down.
+    var pendingRoots = [];
+
+    function flattenForQuery(event) {
+        slidersForQuery(event).forEach(function (root) {
+            var elementId = instanceKey(root);
+
+            if (elementId && instances[elementId]) {
+                try { instances[elementId].destroy(); } catch (e) {}
+                delete instances[elementId];
+            }
+
+            var config = {};
+            try { config = JSON.parse(root.getAttribute('data-embla') || '{}'); } catch (e) {}
+
+            var container = root.querySelector('.embla__container');
+            applyRowGrouping(container, 1);
+
+            if (config.rows > 1) {
+                root.setAttribute('data-embla-rows', config.rows);
+                root.style.setProperty('--embla-rows', config.rows);
+            }
+
+            root.removeAttribute('data-embla-init');
+
+            if (pendingRoots.indexOf(root) === -1) pendingRoots.push(root);
+        });
+    }
+
+    function rebuild(root) {
+        var index = pendingRoots.indexOf(root);
+        if (index !== -1) pendingRoots.splice(index, 1);
+
+        root.setAttribute('data-embla-init', '1');
+        buildEmbla(root);
+    }
+
+    function rebuildForQuery(event) {
+        if (typeof EmblaCarousel === 'undefined') return;
+
+        slidersForQuery(event).forEach(rebuild);
+
+        // Sliders that arrived inside the AJAX results themselves
+        initAll();
+    }
+
+    document.addEventListener('bricks/ajax/start', flattenForQuery);
+
+    // One per kind of request; each fires once its results are in the DOM.
+    document.addEventListener('bricks/ajax/query_result/displayed', rebuildForQuery);
+    document.addEventListener('bricks/ajax/load_page/completed', rebuildForQuery);
+    document.addEventListener('bricks/ajax/pagination/completed', rebuildForQuery);
+
+    // Safety net, not the trigger: 'end' can fire before the results are inserted,
+    // and regrouping then would recreate the split-markup problem above.
+    document.addEventListener('bricks/ajax/end', function () {
+        var roots = pendingRoots.slice();
+        if (!roots.length) return;
+
+        setTimeout(function () {
+            roots.forEach(function (root) {
+                if (pendingRoots.indexOf(root) !== -1 && document.contains(root)) rebuild(root);
+            });
+        }, 1000);
+    });
 })();
