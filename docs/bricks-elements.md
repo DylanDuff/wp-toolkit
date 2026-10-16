@@ -242,6 +242,8 @@ Any wrapped or `grid-auto-flow: column` layout gives same-column slides an ident
 
 The wrapper is **flex-column, not a CSS grid**. It becomes the `.embla__slide`, so the Slide align controls (`align-items` / `justify-content`) must keep meaning what they mean on a Bricks block, which is also flex-column — on a grid container those two swap axes.
 
+"Stretch vertically" (Slide group) is the one align setting that targets a level deeper: `justify-content` has no stretch value on a flex column, so it sets `flex-grow: 1` on the slide's children. In grid mode the slide is this wrapper and its items already fill their cells, so the control also targets `.embla__group > * > *`, the content inside each item.
+
 When it does regroup, `applyRowGrouping()` unwraps any previous grouping and clears stale `.embla__slide` classes first, because the builder re-runs init against markup that may or may not already carry wrappers.
 
 Unlike Items to show and Spacing, Rows is **not breakpoint-aware** — it changes DOM structure rather than CSS, so per-breakpoint values would need JS re-chunking on media query changes.

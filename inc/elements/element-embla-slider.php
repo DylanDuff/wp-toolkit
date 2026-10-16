@@ -432,6 +432,32 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
             'default' => 'center',
         ];
 
+        // Vertical stretch. justify-content has no stretch value on a flex column, so
+        // this grows the slide's children instead: slides already share the tallest
+        // height (the container's default align-items: stretch), and this carries that
+        // height down to a card inside each slide. Second selector is grid mode, where
+        // the .embla__slide is the column wrapper and each item in it is the "slide"
+        // whose content should fill it (the items themselves already fill their cell).
+        $this->controls['slideStretch'] = [
+            'group'  => 'slide',
+            'label'  => esc_html__( 'Stretch vertically', 'bricks' ),
+            'type'   => 'checkbox',
+            'inline' => true,
+            'css'    => [
+                [
+                    'property' => 'flex-grow',
+                    'value'    => '1',
+                    'selector' => '.embla__slide > *',
+                ],
+                [
+                    'property' => 'flex-grow',
+                    'value'    => '1',
+                    'selector' => '.embla__group > * > *',
+                ],
+            ],
+            'desc'   => esc_html__( 'Content fills the full slide height, so cards in a row line up. Overrides "Align vertical".', 'bricks' ),
+        ];
+
         $this->controls['slideBackground'] = [
             'group'   => 'slide',
             'label'   => esc_html__( 'Background', 'bricks' ),
