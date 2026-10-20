@@ -291,15 +291,27 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
         // from each slide's offsetLeft, so any wrapped or grid layout gives slides in
         // the same column an identical offset and breaks snapping outright. Instead
         // the JS groups children into columns of N, and Embla still sees a flat line.
-        // Not breakpoint-aware: this changes DOM structure, not CSS.
+        //
+        // Breakpoint-aware like perPage: the value is written as a unitless custom
+        // property, and the JS reads the computed --embla-rows and regroups when the
+        // active breakpoint changes it. 'rerender' because a 'css' control is patched
+        // in place in the builder, which would skip $scripts and leave the old grouping.
         $this->controls['rows'] = [
-            'group'   => 'options',
-            'label'   => esc_html__( 'Rows', 'bricks' ),
-            'type'    => 'number',
-            'min'     => 1,
-            'step'    => 1,
-            'default' => 1,
-            'desc'    => esc_html__( 'Stack this many items per column. 1 is a single row. "Items to show" then counts columns.', 'bricks' ),
+            'group'       => 'options',
+            'label'       => esc_html__( 'Rows', 'bricks' ),
+            'type'        => 'number',
+            'min'         => 1,
+            'step'        => 1,
+            'breakpoints' => true,
+            'css'         => [
+                [
+                    'property' => '--embla-rows',
+                    'selector' => '',
+                ],
+            ],
+            'rerender'    => true,
+            'default'     => 1,
+            'desc'        => esc_html__( 'Stack this many items per column. 1 is a single row. "Items to show" then counts columns.', 'bricks' ),
         ];
 
         $this->controls['perMove'] = [
@@ -1219,7 +1231,16 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
      * children, which Vue replaces with the real nodes afterwards — nothing to group
      * at render time — so the canvas keeps using the JS path. See docs/bricks-elements.md.
      */
-    private function render_slides( $rows ) {
+    private function render_slides( $rows, $responsive_rows ) {
+        // Per-breakpoint rows: the server can't know which breakpoint is active, so
+        // the children ship flat and the pre-init grid lays them out per breakpoint
+        // from the generated --embla-rows until the JS groups them.
+        if ( $responsive_rows && $this->is_frontend ) {
+            $this->set_attribute( '_root', 'data-embla-rows', $rows );
+
+            return \Bricks\Frontend::render_children( $this, 'div', [ 'class' => 'embla__slide' ] );
+        }
+
         if ( $rows < 2 || ! $this->is_frontend ) {
             // Merged into the child's existing class list by Bricks (Element::set_root_attributes).
             return \Bricks\Frontend::render_children( $this, 'div', [ 'class' => 'embla__slide' ] );
@@ -1299,8 +1320,9 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
     /**
      * Hand the pre-init layout to the CSS grid fallback — see prefix-embla-slider.css.
      *
-     * Rows is not breakpoint-aware (it changes DOM structure, not CSS), so an inline
-     * custom property is safe here, unlike --embla-per-page.
+     * Only reached when Rows has no breakpoint overrides, so an inline custom
+     * property is safe here, unlike --embla-per-page. It also covers pages whose
+     * generated CSS predates Rows writing --embla-rows.
      */
     private function use_pre_init_grid( $rows ) {
         $this->set_attribute( '_root', 'data-embla-rows', $rows );
@@ -1312,6 +1334,19 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
      * does — including component instances, whose children live on the instance and
      * whose elements have to be registered before they can be rendered.
      */
+    /**
+     * Does Rows vary per breakpoint? Bricks stores an override as 'rows:{breakpoint}'.
+     */
+    private function has_responsive_rows() {
+        foreach ( array_keys( $this->settings ) as $key ) {
+            if ( strpos( (string) $key, 'rows:' ) === 0 ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function get_child_elements() {
         $element            = $this->element;
         $component_instance = $element['componentInstance'] ?? \Bricks\Helpers::get_component_instance( $element );
@@ -1380,16 +1415,23 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
             'options' => $embla_options,
         ];
 
-        $rows = ! empty( $settings['rows'] ) ? max( 1, intval( $settings['rows'] ) ) : 1;
+        $rows            = ! empty( $settings['rows'] ) ? max( 1, intval( $settings['rows'] ) ) : 1;
+        $responsive_rows = $this->has_responsive_rows();
 
         if ( $rows > 1 ) {
             $config['rows'] = $rows;
         }
 
+        // The JS then takes the row count from the computed --embla-rows, which the
+        // breakpoint media queries set, and regroups when it changes.
+        if ( $responsive_rows ) {
+            $config['responsiveRows'] = true;
+        }
+
         // Rendered up here, not inline in the output below: render_slides() may set
         // root attributes (data-embla-rows), and render_attributes('_root') freezes
         // them the moment the opening tag is built.
-        $slides = $this->render_slides( $rows );
+        $slides = $this->render_slides( $rows, $responsive_rows );
 
         if ( isset( $settings['autoplay'] ) ) {
             $config['autoplay'] = [
