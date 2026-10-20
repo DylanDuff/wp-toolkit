@@ -246,7 +246,13 @@ The wrapper is **flex-column, not a CSS grid**. It becomes the `.embla__slide`, 
 
 When it does regroup, `applyRowGrouping()` unwraps any previous grouping and clears stale `.embla__slide` classes first, because the builder re-runs init against markup that may or may not already carry wrappers.
 
-Unlike Items to show and Spacing, Rows is **not breakpoint-aware** — it changes DOM structure rather than CSS, so per-breakpoint values would need JS re-chunking on media query changes.
+**Rows is breakpoint-aware**, like Items to show and Spacing, but it changes DOM structure rather than just CSS, so it takes two halves:
+
+- The control writes a unitless `--embla-rows` on the root (`breakpoints => true` plus a `css` key), so the breakpoint media queries resolve the active value. `'rerender' => true` is required: a `css` control is patched in place in the builder, so without it `$scripts` never fires and the old grouping stays.
+- When any `rows:{breakpoint}` override is saved, PHP passes `responsiveRows: true` in the config and renders the children **flat** with `data-embla-rows`, skipping the server-side groups: the server can't know the active breakpoint. The pre-init grid already reads `var(--embla-rows)`, so it lays the flat children out correctly per breakpoint until the JS groups them. No inline `--embla-rows` is set in this mode (here or in `flattenForQuery()`), since it would outrank the media queries.
+- The JS `resolveRows()` reads the computed `--embla-rows` (falling back to the base `config.rows`, for pages whose generated CSS predates this), and a rAF-throttled `resize` handler rebuilds any responsive slider whose resolved count no longer matches the one it was grouped with (`builtRows`). The builder's breakpoint switch resizes the canvas iframe, so the same handler covers it.
+
+Sliders with only a base Rows value keep the original path unchanged: server-side groups, `config.rows`, no resize work.
 
 ### The children placeholder (builder only)
 
