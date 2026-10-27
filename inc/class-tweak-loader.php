@@ -50,6 +50,7 @@ class Tweak_Loader
         'enable-application-passwords',
         'disable-image-compression',
         'disable-update-nags',
+        'auto-open-plugin-upload',
         'gtm-autoload',
         'hide-wp-version',
         'knowledge-base',
