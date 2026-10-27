@@ -104,6 +104,10 @@ Markup is a Bricks root wrapping `.mapbox-map__canvas` (the Mapbox container) an
 
 **The map height sits on the inner canvas, not the root.** An inline `height` on the root would outrank the Layout → Height style control, which is generated CSS.
 
+### Dynamic data in settings
+
+Bricks resolves `{…}` tags only where an element's own code asks it to, so `render()` runs Latitude, Longitude and the popup Description through `bricks_render_dynamic_data()` with the element's `post_id`. Lat/lng are then cast to float (an ACF number field still arrives as a string); a value that doesn't resolve to a number falls back to the control default, so the map never receives a literal tag or a `[0, 0]` centre.
+
 ### One WebGL context per map
 
 Each `mapboxgl.Map` holds a WebGL context and browsers cap those at roughly 16. The builder re-renders on every control change, so without teardown a handful of edits exhausts the budget and the canvas dies mid-session. The JS keys live instances by element id and calls `map.remove()` before rebuilding.

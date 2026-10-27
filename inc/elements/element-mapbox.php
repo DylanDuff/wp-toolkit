@@ -161,6 +161,36 @@ class Element_Mapbox extends \Bricks\Element
      * Returns the decoded array on success, null on failure.
      * Accepts FeatureCollection, Feature, Polygon, or MultiPolygon.
      */
+    /**
+     * Resolve dynamic data tags ({post_title}, {acf_…}) in a setting value.
+     * Bricks only does this for its own elements, so a custom element has to.
+     */
+    private function render_dynamic($value)
+    {
+        if (!is_string($value) || strpos($value, "{") === false) {
+            return $value;
+        }
+
+        if (!function_exists("bricks_render_dynamic_data")) {
+            return $value;
+        }
+
+        return bricks_render_dynamic_data($value, $this->post_id);
+    }
+
+    /**
+     * Read a lat/lng setting as a float, resolving dynamic tags first.
+     * GL JS takes numbers; a text control or an ACF number field hands us
+     * strings. Anything that doesn't resolve to a number falls back to the
+     * default rather than shipping a bad LngLat to the map.
+     */
+    private function resolve_coordinate($key, $default)
+    {
+        $raw = trim((string) $this->render_dynamic($this->settings[$key] ?? ""));
+
+        return is_numeric($raw) ? (float) $raw : $default;
+    }
+
     private function parse_geojson($raw)
     {
         $raw = trim($raw);
@@ -416,13 +446,8 @@ class Element_Mapbox extends \Bricks\Element
         $show_marker = in_array($mode, ["marker", "both"], true);
         $show_area = in_array($mode, ["area", "both"], true);
 
-        // Cast: GL JS takes numbers, and a text control hands us strings.
-        $lat = isset($s["lat"]) && $s["lat"] !== ""
-            ? (float) $s["lat"]
-            : -33.767719570242015;
-        $lng = isset($s["lng"]) && $s["lng"] !== ""
-            ? (float) $s["lng"]
-            : 150.6844585269858;
+        $lat = $this->resolve_coordinate("lat", -33.767719570242015);
+        $lng = $this->resolve_coordinate("lng", 150.6844585269858);
 
         $map_height = $s["map_height"] ?? "400px";
 
@@ -440,7 +465,9 @@ class Element_Mapbox extends \Bricks\Element
                 "height" => isset($s["icon_height"])
                     ? (int) $s["icon_height"]
                     : 35,
-                "popup" => wp_kses_post($s["description"] ?? ""),
+                "popup" => wp_kses_post(
+                    $this->render_dynamic($s["description"] ?? ""),
+                ),
             ];
         }
 
