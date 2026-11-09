@@ -13,6 +13,11 @@ class Element_Mapbox extends \Bricks\Element
     const NAME = "mapbox-map";
     const MAPBOX_GL_VERSION = "3.0.1";
     const DEFAULT_STYLE = "mapbox://styles/mapbox/streets-v12";
+    const DEFAULT_LAT = -33.767719570242015;
+    const DEFAULT_LNG = 150.6844585269858;
+    const GEOCODE_ENDPOINT = "https://api.mapbox.com/search/geocode/v6/forward";
+    const GEOCODE_CACHE_TTL = 30 * DAY_IN_SECONDS;
+    const GEOCODE_FAILURE_TTL = HOUR_IN_SECONDS;
 
     public $category = "general";
     public $name = self::NAME;
@@ -157,11 +162,6 @@ class Element_Mapbox extends \Bricks\Element
     }
 
     /**
-     * Validate and decode a GeoJSON string from the textarea.
-     * Returns the decoded array on success, null on failure.
-     * Accepts FeatureCollection, Feature, Polygon, or MultiPolygon.
-     */
-    /**
      * Resolve dynamic data tags ({post_title}, {acf_…}) in a setting value.
      * Bricks only does this for its own elements, so a custom element has to.
      */
@@ -189,6 +189,106 @@ class Element_Mapbox extends \Bricks\Element
         $raw = trim((string) $this->render_dynamic($this->settings[$key] ?? ""));
 
         return is_numeric($raw) ? (float) $raw : $default;
+    }
+
+    /**
+     * Validate and decode a GeoJSON string from the textarea.
+     * Returns the decoded array on success, null on failure.
+     * Accepts FeatureCollection, Feature, Polygon, or MultiPolygon.
+     */
+    /**
+     * Resolve the map centre as [lng, lat], from either the coordinate
+     * controls or a geocoded street address, per the Location control.
+     * An address that can't be geocoded falls back to the coordinate
+     * controls, so the map still renders somewhere sensible.
+     */
+    private function resolve_center()
+    {
+        $lat = $this->resolve_coordinate("lat", self::DEFAULT_LAT);
+        $lng = $this->resolve_coordinate("lng", self::DEFAULT_LNG);
+
+        if (($this->settings["location"] ?? "coordinates") !== "address") {
+            return [$lng, $lat];
+        }
+
+        $address = trim(
+            wp_strip_all_tags(
+                (string) $this->render_dynamic($this->settings["address"] ?? ""),
+            ),
+        );
+
+        return $this->geocode($address) ?? [$lng, $lat];
+    }
+
+    /**
+     * Forward-geocode a street address to [lng, lat] via the Mapbox
+     * Geocoding API, cached in a transient keyed by the normalised address.
+     *
+     * GL JS only takes coordinates, so the lookup happens here rather than in
+     * the browser: one request per address per cache period instead of one per
+     * page view. Failures are cached briefly too, so a bad address or a
+     * rejected token doesn't trigger a request on every render.
+     * Returns null when the address can't be resolved.
+     */
+    private function geocode($address)
+    {
+        if ($address === "") {
+            return null;
+        }
+
+        $cache_key =
+            "ddwpt_mapbox_geo_" . md5(strtolower(preg_replace("/\s+/", " ", $address)));
+        $cached = get_transient($cache_key);
+
+        if ($cached !== false) {
+            return is_array($cached) ? $cached : null;
+        }
+
+        $token = trim($this->settings["api_key"] ?? "");
+        $url = add_query_arg(
+            [
+                "q" => rawurlencode($address),
+                "limit" => 1,
+                "access_token" => rawurlencode($token),
+            ],
+            self::GEOCODE_ENDPOINT,
+        );
+
+        // URL-restricted tokens are checked against the Referer, which a
+        // server-side request doesn't send unless we set it.
+        $response = wp_remote_get($url, [
+            "timeout" => 5,
+            "headers" => ["Referer" => home_url("/")],
+        ]);
+
+        $center = null;
+
+        if (
+            !is_wp_error($response) &&
+            wp_remote_retrieve_response_code($response) === 200
+        ) {
+            $body = json_decode(wp_remote_retrieve_body($response), true);
+            $point = $body["features"][0]["geometry"]["coordinates"] ?? null;
+
+            if (
+                is_array($point) &&
+                isset($point[0], $point[1]) &&
+                is_numeric($point[0]) &&
+                is_numeric($point[1])
+            ) {
+                $center = [(float) $point[0], (float) $point[1]];
+            }
+        }
+
+        // A transient can't store false (it reads back as a miss), so a
+        // failure is cached as an empty string.
+        set_transient(
+            $cache_key,
+            $center ?? "",
+            $center ? self::GEOCODE_CACHE_TTL : self::GEOCODE_FAILURE_TTL,
+        );
+
+        return $center;
     }
 
     private function parse_geojson($raw)
@@ -288,11 +388,36 @@ class Element_Mapbox extends \Bricks\Element
 
         // ── Map ──────────────────────────────────────────────────────────────
 
+        $this->controls["location"] = [
+            "group" => "map",
+            "label" => esc_html__("Location", "bricks"),
+            "type" => "select",
+            "options" => [
+                "coordinates" => esc_html__("Latitude / Longitude", "bricks"),
+                "address" => esc_html__("Street address", "bricks"),
+            ],
+            "default" => "coordinates",
+            "inline" => true,
+        ];
+
+        $this->controls["address"] = [
+            "group" => "map",
+            "label" => esc_html__("Street Address", "bricks"),
+            "type" => "text",
+            "placeholder" => "1 Main St, Penrith NSW 2750",
+            "required" => ["location", "=", "address"],
+            "description" => esc_html__(
+                "Converted to coordinates with the Mapbox Geocoding API and cached for 30 days. Supports dynamic data. If the address can't be found the map falls back to the default coordinates.",
+                "bricks",
+            ),
+        ];
+
         $this->controls["lat"] = [
             "group" => "map",
             "label" => esc_html__("Latitude", "bricks"),
             "type" => "text",
             "default" => "-33.767719570242015",
+            "required" => ["location", "!=", "address"],
         ];
 
         $this->controls["lng"] = [
@@ -300,6 +425,7 @@ class Element_Mapbox extends \Bricks\Element
             "label" => esc_html__("Longitude", "bricks"),
             "type" => "text",
             "default" => "150.6844585269858",
+            "required" => ["location", "!=", "address"],
         ];
 
         $this->controls["zoom"] = [
@@ -446,15 +572,12 @@ class Element_Mapbox extends \Bricks\Element
         $show_marker = in_array($mode, ["marker", "both"], true);
         $show_area = in_array($mode, ["area", "both"], true);
 
-        $lat = $this->resolve_coordinate("lat", -33.767719570242015);
-        $lng = $this->resolve_coordinate("lng", 150.6844585269858);
-
         $map_height = $s["map_height"] ?? "400px";
 
         $config = [
             "apiKey" => $api_key,
             "style" => $this->resolve_map_style(),
-            "center" => [$lng, $lat],
+            "center" => $this->resolve_center(),
             "zoom" => isset($s["zoom"]) ? (int) $s["zoom"] : 11,
             "scrollZoom" => !empty($s["scroll_zoom"]),
         ];

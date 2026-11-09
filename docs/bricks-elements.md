@@ -106,7 +106,18 @@ Markup is a Bricks root wrapping `.mapbox-map__canvas` (the Mapbox container) an
 
 ### Dynamic data in settings
 
-Bricks resolves `{…}` tags only where an element's own code asks it to, so `render()` runs Latitude, Longitude and the popup Description through `bricks_render_dynamic_data()` with the element's `post_id`. Lat/lng are then cast to float (an ACF number field still arrives as a string); a value that doesn't resolve to a number falls back to the control default, so the map never receives a literal tag or a `[0, 0]` centre.
+Bricks resolves `{…}` tags only where an element's own code asks it to, so `render()` runs Latitude, Longitude, Street Address and the popup Description through `bricks_render_dynamic_data()` with the element's `post_id`. Lat/lng are then cast to float (an ACF number field still arrives as a string); a value that doesn't resolve to a number falls back to the control default, so the map never receives a literal tag or a `[0, 0]` centre.
+
+### Street address mode
+
+GL JS only accepts coordinates, so the **Location** control (`location`) chooses where the centre comes from: `coordinates` (default, the Latitude/Longitude controls) or `address` (the Street Address control). Existing elements have no `location` setting and keep using coordinates.
+
+In address mode `resolve_center()` resolves dynamic data in the address, then `geocode()` calls the Mapbox Geocoding API v6 forward endpoint (`/search/geocode/v6/forward`, `limit=1`) server-side with the element's access token, and takes `features[0].geometry.coordinates` as `[lng, lat]`.
+
+- **Cached per address.** Results live in a transient keyed by `ddwpt_mapbox_geo_` + md5 of the lowercased, whitespace-collapsed address, for 30 days (`GEOCODE_CACHE_TTL`). Failed lookups (no match, HTTP error, rejected token) are cached as an empty string for an hour (`GEOCODE_FAILURE_TTL`) so a bad address doesn't fire a request on every render. Clear the transient to force a re-lookup.
+- **Falls back to coordinates.** An empty or unresolvable address uses the Latitude/Longitude values (hidden in address mode, so normally the control defaults).
+- **URL-restricted tokens.** Mapbox checks those against the `Referer`, which a server request doesn't send by default, so the request sets `Referer: home_url('/')`. The site's own URL must therefore be on the token's allowlist.
+- **Builder edits** re-render on each change to the address control, so partial addresses get looked up (and cached) while typing. Each is one cheap request; it has not been worth debouncing.
 
 ### One WebGL context per map
 
