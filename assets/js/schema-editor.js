@@ -334,29 +334,115 @@
 
     /* ---------- Transforms ---------- */
 
+    // Menu groups for the transform picker; unlisted transforms land in "Other".
+    const TRANSFORM_GROUPS = [
+        ['Text', ['clean', 'summary', 'prefix', 'suffix', 'plural', 'join']],
+        ['Time and dates', ['minutes', 'duration', 'sum', 'hours', 'time', 'date']],
+        ['Places and contact', ['address', 'geo', 'phone']],
+        ['Lists and lookups', ['map', 'pairs', 'nutrition', 'first', 'unique', 'term', 'post']],
+        ['Pick a part', ['name', 'slug', 'url', 'title', 'image']],
+        ['Numbers and fallbacks', ['int', 'float', 'default']],
+    ];
+
+    function transformGroups() {
+        const listed = new Set(TRANSFORM_GROUPS.flatMap(([, names]) => names));
+        return TRANSFORM_GROUPS
+            .map(([label, names]) => [label, names.filter((name) => config.transforms[name])])
+            .concat([['Other', Object.keys(config.transforms).filter((name) => !listed.has(name))]])
+            .filter(([, names]) => names.length);
+    }
+
+    /**
+     * Searchable transform menu anchored to `anchor`. Calls onPick(name) and
+     * closes; Esc or a click elsewhere closes it too.
+     */
+    function TransformMenu(anchor, onPick) {
+        let active = 0;
+        const search  = h('input', { type: 'search', className: 'ddwpt-schema-menu-search', placeholder: 'Search transforms', 'aria-label': 'Search transforms' });
+        const list    = h('div', { className: 'ddwpt-schema-menu-list', role: 'listbox' });
+        const menu    = h('div', { className: 'ddwpt-schema-menu' }, search, list);
+        const options = () => Array.from(list.querySelectorAll('[role=option]'));
+
+        const close = () => {
+            document.removeEventListener('pointerdown', outside, true);
+            menu.remove();
+            anchor.setAttribute('aria-expanded', 'false');
+        };
+        const outside = (event) => { if (!menu.contains(event.target) && event.target !== anchor) close(); };
+        const pick    = (name) => { close(); onPick(name); };
+        const mark    = () => options().forEach((option, index) => {
+            option.classList.toggle('is-active', index === active);
+            if (index === active) option.scrollIntoView({ block: 'nearest' });
+        });
+
+        const draw = () => {
+            const query = search.value.trim().toLowerCase();
+            list.innerHTML = '';
+            transformGroups().forEach(([group, names]) => {
+                const matches = names.filter((name) => !query || name.includes(query) || config.transforms[name].label.toLowerCase().includes(query));
+                if (!matches.length) return;
+                list.append(h('div', { className: 'ddwpt-schema-menu-group' }, group));
+                matches.forEach((name) => list.append(h('div', { role: 'option', className: 'ddwpt-schema-menu-item',
+                    onPointerdown: (event) => event.preventDefault(), onClick: () => pick(name) },
+                    h('code', {}, name),
+                    h('span', {}, config.transforms[name].label))));
+            });
+            if (!options().length) list.append(h('div', { className: 'ddwpt-schema-menu-empty' }, 'No transforms match.'));
+            active = 0;
+            mark();
+        };
+
+        search.addEventListener('input', draw);
+        search.addEventListener('keydown', (event) => {
+            const count = options().length;
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                active = (active + (event.key === 'ArrowDown' ? 1 : -1) + count) % Math.max(count, 1);
+                mark();
+            } else if (event.key === 'Enter') {
+                event.preventDefault();
+                const option = options()[active];
+                if (option) option.click();
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                close();
+                anchor.focus();
+            }
+        });
+
+        draw();
+        anchor.setAttribute('aria-expanded', 'true');
+        anchor.after(menu);
+        document.addEventListener('pointerdown', outside, true);
+        search.focus();
+        return menu;
+    }
+
+    /** Transforms as inline steps after the source, plus a button that opens the menu. */
     function TransformChips(transforms, onChange) {
         const wrap = h('span', { className: 'ddwpt-schema-transforms' });
 
         transforms.forEach((transform, index) => {
-            const hint = (config.transforms[transform.name] || {}).arg;
-            wrap.append(h('span', { className: 'ddwpt-schema-chip', title: (config.transforms[transform.name] || {}).label || '' },
+            const info = config.transforms[transform.name] || {};
+            wrap.append(h('span', { className: 'ddwpt-schema-chip', title: info.label || '' },
                 h('span', { className: 'ddwpt-schema-chip-name' }, transform.name),
-                hint || transform.arg !== '' ? h('input', {
-                    type: 'text', value: transform.arg, placeholder: hint || '', size: Math.max(4, (transform.arg || hint || '').length),
+                info.arg || transform.arg !== '' ? h('input', {
+                    type: 'text', value: transform.arg, placeholder: info.arg || '', size: Math.max(4, (transform.arg || info.arg || '').length),
+                    'aria-label': transform.name + ' ' + (info.arg || 'argument'),
                     onInput: (event) => { transform.arg = event.target.value; onChange(transforms, false); },
                 }) : null,
                 h('button', { type: 'button', className: 'ddwpt-schema-chip-remove', 'aria-label': 'Remove ' + transform.name,
-                    onClick: () => { transforms.splice(index, 1); onChange(transforms, true); } }, '×'),
+                    onClick: () => { transforms.splice(index, 1); onChange(transforms, true); } }, icon('x')),
             ));
         });
 
-        const options = [{ value: '', label: '+ transform' }].concat(
-            Object.entries(config.transforms).map(([name, info]) => ({ value: name, label: name + ' – ' + info.label })));
-        wrap.append(select(options, '', (name) => {
-            if (!name) return;
-            transforms.push({ name, arg: '' });
-            onChange(transforms, true);
-        }, { className: 'ddwpt-schema-add-transform' }));
+        const add = h('button', { type: 'button', className: 'ddwpt-schema-add-transform', title: 'Add a transform',
+            'aria-label': 'Add a transform', 'aria-haspopup': 'listbox', 'aria-expanded': 'false',
+            onClick: () => {
+                if (add.getAttribute('aria-expanded') === 'true') return;
+                TransformMenu(add, (name) => { transforms.push({ name, arg: '' }); onChange(transforms, true); });
+            } }, icon('function'), transforms.length ? null : h('span', {}, 'Transform'));
+        wrap.append(add);
 
         return wrap;
     }
@@ -397,10 +483,9 @@
         if (mode === 'field') {
             const token = parseToken(value);
             const write = (structural) => set(formatToken(token), structural);
-            wrap.append(
+            wrap.append(h('span', { className: 'ddwpt-schema-field' },
                 SourcePicker(token.source, context, (source, structural) => { token.source = source; write(structural); }),
-                TransformChips(token.transforms, (transforms, structural) => { token.transforms = transforms; write(structural); }),
-            );
+                TransformChips(token.transforms, (transforms, structural) => { token.transforms = transforms; write(structural); })));
         } else if (mode === 'text') {
             const input = h('input', { type: 'text', className: 'ddwpt-schema-text', value,
                 onInput: (event) => set(event.target.value, false) });
@@ -641,6 +726,7 @@
         plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
         'grip-vertical': '<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>',
         'chevron-right': '<path d="m9 18 6-6-6-6"/>',
+        function: '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M9 17c2 0 2.8-1 2.8-2.8V10c0-2 1-3.3 3.2-3"/><path d="M9 11.2h5.7"/>',
         x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
     };
 
