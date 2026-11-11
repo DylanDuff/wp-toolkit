@@ -461,9 +461,10 @@
 .ddwpt-schema-add-transform {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  width: 24px;
   height: 24px;
-  padding: 0 6px;
+  padding: 0;
   border: 0;
   border-radius: 4px;
   background: none;
@@ -946,6 +947,11 @@
 .ddwpt-schema-editor .ddwpt-schema-cards input.ddwpt-schema-key:hover {
   border-color: var(--ddwpt-border) !important;
   background-color: var(--ddwpt-surface);
+}
+
+.ddwpt-schema-editor input[list]::-webkit-calendar-picker-indicator {
+  /* Chrome's datalist arrow; suggestions still appear as you type. */
+  display: none !important;
 }
 
 .ddwpt-schema-row.is-required > .ddwpt-schema-key-wrap::after {

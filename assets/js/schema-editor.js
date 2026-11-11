@@ -445,7 +445,7 @@
             onClick: () => {
                 if (add.getAttribute('aria-expanded') === 'true') return;
                 TransformMenu(add, (name) => { transforms.push({ name, arg: '' }); onChange(transforms, true); });
-            } }, icon('function'), transforms.length ? null : h('span', {}, 'Transform'));
+            } }, icon('function'));
         wrap.append(add);
 
         return wrap;
