@@ -28,7 +28,7 @@ One option, `ddwpt_seo_schema_templates`, a JSON object keyed by post type:
 
 `template` is a list of root nodes (a single object is accepted too). Every root node joins the page `@graph`. Because it is a normal tweak option it travels with settings export/import.
 
-Other settings: `organization_type`, `organization_name`, `organization_logo`, `site_nodes`, `conflict_mode` (all prefixed `ddwpt_seo_schema_`).
+Other settings: `organization_type`, `organization_name`, `organization_logo`, `organization_output` (`none` default, `template`, `all`), `conflict_mode` (all prefixed `ddwpt_seo_schema_`).
 
 ---
 
@@ -51,7 +51,7 @@ A template is the JSON-LD you want, with `{{tokens}}` where values come from con
 | `option:so_phone_number` | ACF options page value, falling back to `get_option()` |
 | `site.name` `site.url` `site.logo` | Organization settings, falling back to site title, home URL, Site Options brand logo, custom logo |
 | `item` `item.field` `item.@index` | Current row inside `@each` (`@index` is 1-based, and empty for an `else` row) |
-| `ref:organization` `ref:website` | `{"@id": "<home>/#organization"}`, a reference to the site nodes |
+| `ref:organization` `ref:website` | `{"@id": "<home>/#organization"}` when this page prints the site nodes (or merges into Yoast's graph); otherwise the whole node inline (`@type`, `@id`, name, url, logo, sameAs) |
 
 Dot paths also read `name`/`slug`/`url`/`title` off term and post objects, so `item.url` works when looping terms.
 
@@ -176,7 +176,9 @@ The editor's source picker comes from `Schema_Sources::catalogue()`: core post f
 
 ## Output and conflicts
 
-On a singular view whose post type has an enabled template, the page gets one script tag at `wp_head` priority 20 containing the site `Organization` and `WebSite` nodes plus the template's nodes. With **Every page** on, other pages get the site nodes alone.
+On a singular view whose post type has an enabled template, the page gets one script tag at `wp_head` priority 20 containing the template's nodes.
+
+Site `Organization` and `WebSite` nodes are **opt-in** (`organization_output`): by default they are left to the SEO plugin, and `{{ref:organization}}` embeds the organization inline so template nodes stay self-contained. `template` adds both nodes to pages with a template (refs become `@id` references); `all` also prints them alone on every other page.
 
 JSON is encoded with `JSON_HEX_TAG`, so template text can't close the script tag.
 
@@ -184,7 +186,7 @@ JSON is encoded with `JSON_HEX_TAG`, so template text can't close the script tag
 |---|---|
 | `replace` (default) | On pages we handle: Yoast `wpseo_json_ld_output` → false; Rank Math `rank_math/json_ld` → `[]`; SEOPress: `wp_head` callbacks whose name contains `seopress` plus `schema`/`jsonld`/`rich_snippet`/`knowledge_graph` (not breadcrumbs) are unhooked. Adjust with the `ddwpt_schema_unhook_callback` filter |
 | `merge` | Yoast only: our nodes are appended through `wpseo_schema_graph`. Our `#organization` id matches Yoast's, so references line up. Other plugins fall back to `replace` |
-| `alongside` | Both outputs; may duplicate Organization |
+| `alongside` | Both outputs; duplicates Organization only if `organization_output` is opted in |
 
 The SEOPress unhooking matches callbacks by name because SEOPress has no single schema switch; verify on the installed SEOPress version that its schema is gone and breadcrumbs remain.
 

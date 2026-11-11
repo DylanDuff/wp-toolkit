@@ -76,7 +76,28 @@ if (!function_exists(__NAMESPACE__ . '\\seo_schema_templates')) {
             'publisher' => ['@id' => Schema_Sources::node_id('organization')],
         ];
 
-        return [$organization, $website];
+        return ['organization' => $organization, 'website' => $website];
+    }
+
+    /**
+     * Site nodes to print on this page, by the "Organization and WebSite"
+     * setting: none (the SEO plugin's job, the default), pages with a
+     * template, or every page. When none are printed here, ref:organization
+     * and ref:website inline the node instead of pointing at a missing @id;
+     * merging into Yoast keeps plain references, since Yoast prints both.
+     */
+    function seo_schema_page_site_nodes(array $options, bool $has_template, bool $merging = false): array
+    {
+        $output = $options['organization_output'] ?: 'none';
+        $print  = $output === 'all' || ($output === 'template' && $has_template);
+        $nodes  = seo_schema_site_nodes($options);
+
+        $inline = $nodes;
+        $inline['website']['publisher'] = $nodes['organization'];
+
+        Schema_Sources::configure(['nodes' => $inline, 'inline_refs' => !$print && !$merging]);
+
+        return $print ? array_values($nodes) : [];
     }
 
     function seo_schema_render(int $post_id, array $template): array
@@ -97,7 +118,7 @@ if (!function_exists(__NAMESPACE__ . '\\seo_schema_templates')) {
     function seo_schema_options(): array
     {
         $options = [];
-        foreach (['organization_type', 'organization_name', 'organization_logo', 'site_nodes', 'conflict_mode'] as $key) {
+        foreach (['organization_type', 'organization_name', 'organization_logo', 'organization_output', 'conflict_mode'] as $key) {
             $options[$key] = get_option('ddwpt_seo_schema_' . $key, '');
         }
 
@@ -168,8 +189,9 @@ if (!function_exists(__NAMESPACE__ . '\\seo_schema_templates')) {
                 wp_send_json_error('Pick a post and make sure the template is valid JSON.');
             }
 
-            $options  = seo_schema_options();
-            $renderer = new Schema_Renderer($post->ID);
+            $options    = seo_schema_options();
+            $site_nodes = seo_schema_page_site_nodes($options, true);
+            $renderer   = new Schema_Renderer($post->ID);
             $nodes    = $renderer->render($template);
             $warnings = $renderer->warnings();
 
@@ -181,7 +203,7 @@ if (!function_exists(__NAMESPACE__ . '\\seo_schema_templates')) {
 
             wp_send_json_success([
                 'json'     => wp_json_encode(
-                    ['@context' => 'https://schema.org', '@graph' => array_merge(seo_schema_site_nodes($options), $nodes)],
+                    ['@context' => 'https://schema.org', '@graph' => array_merge($site_nodes, $nodes)],
                     JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
                 ),
                 'warnings' => array_values(array_unique($warnings)),
@@ -226,7 +248,7 @@ return [
                 'EducationalOrganization' => 'Educational organization',
                 'NGO'                 => 'Non-profit',
             ],
-            'description' => 'The site-wide <code>#organization</code> node that templates reference with <code>{{ref:organization}}</code>.',
+            'description' => 'Used for <code>{{ref:organization}}</code> in templates, and for the Organization node when you output it.',
         ],
         [
             'id'          => 'organization_name',
@@ -241,11 +263,16 @@ return [
             'description' => 'Defaults to the Site Options brand logo, then the theme\'s custom logo.',
         ],
         [
-            'id'          => 'site_nodes',
-            'type'        => 'checkbox',
-            'label'       => 'Every page',
-            'label_inline' => 'Output Organization and WebSite on every page, not only pages with a template',
-            'description' => 'Leave off when the SEO plugin already outputs them site-wide.',
+            'id'      => 'organization_output',
+            'type'    => 'select',
+            'label'   => 'Organization and WebSite',
+            'default' => 'none',
+            'options' => [
+                'none'     => 'Leave to the SEO plugin',
+                'template' => 'Output on pages with a template',
+                'all'      => 'Output on every page',
+            ],
+            'description' => 'Opt in only if no SEO plugin outputs them. When left to the plugin, <code>{{ref:organization}}</code> embeds the organization details above instead of referencing a node.',
         ],
         [
             'id'      => 'conflict_mode',
@@ -278,26 +305,30 @@ return [
             $template = seo_schema_current_template();
 
             if (!$template) {
-                if (!empty($options['site_nodes'])) {
-                    add_action('wp_head', fn() => print Schema_Renderer::script(seo_schema_site_nodes($options)), 20);
+                $site_nodes = seo_schema_page_site_nodes($options, false);
+                if ($site_nodes) {
+                    add_action('wp_head', fn() => print Schema_Renderer::script($site_nodes), 20);
                 }
                 return;
             }
 
-            $post_id = get_queried_object_id();
+            $mode       = $options['conflict_mode'] ?: 'replace';
+            $merging    = $mode === 'merge' && Schema_Conflicts::active_plugin() === 'yoast';
+            $site_nodes = seo_schema_page_site_nodes($options, true, $merging);
+            $post_id    = get_queried_object_id();
             $graph   = function () use ($post_id, $template) {
                 static $nodes = null;
                 return $nodes ??= seo_schema_render($post_id, $template);
             };
 
-            if (!Schema_Conflicts::apply($options['conflict_mode'] ?: 'replace', $graph)) {
+            if (!Schema_Conflicts::apply($mode, $graph)) {
                 return; // Merged into the SEO plugin's graph instead.
             }
 
-            add_action('wp_head', function () use ($graph, $options) {
+            add_action('wp_head', function () use ($graph, $site_nodes) {
                 $nodes = $graph();
                 if ($nodes) {
-                    echo Schema_Renderer::script(array_merge(seo_schema_site_nodes($options), $nodes));
+                    echo Schema_Renderer::script(array_merge($site_nodes, $nodes));
                 }
             }, 20);
         });

@@ -24,10 +24,13 @@ class Schema_Sources
 
     private static $site = [];
 
-    /** Site-wide values set by the tweak from its Organization settings. */
+    /**
+     * Site-wide values set by the tweak: name, logo, the site `nodes`
+     * (organization, website) and whether `ref:` tokens inline them.
+     */
     public static function configure(array $site): void
     {
-        self::$site = $site;
+        self::$site = array_merge(self::$site, $site);
     }
 
     public static function site(string $key)
@@ -78,7 +81,10 @@ class Schema_Sources
                 return self::site($key);
 
             case 'ref':
-                return ['@id' => self::node_id($key)];
+                // When the page carries no site nodes of its own, a reference
+                // becomes the node itself so it still means something.
+                $node = self::$site['nodes'][$key] ?? null;
+                return !empty(self::$site['inline_refs']) && $node ? $node : ['@id' => self::node_id($key)];
 
             case 'acf':
                 if (!function_exists('get_field')) return null;
