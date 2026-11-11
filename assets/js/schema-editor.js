@@ -27,7 +27,6 @@
     // goes above the properties, what happens to the result goes below.
     const TOP_DIRECTIVES    = ['@each', '@value', '@from', '@if', '@unless'];
     const BOTTOM_DIRECTIVES = ['@else', '@merge', '@maps'];
-    const SINGLE_TOKEN      = /^\{\{([^{}]*)\}\}$/;
 
     /* ---------- DOM helpers ---------- */
 
@@ -240,33 +239,219 @@
         return count === 1 ? '1 property' : count + ' properties';
     }
 
-    /* ---------- Tokens ---------- */
+    /* ---------- Tokens (inc/seo/class-schema-syntax.php) ---------- */
 
-    /** "{{acf:x|minutes|duration}}" → { source: "acf:x", transforms: [{name, arg}] } */
+    /**
+     * Tokens follow Bricks dynamic data: {tag:filter:filter|arg @fallback:'text'}.
+     * The model is { source, transforms: [{name, arg}] }; a trailing "fallback"
+     * transform is written as @fallback. Earlier {{source|transform:arg}}
+     * tokens are read too, and migrateTemplate() rewrites them on load.
+     */
+    function tokens(text) {
+        const found = [];
+        let offset = 0;
+        let start;
+        while ((start = text.indexOf('{', offset)) !== -1) {
+            if (text.startsWith('{{', start)) {
+                const end = text.indexOf('}}', start + 2);
+                if (end === -1) break;
+                found.push({ start, length: end + 2 - start, body: text.slice(start + 2, end).replace(/^\s+/, ''), legacy: true });
+                offset = end + 2;
+                continue;
+            }
+            if (!/[A-Za-z_:]/.test(text.charAt(start + 1))) { offset = start + 1; continue; }
+
+            let depth = 0, quoted = false, end = -1;
+            for (let index = start; index < text.length; index++) {
+                const char = text[index];
+                if (char === '\\' && quoted) { index++; continue; }
+                if (char === "'") { quoted = !quoted; continue; }
+                if (quoted) continue;
+                if (char === '{') depth++;
+                if (char === '}' && --depth === 0) { end = index; break; }
+            }
+            if (end === -1) { offset = start + 1; continue; }
+            found.push({ start, length: end + 1 - start, body: text.slice(start + 1, end), legacy: false });
+            offset = end + 1;
+        }
+        return found;
+    }
+
+    /** The token when the whole string is one ("{}" is an empty field). */
+    function singleToken(text) {
+        const trimmed = String(text).trim();
+        if (trimmed === '{}' || trimmed === '{{}}') return { body: '', legacy: false };
+        const found = tokens(trimmed);
+        return found.length === 1 && found[0].start === 0 && found[0].length === trimmed.length ? found[0] : null;
+    }
+
+    function isLegacy(body) {
+        return /^\s*(post\.|site\.|acf:|meta:|tax:|option:|ref:|item\.|item\s*\|)/.test(body);
+    }
+
+    /** Splits on `separator` outside single quotes, at most `limit` parts. */
+    function splitUnquoted(text, separator, limit) {
+        const parts = [];
+        let current = '', quoted = false;
+        for (let index = 0; index < text.length; index++) {
+            const char = text[index];
+            if (char === '\\' && quoted && index + 1 < text.length) { current += char + text[++index]; continue; }
+            if (char === "'") quoted = !quoted;
+            if (!quoted && char === separator && (!limit || parts.length < limit - 1)) { parts.push(current); current = ''; continue; }
+            current += char;
+        }
+        parts.push(current);
+        return parts;
+    }
+
+    function unquote(value) {
+        return value.length >= 2 && value[0] === "'" && value[value.length - 1] === "'" ? value.slice(1, -1).replace(/\\'/g, "'") : value;
+    }
+
+    /** Expression body (no braces) → { source, transforms, legacy }. */
+    function parseExpression(body, legacy) {
+        body = String(body || '');
+        if (legacy === undefined) {
+            const single = singleToken(body);
+            if (single) return parseExpression(single.body, single.legacy);
+            legacy = isLegacy(body);
+        }
+
+        if (legacy) {
+            const [source, ...parts] = body.replace(/^\s+/, '').split('|');
+            return {
+                source: source.trim(),
+                legacy: true,
+                transforms: parts.filter((part) => part.trim() !== '').map((part) => {
+                    const colon = part.indexOf(':');
+                    return colon === -1 ? { name: part.trim(), arg: '' } : { name: part.slice(0, colon).trim(), arg: part.slice(colon + 1) };
+                }),
+            };
+        }
+
+        body = body.trim();
+        let main = body, fallback = null;
+        let quoted = false;
+        for (let index = 0; index < body.length; index++) {
+            const char = body[index];
+            if (char === '\\' && quoted) { index++; continue; }
+            if (char === "'") { quoted = !quoted; continue; }
+            if (!quoted && char === '@' && index > 0 && /\s/.test(body[index - 1])) {
+                main = body.slice(0, index).trimEnd();
+                const match = /@fallback:('(?:[^'\\]|\\.)*'|\S*)/.exec(body.slice(index));
+                if (match) fallback = unquote(match[1]);
+                break;
+            }
+        }
+
+        const [source, ...segments] = splitUnquoted(main, ':');
+        const transforms = segments.map((segment) => {
+            const [name, arg] = splitUnquoted(segment, '|', 2);
+            return { name: name.trim(), arg: arg === undefined ? '' : unquote(arg) };
+        }).filter((transform) => transform.name !== '');
+        if (fallback !== null) transforms.push({ name: 'fallback', arg: fallback });
+
+        return { source: source.trim(), transforms, legacy: false };
+    }
+
+    /** "{tag:filter|arg}" → token model, or null when the string isn't one token. */
     function parseToken(text) {
-        const match = SINGLE_TOKEN.exec(text);
-        if (!match) return null;
-        const [source, ...parts] = match[1].split('|');
-        return {
-            source: source.trim(),
-            transforms: parts.filter((part) => part.trim() !== '').map((part) => {
-                const colon = part.indexOf(':');
-                return colon === -1
-                    ? { name: part.trim(), arg: '' }
-                    : { name: part.slice(0, colon).trim(), arg: part.slice(colon + 1) };
-            }),
-        };
+        const single = singleToken(text);
+        return single ? parseExpression(single.body, single.legacy) : null;
+    }
+
+    function quoteArg(arg) {
+        return /[:'{}@|]|^\s|\s$/.test(arg) ? "'" + arg.replace(/'/g, "\\'") + "'" : arg;
+    }
+
+    /** Token model → "tag:filter|arg @fallback:'text'" (no braces). */
+    function formatExpression(token) {
+        const transforms = token.transforms.slice();
+        const last = transforms[transforms.length - 1];
+        const fallback = last && last.name === 'fallback' ? transforms.pop() : null;
+        return token.source
+            + transforms.map((transform) => ':' + transform.name + (transform.arg !== '' ? '|' + quoteArg(transform.arg) : '')).join('')
+            + (fallback ? " @fallback:'" + fallback.arg.replace(/'/g, "\\'") + "'" : '');
     }
 
     function formatToken(token) {
-        const transforms = token.transforms.map((transform) => transform.name + (transform.arg !== '' ? ':' + transform.arg : ''));
-        return '{{' + [token.source].concat(transforms).join('|') + '}}';
+        return '{' + formatExpression(token) + '}';
     }
 
-    /** "@each" may carry transforms ("acf:x|term:tax") or be {rows, if, else}. */
+    /** "@each" may carry filters ("acf_x:term|tax") or be {rows, if, else}. */
     function eachSource(each) {
         const rows = each && typeof each === 'object' ? each.rows : each;
-        return String(rows || '').split('|')[0].trim();
+        return parseExpression(rows || '').source;
+    }
+
+    /* ---------- Migration from {{source|transform:arg}} ---------- */
+
+    const LEGACY_SOURCES = {
+        'post.title': 'post_title', 'post.url': 'post_url', 'post.excerpt': 'post_excerpt', 'post.content': 'post_content',
+        'post.date': 'post_date', 'post.modified': 'post_modified', 'post.thumbnail': 'featured_image', 'post.author': 'author_name',
+        'post.id': 'post_id', 'post.type': 'post_type', 'site.name': 'site_title', 'site.url': 'site_url', 'site.logo': 'site_logo',
+        'item.@index': 'query_loop_index', item: 'item',
+    };
+
+    /** Earlier source name → Bricks tag, or null when it has none (e.g. tax:a,b). */
+    function legacySource(source) {
+        if (source === '' || LEGACY_SOURCES[source]) return LEGACY_SOURCES[source] || '';
+        const match = /^(acf:|option:|meta:|ref:|tax:|item\.)(.+)$/.exec(source);
+        if (!match || (match[1] === 'tax:' && match[2].includes(','))) return null;
+        const prefix = { 'acf:': 'acf_', 'option:': 'acf_option_', 'meta:': 'cf_', 'ref:': 'ref_', 'tax:': 'post_terms_', 'item.': 'item_' }[match[1]];
+        return prefix + match[2].replace(/\./g, '_');
+    }
+
+    /** A legacy expression rewritten, or null to leave it as it is. */
+    function migrateExpression(body, legacy) {
+        const token = parseExpression(body, legacy);
+        if (!token.legacy) return null;
+        const source = legacySource(token.source);
+        if (source === null) return null;
+        const transforms = token.transforms.map((transform) => {
+            const arg = isLegacy(transform.arg) ? legacySource(transform.arg.trim()) : null;
+            return { name: transform.name === 'default' ? 'fallback' : transform.name, arg: arg !== null ? arg : transform.arg };
+        });
+        return formatExpression({ source, transforms });
+    }
+
+    function migrateString(text) {
+        const found = tokens(text);
+        if (!found.some((token) => token.legacy)) {
+            return found.length ? text : (migrateExpression(text) ?? text);
+        }
+        let result = '', offset = 0;
+        found.forEach((token) => {
+            const migrated = token.legacy ? migrateExpression(token.body, true) : null;
+            result += text.slice(offset, token.start) + (migrated !== null ? '{' + migrated + '}' : text.substr(token.start, token.length));
+            offset = token.start + token.length;
+        });
+        return result + text.slice(offset);
+    }
+
+    /** Rewrites a template's legacy tokens in place; bare directive values too. */
+    function migrateTemplate(value) {
+        if (Array.isArray(value)) return value.map(migrateTemplate);
+        if (typeof value === 'string') return tokens(value).some((token) => token.legacy) ? migrateString(value) : value;
+        if (!value || typeof value !== 'object') return value;
+        Object.keys(value).forEach((key) => {
+            const entry = value[key];
+            if (key === '@maps') return;
+            if (['@each', '@from', '@if', '@unless'].includes(key)) {
+                if (typeof entry === 'string') value[key] = migrateString(entry);
+                else if (key === '@each' && entry && typeof entry === 'object') {
+                    ['rows', 'if'].forEach((part) => { if (typeof entry[part] === 'string') entry[part] = migrateString(entry[part]); });
+                    if (entry.else && typeof entry.else === 'object') {
+                        Object.keys(entry.else).forEach((field) => {
+                            if (typeof entry.else[field] === 'string') entry.else[field] = migrateString(entry.else[field]);
+                        });
+                    }
+                } else value[key] = migrateTemplate(entry);
+                return;
+            }
+            value[key] = migrateTemplate(entry);
+        });
+        return value;
     }
 
     /* ---------- Sources ---------- */
@@ -296,8 +481,8 @@
             const found  = this.find(source);
             const fields = found && found.children ? found.children : [
                 { value: 'item', label: 'Whole row' },
-                { value: 'item.@index', label: 'Row number' },
-                { value: 'item.name', label: 'Name' },
+                { value: 'query_loop_index', label: 'Row number' },
+                { value: 'item_name', label: 'Name' },
             ];
             return fields;
         }
@@ -331,7 +516,7 @@
 
         const wrap  = h('span', { className: 'ddwpt-schema-source' });
         const input = h('input', {
-            type: 'text', className: 'ddwpt-schema-source-custom', value, placeholder: 'e.g. meta:_price',
+            type: 'text', className: 'ddwpt-schema-source-custom', value, placeholder: 'e.g. cf__price',
             onInput: (event) => onChange(event.target.value, false),
         });
         const picker = select(options, known ? value : '__custom', (picked) => {
@@ -359,7 +544,7 @@
         ['Places and contact', ['address', 'geo', 'phone']],
         ['Lists and lookups', ['map', 'pairs', 'nutrition', 'first', 'unique', 'term', 'post']],
         ['Pick a part', ['name', 'slug', 'url', 'title', 'image']],
-        ['Numbers and fallbacks', ['int', 'float', 'default']],
+        ['Numbers and fallbacks', ['int', 'float', 'fallback']],
     ];
 
     function transformGroups() {
@@ -492,7 +677,7 @@
     /* ---------- Values ---------- */
 
     function valueMode(value) {
-        if (typeof value === 'string') return SINGLE_TOKEN.test(value) ? 'field' : 'text';
+        if (typeof value === 'string') return singleToken(value) ? 'field' : 'text';
         if (value && typeof value === 'object' && !Array.isArray(value)) return 'object';
         return 'json';
     }
@@ -500,7 +685,7 @@
     function convertValue(value, mode) {
         const current = valueMode(value);
         if (current === mode) return value;
-        if (mode === 'field') return typeof value === 'string' && value.includes('{{') ? value : '{{}}';
+        if (mode === 'field') return typeof value === 'string' && tokens(value).length ? value : '{}';
         if (mode === 'text') return typeof value === 'string' ? value : '';
         if (mode === 'object') return { '@type': '' };
         return value === undefined ? null : value;
@@ -537,7 +722,7 @@
                 onInput: (event) => set(event.target.value, false) });
             const insert = MenuButton({ className: 'ddwpt-schema-add-transform', title: 'Insert a field', 'aria-label': 'Insert a field' },
                 icon('braces'), () => sourceMenuGroups(context),
-                (source) => set(input.value + '{{' + source + '}}', true), 'Search fields');
+                (source) => set(input.value + '{' + source + '}', true), 'Search fields');
             wrap.append(h('span', { className: 'ddwpt-schema-field is-text' }, input, insert));
         } else if (mode === 'object') {
             wrap.append(NodeEditor(value, context, () => set(value, true), (keystroke) => set(value, keystroke)));
@@ -564,8 +749,15 @@
         if (mode === 'field') return TokenSummary(parseToken(value), context);
         if (mode === 'text') {
             if (value === '') return h('span', { className: 'ddwpt-schema-empty' }, 'Empty');
-            return h('span', { className: 'ddwpt-schema-text-summary' }, value.split(/(\{\{[^{}]*\}\})/).filter(Boolean).map((part) =>
-                SINGLE_TOKEN.test(part) ? TokenSummary(parseToken(part), context) : part));
+            const parts = [];
+            let offset = 0;
+            tokens(value).forEach((token) => {
+                if (token.start > offset) parts.push(value.slice(offset, token.start));
+                parts.push(TokenSummary(parseExpression(token.body, token.legacy), context));
+                offset = token.start + token.length;
+            });
+            if (offset < value.length) parts.push(value.slice(offset));
+            return h('span', { className: 'ddwpt-schema-text-summary' }, parts);
         }
         return h('code', { className: 'ddwpt-schema-json-summary' }, JSON.stringify(value));
     }
@@ -577,9 +769,9 @@
         const parts = [];
         const via   = (directive, source) => h('span', { className: 'ddwpt-schema-via' }, DirectiveIcon(directive), label(source) || '…');
         if (node['@each'] !== undefined) parts.push(via('@each', eachSource(node['@each'])));
-        if (node['@from'] !== undefined) parts.push(via('@from', node['@from']));
-        if (node['@if'] !== undefined) parts.push(via('@if', node['@if']));
-        if (node['@unless'] !== undefined) parts.push(via('@unless', node['@unless']));
+        ['@from', '@if', '@unless'].forEach((directive) => {
+            if (typeof node[directive] === 'string') parts.push(via(directive, parseExpression(node[directive]).source));
+        });
         if (node['@value'] !== undefined) parts.push(h('span', { className: 'ddwpt-schema-via' }, DirectiveIcon('@value'), 'one value per row'));
         else parts.push(keys.length ? keys.slice(0, 4).join(', ') + (keys.length > 4 ? ' +' + (keys.length - 4) : '') : 'no properties');
         return h('span', { className: 'ddwpt-schema-object-summary' },
@@ -625,7 +817,7 @@
 
     function directiveDefault(directive) {
         if (directive === '@maps') return {};
-        return ['@value', '@else', '@merge'].includes(directive) ? '{{}}' : '';
+        return ['@value', '@else', '@merge'].includes(directive) ? '{}' : '';
     }
 
     const DIRECTIVE_HELP = {
@@ -774,7 +966,7 @@
     /** Summary of a directive's value: its source(s), or the value itself. */
     function DirectiveSummary(node, directive, context) {
         const value  = node[directive];
-        const source = (text) => text ? h('span', { className: 'ddwpt-schema-token-source' }, context.sources.label(text, context.items))
+        const source = (text) => text ? TokenSummary(parseExpression(text), context)
             : h('span', { className: 'ddwpt-schema-empty' }, 'No source');
         if (directive === '@maps') {
             const tables = Object.keys(value || {});
@@ -879,7 +1071,7 @@
                 return;
             }
             if (node[key] !== undefined) return;
-            node[key] = DIRECTIVES[key] ? directiveDefault(key) : '{{}}';
+            node[key] = DIRECTIVES[key] ? directiveDefault(key) : '{}';
             save(true);
         };
 
@@ -1094,6 +1286,7 @@
             this.presetState = { type: '', tab: '' };
             this.sources = new SourceCatalogue(slug);
             this.element = h('details', { className: 'ddwpt-schema-panel' });
+            if (entry.template) entry.template = migrateTemplate(entry.template);
             this.render();
         }
 
