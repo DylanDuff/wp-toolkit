@@ -176,6 +176,7 @@
   padding: 10px 16px 0;
   border-bottom: 1px solid var(--ddwpt-border);
   overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .ddwpt-schema-preset-tab {
@@ -1362,6 +1363,15 @@
   min-height: 24px;
   border-color: transparent !important;
   box-shadow: none !important;
+}
+
+/* One source + filter row per field in a text value, under its input */
+.ddwpt-schema-text-fields {
+  display: flex;
+  flex: 1 0 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
 }
 
 .ddwpt-schema-directive-buttons {

@@ -355,11 +355,6 @@
     }
 
     /** "{tag:filter|arg}" → token model, or null when the string isn't one token. */
-    function parseToken(text) {
-        const single = singleToken(text);
-        return single ? parseExpression(single.body, single.legacy) : null;
-    }
-
     function quoteArg(arg) {
         return /[:'{}@|]|^\s|\s$/.test(arg) ? "'" + arg.replace(/'/g, "\\'") + "'" : arg;
     }
@@ -677,7 +672,7 @@
     /* ---------- Values ---------- */
 
     function valueMode(value) {
-        if (typeof value === 'string') return singleToken(value) ? 'field' : 'text';
+        if (typeof value === 'string') return 'text';
         if (value && typeof value === 'object' && !Array.isArray(value)) return 'object';
         return 'json';
     }
@@ -685,10 +680,51 @@
     function convertValue(value, mode) {
         const current = valueMode(value);
         if (current === mode) return value;
-        if (mode === 'field') return typeof value === 'string' && tokens(value).length ? value : '{}';
-        if (mode === 'text') return typeof value === 'string' ? value : '';
+        if (mode === 'text') return '';
         if (mode === 'object') return { '@type': '' };
         return value === undefined ? null : value;
+    }
+
+    /**
+     * Text with its fields: the raw input, then one source picker and filter
+     * row per {tag} in it. A lone {tag} keeps the value's type when rendered,
+     * so there is no separate "field" mode. Edits to a row rewrite that token
+     * in place; typing in the input re-renders the rows on change.
+     */
+    function TextValue(value, context, set) {
+        const signature = (text) => tokens(text).map((token) => token.body).join('\n');
+        let current = value;
+        const write = (next, structural) => {
+            current = next;
+            input.value = next;
+            set(next, structural);
+        };
+        const input = h('input', { type: 'text', className: 'ddwpt-schema-text', value,
+            onInput: (event) => { current = event.target.value; set(current, false); },
+            // Re-render the rows only when the fields themselves changed.
+            onChange: () => { if (signature(current) !== signature(value)) set(current, true); } });
+        const insert = MenuButton({ className: 'ddwpt-schema-add-transform', title: 'Insert a field', 'aria-label': 'Insert a field' },
+            icon('braces'), () => sourceMenuGroups(context),
+            (source) => write(current + '{' + source + '}', true), 'Search fields');
+
+        // Rewrites the index-th token of the current text.
+        const replace = (index, token, structural) => {
+            const found = tokens(current)[index];
+            if (!found) return;
+            write(current.slice(0, found.start) + formatToken(token) + current.slice(found.start + found.length), structural);
+        };
+
+        const fields = tokens(value).map((found, index) => {
+            const token = parseExpression(found.body, found.legacy);
+            return h('span', { className: 'ddwpt-schema-field' },
+                SourcePicker(token.source, context, (source, structural) => { token.source = source; replace(index, token, structural); }),
+                TransformChips(token.transforms, (transforms, structural) => { token.transforms = transforms; replace(index, token, structural); }));
+        });
+
+        return [
+            h('span', { className: 'ddwpt-schema-field is-text' }, input, insert),
+            fields.length ? h('div', { className: 'ddwpt-schema-text-fields' }, fields) : null,
+        ];
     }
 
     /**
@@ -700,7 +736,6 @@
         const wrap = h('div', { className: 'ddwpt-schema-value is-' + mode });
 
         const modes = select([
-            { value: 'field', label: 'Field' },
             { value: 'text', label: 'Text' },
             { value: 'object', label: 'Object' },
             { value: 'json', label: 'JSON' },
@@ -711,19 +746,8 @@
         }, { className: 'ddwpt-schema-mode', 'aria-label': 'Value type' });
         wrap.append(modes);
 
-        if (mode === 'field') {
-            const token = parseToken(value);
-            const write = (structural) => set(formatToken(token), structural);
-            wrap.append(h('span', { className: 'ddwpt-schema-field' },
-                SourcePicker(token.source, context, (source, structural) => { token.source = source; write(structural); }),
-                TransformChips(token.transforms, (transforms, structural) => { token.transforms = transforms; write(structural); })));
-        } else if (mode === 'text') {
-            const input = h('input', { type: 'text', className: 'ddwpt-schema-text', value,
-                onInput: (event) => set(event.target.value, false) });
-            const insert = MenuButton({ className: 'ddwpt-schema-add-transform', title: 'Insert a field', 'aria-label': 'Insert a field' },
-                icon('braces'), () => sourceMenuGroups(context),
-                (source) => set(input.value + '{' + source + '}', true), 'Search fields');
-            wrap.append(h('span', { className: 'ddwpt-schema-field is-text' }, input, insert));
+        if (mode === 'text') {
+            wrap.append(...TextValue(value, context, set).filter(Boolean));
         } else if (mode === 'object') {
             wrap.append(NodeEditor(value, context, () => set(value, true), (keystroke) => set(value, keystroke)));
         } else {
@@ -746,7 +770,6 @@
     /** Read-only view of a field, text or JSON value. */
     function ValueSummary(value, context) {
         const mode = valueMode(value);
-        if (mode === 'field') return TokenSummary(parseToken(value), context);
         if (mode === 'text') {
             if (value === '') return h('span', { className: 'ddwpt-schema-empty' }, 'Empty');
             const parts = [];
