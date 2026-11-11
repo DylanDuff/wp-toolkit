@@ -858,9 +858,8 @@
   white-space: nowrap;
 }
 
-.ddwpt-schema-card-head .ddwpt-btn {
+.ddwpt-schema-card-head > .ddwpt-schema-remove {
   margin-left: auto;
-  padding: 0 8px !important;
 }
 
 .ddwpt-schema-card > .ddwpt-schema-node {
@@ -907,7 +906,8 @@
   color: var(--ddwpt-text);
 }
 
-.ddwpt-schema-remove:hover {
+.ddwpt-schema-remove:hover,
+.ddwpt-schema-remove.is-armed {
   background: #fee2e2;
   color: #b91c1c;
 }

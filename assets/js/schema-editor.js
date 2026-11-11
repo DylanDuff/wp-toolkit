@@ -66,16 +66,6 @@
     }
 
     /** Two-step destructive button: the first click arms it, the second acts. */
-    function confirmButton(label, armedLabel, onConfirm, className) {
-        const element = button(label, () => {
-            if (element.dataset.armed) { onConfirm(); return; }
-            element.dataset.armed = '1';
-            element.textContent = armedLabel;
-            setTimeout(() => { delete element.dataset.armed; element.textContent = label; }, 3000);
-        }, className);
-        return element;
-    }
-
     /** Inline name entry in place of window.prompt (blocked in some frames). */
     function NameEntry(placeholder, onSubmit) {
         const input = h('input', { type: 'text', className: 'ddwpt-schema-name-entry', placeholder,
@@ -236,6 +226,22 @@
 
     function removeButton(label, onClick) {
         return h('button', { type: 'button', className: 'ddwpt-schema-remove', 'aria-label': 'Remove ' + label, title: 'Remove', onClick }, icon('x'));
+    }
+
+    /** An X that arms on the first click and removes on the second. */
+    function confirmRemoveButton(label, onConfirm) {
+        const element = removeButton(label, () => {
+            if (element.classList.contains('is-armed')) { onConfirm(); return; }
+            element.classList.add('is-armed');
+            element.title = 'Click again to remove';
+            element.setAttribute('aria-label', 'Click again to remove ' + label);
+            setTimeout(() => {
+                element.classList.remove('is-armed');
+                element.title = 'Remove';
+                element.setAttribute('aria-label', 'Remove ' + label);
+            }, 3000);
+        });
+        return element;
     }
 
     function propertyCount(node) {
@@ -1461,10 +1467,10 @@
                     h('span', { className: 'ddwpt-schema-card-icon' }, icon(PRESET_ICONS[node['@type']])),
                     TypeInput(node, save),
                     h('span', { className: 'ddwpt-schema-node-count' }, propertyCount(node)),
-                    confirmButton('Remove', 'Click again to remove', () => {
+                    confirmRemoveButton(node['@type'] || 'node', () => {
                         nodes.splice(index, 1);
                         this.changed(true);
-                    }, 'is-link is-danger')),
+                    })),
                 NodeEditor(node, context, () => this.changed(true), () => this.changed(false), true));
             return card;
         }
