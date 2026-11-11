@@ -1175,8 +1175,8 @@
   align-items: stretch;
 }
 
-.ddwpt-schema-value.is-object > .ddwpt-schema-mode {
-  align-self: flex-start;
+.ddwpt-schema-node-head > .ddwpt-schema-mode {
+  margin-left: auto;
 }
 
 .ddwpt-schema-editor .ddwpt-schema-cards select.ddwpt-schema-mode {

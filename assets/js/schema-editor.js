@@ -786,12 +786,12 @@
             if (next === 'object') expandedObjects.add(converted);
             set(converted, true);
         }, { className: 'ddwpt-schema-mode', 'aria-label': 'Value type' });
-        wrap.append(modes);
+        if (mode !== 'object') wrap.append(modes);
 
         if (mode === 'text') {
             wrap.append(TextValue(value, context, set));
         } else if (mode === 'object') {
-            wrap.append(NodeEditor(value, context, () => set(value, true), (keystroke) => set(value, keystroke)));
+            wrap.append(NodeEditor(value, context, () => set(value, true), (keystroke) => set(value, keystroke), false, modes));
         } else {
             wrap.append(JsonInput(value, (parsed) => set(parsed, false)));
         }
@@ -961,7 +961,11 @@
      * saves keystrokes. Nested nodes get a collapsible head with their type;
      * a card shows the type in its own head (`inCard`).
      */
-    function NodeEditor(node, parentContext, rerender, changed, inCard) {
+    /**
+     * `headExtra` (a nested value's type select) sits at the end of the
+     * node's head, so opening the object doesn't move it onto its own line.
+     */
+    function NodeEditor(node, parentContext, rerender, changed, inCard, headExtra) {
         const save = (structural) => (structural ? rerender() : changed(false));
         const each = node['@each'];
         const context = Object.assign({}, parentContext, each !== undefined
@@ -978,7 +982,8 @@
                 h('button', { type: 'button', className: 'ddwpt-schema-collapse', 'aria-expanded': 'true', 'aria-label': 'Close this object',
                     onClick: () => { expandedObjects.delete(node); save(true); } }, icon('chevron-right')),
                 typed ? TypeInput(node, save) : h('span', { className: 'ddwpt-schema-muted' }, 'Value per row'),
-                h('span', { className: 'ddwpt-schema-node-count' }, propertyCount(node))));
+                h('span', { className: 'ddwpt-schema-node-count' }, propertyCount(node)),
+                headExtra || null));
         }
 
         // Item value only means something inside a loop; lookup tables live on root nodes.
