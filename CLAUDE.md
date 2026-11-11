@@ -111,6 +111,10 @@ Render tweaks appear after the save button in their tab. Settings tweaks get a s
 | `sortable` | JSON `{order, hidden}` | jQuery UI Sortable; drag-to-reorder |
 | `wysiwyg` | HTML string | TinyMCE |
 
+### Custom field types
+
+A tweak can define its own field type: render it on `ddwpt_render_field_{type}` (args `$field, $value, $field_id`; output a hidden input named `$field_id`) and give the setting a `sanitize` callable, which overrides the type-based sanitizer for both saving and import. `seo-schema.php` (`schema_templates`) is the example.
+
 ### Tabs
 Tabs are ad-hoc — any tweak can declare any `tab` string and it will appear automatically. The `ai` tab is the exception: it is always present regardless of whether any tweak declares it.
 
@@ -206,6 +210,12 @@ Third-party runtimes are vendored or CDN-loaded per element, deliberately: vendo
 
 ---
 
+## Structured Data (`inc/seo/`, `inc/tweaks/seo-schema.php`)
+
+Experimental (Experimental tab; output also requires `ddwpt_experiments_enabled`). Per-post-type JSON-LD templates with `{{source|transform:arg}}` tokens, edited in one editor with Visual and JSON modes plus presets. The template JSON is the only stored format; Visual mode is a view onto it. See `docs/seo-schema.md` before touching the renderer or editor.
+
+---
+
 ## Dependencies
 
 | Dependency | Required | Notes |
@@ -234,5 +244,6 @@ Markdown articles auto-discovered from the directory. `manifest.php` provides in
 | `knowledge-base.md` | KB article authoring, display modes |
 | `settings-export-import.md` | Export/import security and portability |
 | `ai-abilities.md` | Registered AI abilities, MCP visibility gotchas, whitelist mechanism |
+| `seo-schema.md` | Structured Data tweak: template tokens, transforms, directives, editor, SEO plugin conflicts |
 
 Keep docs current when features change materially.
