@@ -1111,6 +1111,19 @@
   padding-left: 30px;
 }
 
+/* Names the group: "Output" before the buttons that decide how a node is produced */
+.ddwpt-schema-directive-label {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 8px;
+  color: var(--ddwpt-text-light);
+  font-size: var(--schema-label);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .ddwpt-schema-add .ddwpt-schema-directive-buttons {
   margin-left: auto;
   padding-left: 0;

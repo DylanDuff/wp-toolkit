@@ -22,8 +22,17 @@
         '@else':   'Fallback when empty',
         '@maps':   'Lookup tables',
     };
-    // Shorter names for the add buttons, where the full name is a mouthful.
-    const DIRECTIVE_BUTTONS = { '@else': 'Fallback', '@merge': 'Merge', '@maps': 'Lookup' };
+    // Add-button names: what each does in plain words, short enough to sit in a row.
+    const DIRECTIVE_BUTTONS = {
+        '@each':   'Repeat per row',
+        '@value':  'Plain value per row',
+        '@from':   'From related post',
+        '@if':     'Only if set',
+        '@unless': 'Only if empty',
+        '@else':   'Fallback',
+        '@merge':  'Merge',
+        '@maps':   'Lookup',
+    };
     const SOURCE_DIRECTIVES = ['@each', '@if', '@unless', '@from'];
     // Where each directive's control sits in a node: how the node is produced
     // goes above the properties, what happens to the result goes below.
@@ -919,11 +928,16 @@
             title: DIRECTIVES[directive] + ': ' + DIRECTIVE_HELP[directive].toLowerCase() }, icon(DIRECTIVE_ICONS[directive]));
     }
 
-    /** One quiet icon-and-label add button per directive this place offers and the node lacks. */
-    function DirectiveButtons(node, directives, save) {
+    /**
+     * One quiet icon-and-label add button per directive this place offers and
+     * the node lacks, after an optional label naming what they control.
+     */
+    function DirectiveButtons(node, directives, save, label) {
         const missing = directives.filter((directive) => node[directive] === undefined);
         if (!missing.length) return null;
-        return h('div', { className: 'ddwpt-schema-directive-buttons' }, missing.map((directive) =>
+        return h('div', { className: 'ddwpt-schema-directive-buttons' },
+            label ? h('span', { className: 'ddwpt-schema-directive-label' }, label) : null,
+            missing.map((directive) =>
             h('button', { type: 'button', className: 'ddwpt-schema-ghost', title: DIRECTIVE_HELP[directive],
                 onClick: () => { node[directive] = directiveDefault(directive); save(true); } },
                 icon(DIRECTIVE_ICONS[directive]), DIRECTIVE_BUTTONS[directive] || DIRECTIVES[directive])));
@@ -1002,7 +1016,7 @@
 
         const top = section(TOP_DIRECTIVES, 'is-top');
         if (top) body.append(top);
-        const topButtons = DirectiveButtons(node, offered(TOP_DIRECTIVES), save);
+        const topButtons = DirectiveButtons(node, offered(TOP_DIRECTIVES), save, 'Output');
         if (topButtons) body.append(topButtons);
 
         const keys  = Object.keys(node).filter((key) => key !== '@type' && !DIRECTIVES[key]);
