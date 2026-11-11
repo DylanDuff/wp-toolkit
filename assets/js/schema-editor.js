@@ -747,8 +747,11 @@
             write(current.slice(0, found.start) + formatToken(token) + current.slice(found.start + found.length), structural);
         };
 
+        // The input already names each tag, so a box is only labelled (with
+        // the field's own name, not its group) when there are several.
+        const name = (token) => token.source ? context.sources.label(token.source, context.items).split(' › ').pop() : 'No source';
         const boxes = parsed.map((token, index) => h('span', { className: 'ddwpt-schema-field is-filters' },
-            h('span', { className: 'ddwpt-schema-token-source' }, token.source ? context.sources.label(token.source, context.items) : 'No source'),
+            parsed.length > 1 ? h('span', { className: 'ddwpt-schema-token-source' }, name(token)) : null,
             TransformChips(token.transforms, (transforms, structural) => { token.transforms = transforms; replace(index, token, structural); })));
 
         return [
