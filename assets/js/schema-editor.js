@@ -129,6 +129,11 @@
 
     /** Focus the handle a keyboard move asked for, once the panel has re-rendered. */
     function restoreFocus(root) {
+        if (focusOpenRow) {
+            focusOpenRow = false;
+            const control = root.querySelector('.ddwpt-schema-row.is-open select:not(.ddwpt-schema-mode), .ddwpt-schema-row.is-open input:not(.ddwpt-schema-key)');
+            if (control) control.focus();
+        }
         if (!pendingFocus) return;
         const handle = root.querySelector('[data-handle-id="' + pendingFocus + '"]');
         pendingFocus = null;
@@ -277,6 +282,13 @@
             return null;
         }
 
+        /** Human label for a source, falling back to the raw source text. */
+        label(value, items) {
+            const item  = (items || []).find((entry) => entry.value === value);
+            const found = item || this.find(value);
+            return found ? found.label : value;
+        }
+
         /** Row fields offered as item.* inside a loop over `source`. */
         itemSources(source) {
             const found  = this.find(source);
@@ -357,12 +369,13 @@
     }
 
     /**
-     * Searchable transform menu anchored to `anchor`. Calls onPick(name) and
-     * closes; Esc or a click elsewhere closes it too.
+     * Searchable menu anchored to `anchor`. `groups` is [[label, [{value,
+     * title, description}]]]; picking calls onPick(value) and closes. Esc or a
+     * click elsewhere closes it too.
      */
-    function TransformMenu(anchor, onPick) {
+    function Menu(anchor, groups, onPick, placeholder) {
         let active = 0;
-        const search  = h('input', { type: 'search', className: 'ddwpt-schema-menu-search', placeholder: 'Search transforms', 'aria-label': 'Search transforms' });
+        const search  = h('input', { type: 'search', className: 'ddwpt-schema-menu-search', placeholder, 'aria-label': placeholder });
         const list    = h('div', { className: 'ddwpt-schema-menu-list', role: 'listbox' });
         const menu    = h('div', { className: 'ddwpt-schema-menu' }, search, list);
         const options = () => Array.from(list.querySelectorAll('[role=option]'));
@@ -372,8 +385,8 @@
             menu.remove();
             anchor.setAttribute('aria-expanded', 'false');
         };
-        const outside = (event) => { if (!menu.contains(event.target) && event.target !== anchor) close(); };
-        const pick    = (name) => { close(); onPick(name); };
+        const outside = (event) => { if (!menu.contains(event.target) && !anchor.contains(event.target)) close(); };
+        const pick    = (value) => { close(); onPick(value); };
         const mark    = () => options().forEach((option, index) => {
             option.classList.toggle('is-active', index === active);
             if (index === active) option.scrollIntoView({ block: 'nearest' });
@@ -382,16 +395,17 @@
         const draw = () => {
             const query = search.value.trim().toLowerCase();
             list.innerHTML = '';
-            transformGroups().forEach(([group, names]) => {
-                const matches = names.filter((name) => !query || name.includes(query) || config.transforms[name].label.toLowerCase().includes(query));
+            groups.forEach(([group, items]) => {
+                const matches = items.filter((item) => !query
+                    || (item.title + ' ' + (item.description || '') + ' ' + item.value).toLowerCase().includes(query));
                 if (!matches.length) return;
-                list.append(h('div', { className: 'ddwpt-schema-menu-group' }, group));
-                matches.forEach((name) => list.append(h('div', { role: 'option', className: 'ddwpt-schema-menu-item',
-                    onPointerdown: (event) => event.preventDefault(), onClick: () => pick(name) },
-                    h('code', {}, name),
-                    h('span', {}, config.transforms[name].label))));
+                if (group) list.append(h('div', { className: 'ddwpt-schema-menu-group' }, group));
+                matches.forEach((item) => list.append(h('div', { role: 'option', className: 'ddwpt-schema-menu-item',
+                    onPointerdown: (event) => event.preventDefault(), onClick: () => pick(item.value) },
+                    h('strong', {}, item.title),
+                    item.description ? h('span', {}, item.description) : null)));
             });
-            if (!options().length) list.append(h('div', { className: 'ddwpt-schema-menu-empty' }, 'No transforms match.'));
+            if (!options().length) list.append(h('div', { className: 'ddwpt-schema-menu-empty' }, 'Nothing matches.'));
             active = 0;
             mark();
         };
@@ -409,6 +423,7 @@
                 if (option) option.click();
             } else if (event.key === 'Escape') {
                 event.preventDefault();
+                event.stopPropagation();
                 close();
                 anchor.focus();
             }
@@ -420,6 +435,29 @@
         document.addEventListener('pointerdown', outside, true);
         search.focus();
         return menu;
+    }
+
+    /** Small button that opens a Menu; `groups` is built on click so it is current. */
+    function MenuButton(attributes, content, groups, onPick, placeholder) {
+        const trigger = h('button', Object.assign({ type: 'button', 'aria-haspopup': 'listbox', 'aria-expanded': 'false',
+            onClick: () => {
+                if (trigger.getAttribute('aria-expanded') === 'true') return;
+                Menu(trigger, groups(), onPick, placeholder);
+            } }, attributes), content);
+        return trigger;
+    }
+
+    function transformMenuGroups() {
+        return transformGroups().map(([label, names]) => [label, names.map((name) => ({
+            value: name, title: name, description: config.transforms[name].label,
+        }))]);
+    }
+
+    /** Sources as menu groups, for inserting a field into text. */
+    function sourceMenuGroups(context) {
+        return context.sources.options(context.items)
+            .filter((option) => option.group)
+            .map((option) => [option.group, option.options.map((source) => ({ value: source.value, title: source.label, description: source.value }))]);
     }
 
     /** Transforms as inline steps after the source, plus a button that opens the menu. */
@@ -440,13 +478,9 @@
             ));
         });
 
-        const add = h('button', { type: 'button', className: 'ddwpt-schema-add-transform', title: 'Add a transform',
-            'aria-label': 'Add a transform', 'aria-haspopup': 'listbox', 'aria-expanded': 'false',
-            onClick: () => {
-                if (add.getAttribute('aria-expanded') === 'true') return;
-                TransformMenu(add, (name) => { transforms.push({ name, arg: '' }); onChange(transforms, true); });
-            } }, icon('function'));
-        wrap.append(add);
+        wrap.append(MenuButton({ className: 'ddwpt-schema-add-transform', title: 'Add a transform', 'aria-label': 'Add a transform' },
+            icon('function'), transformMenuGroups,
+            (name) => { transforms.push({ name, arg: '' }); onChange(transforms, true); }, 'Search transforms'));
 
         return wrap;
     }
@@ -493,12 +527,10 @@
         } else if (mode === 'text') {
             const input = h('input', { type: 'text', className: 'ddwpt-schema-text', value,
                 onInput: (event) => set(event.target.value, false) });
-            const insert = select(context.sources.options(context.items).filter((option) => option.value !== '__custom')
-                .map((option) => option.value === '' ? { value: '', label: '+ field' } : option), '', (source) => {
-                if (!source) return;
-                set(input.value + '{{' + source + '}}', true);
-            }, { className: 'ddwpt-schema-insert', 'aria-label': 'Insert field' });
-            wrap.append(input, insert);
+            const insert = MenuButton({ className: 'ddwpt-schema-add-transform', title: 'Insert a field', 'aria-label': 'Insert a field' },
+                icon('braces'), () => sourceMenuGroups(context),
+                (source) => set(input.value + '{{' + source + '}}', true), 'Search fields');
+            wrap.append(h('span', { className: 'ddwpt-schema-field is-text' }, input, insert));
         } else if (mode === 'object') {
             wrap.append(NodeEditor(value, context, () => set(value, true), (keystroke) => set(value, keystroke)));
         } else {
@@ -506,6 +538,28 @@
         }
 
         return wrap;
+    }
+
+    /** Read-only view of one {{token}}: source label, then its transforms. */
+    function TokenSummary(token, context) {
+        return h('span', { className: 'ddwpt-schema-token' },
+            token.source ? h('span', { className: 'ddwpt-schema-token-source' }, context.sources.label(token.source, context.items))
+                : h('span', { className: 'ddwpt-schema-empty' }, 'No source'),
+            token.transforms.map((transform) => h('span', { className: 'ddwpt-schema-chip is-static' },
+                h('span', { className: 'ddwpt-schema-chip-name' }, transform.name),
+                transform.arg !== '' ? h('span', { className: 'ddwpt-schema-chip-arg' }, transform.arg) : null)));
+    }
+
+    /** Read-only view of a field, text or JSON value. */
+    function ValueSummary(value, context) {
+        const mode = valueMode(value);
+        if (mode === 'field') return TokenSummary(parseToken(value), context);
+        if (mode === 'text') {
+            if (value === '') return h('span', { className: 'ddwpt-schema-empty' }, 'Empty');
+            return h('span', { className: 'ddwpt-schema-text-summary' }, value.split(/(\{\{[^{}]*\}\})/).filter(Boolean).map((part) =>
+                SINGLE_TOKEN.test(part) ? TokenSummary(parseToken(part), context) : part));
+        }
+        return h('code', { className: 'ddwpt-schema-json-summary' }, JSON.stringify(value));
     }
 
     function JsonInput(value, onValid) {
@@ -537,14 +591,25 @@
         return ['@value', '@else', '@merge'].includes(directive) ? '{{}}' : '';
     }
 
-    /** Ghost buttons that add the directives this place offers and the node lacks. */
-    function DirectiveButtons(node, directives, save) {
+    const DIRECTIVE_HELP = {
+        '@each':   'Output this once per row of a list field',
+        '@value':  'Output a plain value per row instead of an object',
+        '@from':   'Read post fields from a related post',
+        '@if':     'Only output when a field has a value',
+        '@unless': 'Only output when a field is empty',
+        '@else':   'Use this instead when the node comes out empty',
+        '@merge':  'Spread another object\'s properties into this one',
+        '@maps':   'Named lookup tables for the map transform',
+    };
+
+    /** One quiet button opening a menu of the directives this place offers and the node lacks. */
+    function DirectiveButtons(node, directives, save, label) {
         const missing = directives.filter((directive) => node[directive] === undefined);
         if (!missing.length) return null;
         return h('div', { className: 'ddwpt-schema-directive-buttons' },
-            missing.map((directive) => h('button', { type: 'button', className: 'ddwpt-schema-directive-add',
-                onClick: () => { node[directive] = directiveDefault(directive); save(true); } },
-                icon('plus'), DIRECTIVES[directive])));
+            MenuButton({ className: 'ddwpt-schema-directive-add' }, [icon('plus'), label],
+                () => [['', missing.map((directive) => ({ value: directive, title: DIRECTIVES[directive], description: DIRECTIVE_HELP[directive] }))]],
+                (directive) => { node[directive] = directiveDefault(directive); save(true); }, 'Search options'));
     }
 
     function TypeInput(node, save) {
@@ -591,7 +656,7 @@
 
         const top = section(TOP_DIRECTIVES, 'is-top');
         if (top) body.append(top);
-        const topButtons = DirectiveButtons(node, offered(TOP_DIRECTIVES), save);
+        const topButtons = DirectiveButtons(node, offered(TOP_DIRECTIVES), save, 'Repeat or condition');
         if (topButtons) body.append(topButtons);
 
         const keys  = Object.keys(node).filter((key) => key !== '@type' && !DIRECTIVES[key]);
@@ -605,13 +670,53 @@
         body.append(props);
         const bottom = section(BOTTOM_DIRECTIVES, 'is-bottom');
         if (bottom) body.append(bottom);
-        body.append(AddRow(node, save, DirectiveButtons(node, offered(BOTTOM_DIRECTIVES), save)));
+        body.append(AddRow(node, save, DirectiveButtons(node, offered(BOTTOM_DIRECTIVES), save, 'Fallback or merge')));
         wrap.append(body);
         return wrap;
     }
 
+    // The one row open for editing: {node, key}. Others show a summary.
+    let openRow = null;
+    let focusOpenRow = false;
+
+    function rowState(node, key, save, editable) {
+        const open = editable && !!openRow && openRow.node === node && openRow.key === key;
+        const setOpen = (next) => { openRow = next ? { node, key } : null; focusOpenRow = next; save(true); };
+        return { open, setOpen };
+    }
+
+    function SummaryButton(label, summary, setOpen) {
+        return h('button', { type: 'button', className: 'ddwpt-schema-summary-value', title: 'Edit ' + label, onClick: () => setOpen(true) },
+            summary, icon('pencil'));
+    }
+
+    function DoneButton(label, setOpen) {
+        return h('button', { type: 'button', className: 'ddwpt-schema-done', title: 'Done (Esc)', 'aria-label': 'Done editing ' + label,
+            onClick: () => setOpen(false) }, icon('check'));
+    }
+
+    function closeOnEscape(open, setOpen) {
+        return open ? (event) => { if (event.key === 'Escape') { event.preventDefault(); setOpen(false); } } : null;
+    }
+
+    /** Summary of a directive's value: its source(s), or the value itself. */
+    function DirectiveSummary(node, directive, context) {
+        const value  = node[directive];
+        const source = (text) => text ? h('span', { className: 'ddwpt-schema-token-source' }, context.sources.label(text, context.items))
+            : h('span', { className: 'ddwpt-schema-empty' }, 'No source');
+        if (!SOURCE_DIRECTIVES.includes(directive)) return ValueSummary(value, context);
+        if (value && typeof value === 'object') {
+            return h('span', { className: 'ddwpt-schema-token' }, source(value.rows),
+                value.if ? [h('span', { className: 'ddwpt-schema-muted' }, 'only if'), source(value.if)] : null,
+                value.else ? h('span', { className: 'ddwpt-schema-muted' }, '+ fallback row') : null);
+        }
+        return source(value);
+    }
+
     function DirectiveRow(node, directive, context, save) {
         const label = h('span', { className: 'ddwpt-schema-key is-directive', title: directive }, DIRECTIVES[directive]);
+        const editable = directive !== '@maps' && valueMode(node[directive]) !== 'object' || SOURCE_DIRECTIVES.includes(directive);
+        const { open, setOpen } = rowState(node, directive, save, editable);
         let control;
 
         if (directive === '@maps') {
@@ -634,29 +739,40 @@
             control = ValueEditor(node[directive], context, (value, structural) => { node[directive] = value; save(structural); });
         }
 
-        return h('div', { className: 'ddwpt-schema-row is-directive' },
-            h('span', { className: 'ddwpt-schema-handle-space' }), label, control,
-            removeButton(DIRECTIVES[directive], () => { delete node[directive]; save(true); }));
+        return h('div', { className: 'ddwpt-schema-row is-directive' + (open ? ' is-open' : ''), onKeydown: closeOnEscape(open, setOpen) },
+            h('span', { className: 'ddwpt-schema-handle-space' }), label,
+            open || !editable ? control : SummaryButton(DIRECTIVES[directive], DirectiveSummary(node, directive, context), setOpen),
+            open ? DoneButton(DIRECTIVES[directive], setOpen) : removeButton(DIRECTIVES[directive], () => { delete node[directive]; save(true); }));
     }
+
 
     function PropertyRow(node, key, context, save, move) {
         const required = typeProperties(node['@type']).required.includes(key);
-        const name     = h('input', {
+        const value    = node[key];
+        const { open, setOpen } = rowState(node, key, save, valueMode(value) !== 'object');
+
+        const name = h('input', {
             type: 'text', className: 'ddwpt-schema-key', value: key, list: 'ddwpt-schema-props-' + (node['@type'] || 'any'),
             'aria-label': 'Property name',
             onChange: (event) => {
                 const next = event.target.value.trim();
                 if (!next || next === key || node[next] !== undefined) { event.target.value = key; return; }
                 renameKey(node, key, next);
+                if (open) openRow.key = next;
                 save(true);
             },
         });
 
-        return h('div', { className: 'ddwpt-schema-row' + (required ? ' is-required' : ''), 'data-sortable': true },
+        const content = open || valueMode(value) === 'object'
+            ? ValueEditor(value, context, (next, structural) => { node[key] = next; save(structural); })
+            : SummaryButton(key, ValueSummary(value, context), setOpen);
+
+        return h('div', { className: 'ddwpt-schema-row' + (required ? ' is-required' : '') + (open ? ' is-open' : ''), 'data-sortable': true,
+            onKeydown: closeOnEscape(open, setOpen) },
             DragHandle(objectId(node) + '/' + key, key, move),
             h('span', { className: 'ddwpt-schema-key-wrap', title: required ? 'Required by Google' : null }, name),
-            ValueEditor(node[key], context, (value, structural) => { node[key] = value; save(structural); }),
-            removeButton(key, () => { delete node[key]; save(true); }),
+            content,
+            open ? DoneButton(key, setOpen) : removeButton(key, () => { delete node[key]; save(true); }),
         );
     }
 
@@ -754,6 +870,8 @@
         plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
         'grip-vertical': '<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>',
         'chevron-right': '<path d="m9 18 6-6-6-6"/>',
+        pencil: '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>',
+        check: '<path d="M20 6 9 17l-5-5"/>',
         function: '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M9 17c2 0 2.8-1 2.8-2.8V10c0-2 1-3.3 3.2-3"/><path d="M9 11.2h5.7"/>',
         x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
     };
