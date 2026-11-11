@@ -470,6 +470,106 @@
         return wrap;
     }
 
+    /* ---------- Preset picker ---------- */
+
+    // Lucide icons (ISC licence), inner SVG markup on a 24px stroke grid.
+    const ICONS = {
+        'file-text': '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+        'pen-line': '<path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/>',
+        newspaper: '<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/>',
+        globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
+        building: '<rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/>',
+        stethoscope: '<path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/>',
+        store: '<path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2 2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7"/>',
+        'map-pin': '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+        utensils: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>',
+        user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+        wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+        calendar: '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+        'help-circle': '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+        package: '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+        briefcase: '<path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/>',
+        'graduation-cap': '<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',
+        braces: '<path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/>',
+        'chevron-down': '<path d="m6 9 6 6 6-6"/>',
+    };
+
+    const PRESET_ICONS = {
+        Article: 'file-text', BlogPosting: 'pen-line', NewsArticle: 'newspaper', WebPage: 'globe',
+        Organization: 'building', LegalService: 'building', MedicalOrganization: 'stethoscope',
+        MedicalClinic: 'stethoscope', Dentist: 'stethoscope', Physician: 'stethoscope',
+        LocalBusiness: 'store', Store: 'store', AutomotiveBusiness: 'map-pin', Restaurant: 'utensils',
+        Recipe: 'utensils', Person: 'user', Service: 'wrench', ProfessionalService: 'briefcase',
+        HomeAndConstructionBusiness: 'wrench', Event: 'calendar', FAQPage: 'help-circle',
+        Product: 'package', JobPosting: 'briefcase', Course: 'graduation-cap',
+    };
+
+    // Types not listed fall into "Other", so filtered-in presets still show.
+    const PRESET_GROUPS = [
+        ['Content', ['Article', 'BlogPosting', 'NewsArticle', 'WebPage', 'FAQPage', 'Recipe', 'Course']],
+        ['Organisations & places', ['Organization', 'MedicalOrganization', 'LocalBusiness', 'MedicalClinic', 'Dentist', 'Physician',
+            'ProfessionalService', 'LegalService', 'HomeAndConstructionBusiness', 'AutomotiveBusiness', 'Restaurant', 'Store']],
+        ['People & services', ['Person', 'Service', 'JobPosting']],
+        ['Commerce & events', ['Product', 'Event']],
+    ];
+
+    function icon(name) {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        ['viewBox:0 0 24 24', 'fill:none', 'stroke:currentColor', 'stroke-width:2', 'stroke-linecap:round', 'stroke-linejoin:round', 'aria-hidden:true']
+            .forEach((pair) => { const [key, value] = pair.split(':'); svg.setAttribute(key, value); });
+        svg.innerHTML = ICONS[name] || ICONS.braces;
+        return svg;
+    }
+
+    function presetGroups() {
+        const types  = Object.keys(config.presets);
+        const listed = new Set(PRESET_GROUPS.flatMap(([, members]) => members));
+        return PRESET_GROUPS
+            .map(([label, members]) => [label, members.filter((type) => config.presets[type])])
+            .concat([['Other', types.filter((type) => !listed.has(type))]])
+            .filter(([, members]) => members.length);
+    }
+
+    /**
+     * Accordion of preset radio cards. `state` ({open, type}) lives on the
+     * panel so the choice survives re-renders; onAdd receives the type.
+     */
+    function PresetPicker(slug, state, onAdd) {
+        const name = 'ddwpt-preset-' + slug;
+        const add  = h('button', { type: 'button', className: 'ddwpt-btn ddwpt-schema-preset-add', disabled: !state.type,
+            onClick: () => {
+                if (!state.type) return;
+                const type = state.type;
+                Object.assign(state, { open: false, type: '' });
+                onAdd(type);
+            } });
+        const label = () => { add.textContent = state.type ? 'Add ' + config.presets[state.type].label : 'Choose a preset'; };
+        label();
+
+        const card = (type) => {
+            const preset   = config.presets[type];
+            const required = (config.types[type] && config.types[type].required || []).length;
+            return h('label', { className: 'ddwpt-schema-preset-card' },
+                h('input', { type: 'radio', name, value: type, form: 'ddwpt-schema-none', checked: state.type === type,
+                    onChange: () => { state.type = type; add.disabled = false; label(); } }),
+                h('span', { className: 'ddwpt-schema-preset-icon' }, icon(PRESET_ICONS[type])),
+                h('span', { className: 'ddwpt-schema-preset-text' },
+                    h('strong', {}, preset.label),
+                    h('code', {}, type),
+                    required ? h('small', {}, required + ' required') : null));
+        };
+
+        const details = h('details', { className: 'ddwpt-schema-presets', open: state.open,
+            onToggle: () => { state.open = details.open; } },
+            h('summary', {}, h('span', {}, 'Add from preset'), icon('chevron-down')),
+            h('div', { className: 'ddwpt-schema-presets-body' },
+                presetGroups().map(([group, types]) => h('fieldset', { className: 'ddwpt-schema-preset-group' },
+                    h('legend', {}, group),
+                    h('div', { className: 'ddwpt-schema-preset-grid' }, types.map(card)))),
+                h('div', { className: 'ddwpt-schema-presets-foot' }, add)));
+        return details;
+    }
+
     /* ---------- Post type panel ---------- */
 
     class PostTypePanel {
@@ -479,6 +579,7 @@
             this.entry   = entry;
             this.commit  = commit;
             this.mode    = 'visual';
+            this.presetState = { open: false, type: '' };
             this.sources = new SourceCatalogue(slug);
             this.element = h('details', { className: 'ddwpt-schema-panel' });
             this.render();
@@ -534,9 +635,6 @@
         }
 
         toolbar() {
-            const presets = [{ value: '', label: '+ Add from preset…' }].concat(
-                Object.entries(config.presets).map(([type, preset]) => ({ value: type, label: preset.label + ' (' + type + ')' })));
-
             const modeButton = (mode, label) => h('button', {
                 type: 'button', className: 'ddwpt-schema-mode-btn' + (this.mode === mode ? ' is-active' : ''), 'aria-pressed': this.mode === mode,
                 onClick: () => {
@@ -553,11 +651,10 @@
 
             return h('div', { className: 'ddwpt-schema-toolbar' },
                 h('span', { className: 'ddwpt-schema-modes', role: 'group', 'aria-label': 'Editor mode' }, modeButton('visual', 'Visual'), modeButton('json', 'JSON')),
-                select(presets, '', (type) => {
-                    if (!type) return;
+                PresetPicker(this.slug, this.presetState, (type) => {
                     this.nodes().push(clone(config.presets[type].template));
                     this.changed(true);
-                }, { 'aria-label': 'Add from preset' }));
+                }));
         }
 
         nodeCard(node, index) {
