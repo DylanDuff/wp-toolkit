@@ -119,6 +119,26 @@ In address mode `resolve_center()` resolves dynamic data in the address, then `g
 - **URL-restricted tokens.** Mapbox checks those against the `Referer`, which a server request doesn't send by default, so the request sets `Referer: home_url('/')`. The site's own URL must therefore be on the token's allowlist.
 - **Builder edits** re-render on each change to the address control, so partial addresses get looked up (and cached) while typing. Each is one cheap request; it has not been worth debouncing.
 
+### Camera: zoom, pitch and bearing
+
+The Map group sets the initial camera: **Zoom** (0 to 22, step 0.1), **Pitch** (0 to 85, `MAX_PITCH`, the GL JS ceiling) and **Bearing** (-180 to 180, 0 is north up). `resolve_view_number()` reads each as a float and clamps it to that range; a missing or non-numeric value falls back to the default (11, 0, 0), so elements saved before these controls existed render unchanged. None of the three carries a `css` key, so each change re-renders and `$scripts` rebuilds the map.
+
+Zoom was an int cast before 1.5.12. It is a float now so a fractional zoom read off a live map survives as entered.
+
+### Tuning the view from the console: `wpToolkitMapbox.logView()`
+
+Finding the right pitch and bearing by typing numbers is slow, so the JS exposes a helper. Move the map by hand (drag to pan, scroll or pinch to zoom if enabled, **ctrl-drag or right-drag** to tilt and rotate), then in the browser console:
+
+```js
+wpToolkitMapbox.logView();          // every map on the page
+wpToolkitMapbox.logView('abc123');  // one map, by Bricks element id
+// [Mapbox] abc123 { lat: -33.767719, lng: 150.684458, zoom: 12.4, pitch: 52.5, bearing: -23 }
+```
+
+It logs each map and returns the views keyed by element id. Values come back in the shape the controls take (lat/lng to 6 places, zoom to 2, pitch and bearing to 1), so they paste straight into Latitude, Longitude, Zoom, Pitch and Bearing. In address mode the centre comes from the geocoder, so only zoom, pitch and bearing are worth copying.
+
+**In the builder the map lives in the canvas iframe**, so switch the DevTools console context to that iframe first; from the top-level builder window `wpToolkitMapbox` is undefined. `wpToolkitMapbox.instances` is the same registry as `window.prefixMapboxInstances` below.
+
 ### One WebGL context per map
 
 Each `mapboxgl.Map` holds a WebGL context and browsers cap those at roughly 16. The builder re-renders on every control change, so without teardown a handful of edits exhausts the budget and the canvas dies mid-session. The JS keys live instances by element id and calls `map.remove()` before rebuilding.

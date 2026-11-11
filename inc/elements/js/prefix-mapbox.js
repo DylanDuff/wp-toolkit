@@ -126,6 +126,8 @@
         style: config.style,
         center: config.center,
         zoom: config.zoom,
+        pitch: config.pitch || 0,
+        bearing: config.bearing || 0,
       });
     } catch (e) {
       // A half-typed custom style URL or a bad token throws here. In the builder
@@ -202,6 +204,55 @@
   // Bricks calls this by name after re-rendering the element in the builder canvas.
   // Must match the element's $scripts entry — see element-mapbox.php.
   window.prefixMapboxInit = initAll;
+
+  function round(value, places) {
+    var factor = Math.pow(10, places);
+    return Math.round(value * factor) / factor;
+  }
+
+  /**
+   * Read a live map's camera in the shape the element's controls take, so the
+   * values can be pasted straight back into Latitude, Longitude, Zoom, Pitch
+   * and Bearing.
+   */
+  function readView(map) {
+    var center = map.getCenter();
+
+    return {
+      lat: round(center.lat, 6),
+      lng: round(center.lng, 6),
+      zoom: round(map.getZoom(), 2),
+      pitch: round(map.getPitch(), 1),
+      bearing: round(map.getBearing(), 1),
+    };
+  }
+
+  /**
+   * Console helper for tuning a map's view: move the map by hand, then call
+   * wpToolkitMapbox.logView() (every map) or logView("elementId") (one map).
+   * Logs each view and returns them keyed by element id.
+   */
+  function logView(id) {
+    var ids = id ? [id] : Object.keys(instances);
+    var views = {};
+
+    if (!ids.length || (id && !instances[id])) {
+      console.warn("[Mapbox] No map found" + (id ? ' for id "' + id + '"' : "") + ".");
+      return views;
+    }
+
+    ids.forEach(function (key) {
+      views[key] = readView(instances[key]);
+      console.log("[Mapbox] " + key, views[key]);
+    });
+
+    return views;
+  }
+
+  window.wpToolkitMapbox = {
+    instances: instances,
+    logView: logView,
+  };
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initAll);

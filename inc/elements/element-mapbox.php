@@ -15,6 +15,7 @@ class Element_Mapbox extends \Bricks\Element
     const DEFAULT_STYLE = "mapbox://styles/mapbox/streets-v12";
     const DEFAULT_LAT = -33.767719570242015;
     const DEFAULT_LNG = 150.6844585269858;
+    const MAX_PITCH = 85;
     const GEOCODE_ENDPOINT = "https://api.mapbox.com/search/geocode/v6/forward";
     const GEOCODE_CACHE_TTL = 30 * DAY_IN_SECONDS;
     const GEOCODE_FAILURE_TTL = HOUR_IN_SECONDS;
@@ -192,10 +193,21 @@ class Element_Mapbox extends \Bricks\Element
     }
 
     /**
-     * Validate and decode a GeoJSON string from the textarea.
-     * Returns the decoded array on success, null on failure.
-     * Accepts FeatureCollection, Feature, Polygon, or MultiPolygon.
+     * Read a numeric view setting (zoom, pitch, bearing) as a float clamped
+     * to the range GL JS accepts. Floats rather than ints so values copied
+     * from wpToolkitMapbox.logView() in the console survive as entered.
      */
+    private function resolve_view_number($key, $default, $min, $max)
+    {
+        $raw = $this->settings[$key] ?? "";
+
+        if (!is_numeric($raw)) {
+            return $default;
+        }
+
+        return max($min, min($max, (float) $raw));
+    }
+
     /**
      * Resolve the map centre as [lng, lat], from either the coordinate
      * controls or a geocoded street address, per the Location control.
@@ -291,6 +303,11 @@ class Element_Mapbox extends \Bricks\Element
         return $center;
     }
 
+    /**
+     * Validate and decode a GeoJSON string from the textarea.
+     * Returns the decoded array on success, null on failure.
+     * Accepts FeatureCollection, Feature, Polygon, or MultiPolygon.
+     */
     private function parse_geojson($raw)
     {
         $raw = trim($raw);
@@ -434,8 +451,36 @@ class Element_Mapbox extends \Bricks\Element
             "type" => "number",
             "min" => 0,
             "max" => 22,
-            "step" => 1,
+            "step" => 0.1,
             "default" => 11,
+        ];
+
+        $this->controls["pitch"] = [
+            "group" => "map",
+            "label" => esc_html__("Pitch (°)", "bricks"),
+            "type" => "number",
+            "min" => 0,
+            "max" => self::MAX_PITCH,
+            "step" => 1,
+            "default" => 0,
+            "description" => esc_html__(
+                "Camera tilt, 0 (top-down) to 85.",
+                "bricks",
+            ),
+        ];
+
+        $this->controls["bearing"] = [
+            "group" => "map",
+            "label" => esc_html__("Bearing (°)", "bricks"),
+            "type" => "number",
+            "min" => -180,
+            "max" => 180,
+            "step" => 1,
+            "default" => 0,
+            "description" => esc_html__(
+                "Map rotation, 0 is north up. To tune the view, ctrl/right-drag the map to tilt and rotate, then run wpToolkitMapbox.logView() in the browser console and copy the values here.",
+                "bricks",
+            ),
         ];
 
         $this->controls["map_height"] = [
@@ -578,7 +623,9 @@ class Element_Mapbox extends \Bricks\Element
             "apiKey" => $api_key,
             "style" => $this->resolve_map_style(),
             "center" => $this->resolve_center(),
-            "zoom" => isset($s["zoom"]) ? (int) $s["zoom"] : 11,
+            "zoom" => $this->resolve_view_number("zoom", 11, 0, 22),
+            "pitch" => $this->resolve_view_number("pitch", 0, 0, self::MAX_PITCH),
+            "bearing" => $this->resolve_view_number("bearing", 0, -180, 180),
             "scrollZoom" => !empty($s["scroll_zoom"]),
         ];
 
