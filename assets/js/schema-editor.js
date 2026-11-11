@@ -1061,12 +1061,81 @@
                 : h('span', { className: 'ddwpt-schema-empty' }, 'No tables');
         }
         if (!SOURCE_DIRECTIVES.includes(directive)) return ValueSummary(value, context);
-        if (value && typeof value === 'object') {
+        if (directive === '@each' && value && typeof value === 'object') {
+            const fields = Object.keys(value.else || {});
+            const part   = (label, content) => [h('span', { className: 'ddwpt-schema-muted' }, label), content];
             return h('span', { className: 'ddwpt-schema-token' }, source(value.rows),
-                value.if ? [DirectiveIcon('@if'), source(value.if)] : null,
-                value.else ? h('span', { className: 'ddwpt-schema-muted' }, '+ fallback row') : null);
+                value.if ? part('only when', source(value.if)) : null,
+                value.else ? part('if none, one row of', h('span', {}, fields.join(', ') || 'no fields')) : null);
         }
         return source(value);
+    }
+
+    /**
+     * "Repeat for each": the rows, an optional condition on them, and an
+     * optional single row built from other fields when there are none. The
+     * short form ("@each": "source") is kept until a condition or fallback
+     * row is added, and restored when both are removed.
+     */
+    function EachEditor(node, context, save) {
+        const each = node['@each'];
+        const spec = each && typeof each === 'object' ? each : { rows: each || '' };
+        const write = (structural) => {
+            node['@each'] = spec.if === undefined && spec.else === undefined ? spec.rows : spec;
+            save(structural);
+        };
+        const ghost = (label, onClick) => h('button', { type: 'button', className: 'ddwpt-schema-ghost', onClick }, icon('plus'), label);
+        const line  = (label, help, ...control) => h('div', { className: 'ddwpt-schema-each-line' },
+            h('span', { className: 'ddwpt-schema-each-label', title: help }, label),
+            h('div', { className: 'ddwpt-schema-each-control' }, control));
+
+        const rows = line('Rows from', 'A list field: the object is output once per row.',
+            SourcePicker(spec.rows || '', context, (source, structural) => { spec.rows = source; write(structural); }, true));
+
+        const condition = spec.if !== undefined
+            ? line('Only when', 'The rows are used only while this field has a value; otherwise it is as if there were none.',
+                SourcePicker(spec.if, context, (source, structural) => { spec.if = source; write(structural); }),
+                removeButton('condition', () => { delete spec.if; write(true); }))
+            : null;
+
+        let fallback = null;
+        if (spec.else !== undefined) {
+            const fields = spec.else;
+            const entries = Object.keys(fields).map((key) => h('div', { className: 'ddwpt-schema-each-field' },
+                h('label', { className: 'ddwpt-schema-each-name' },
+                    h('span', { className: 'ddwpt-schema-each-prefix' }, 'item_'),
+                    h('input', { type: 'text', value: key, 'aria-label': 'Row field name',
+                    onChange: (event) => {
+                        const next = event.target.value.trim();
+                        if (!next || next === key || fields[next] !== undefined) { event.target.value = key; return; }
+                        renameKey(fields, key, next);
+                        write(true);
+                    } })),
+                h('span', { className: 'ddwpt-schema-muted' }, 'from'),
+                typeof fields[key] === 'string'
+                    ? SourcePicker(fields[key], context, (source, structural) => { fields[key] = source; write(structural); })
+                    : h('code', { className: 'ddwpt-schema-json-summary' }, JSON.stringify(fields[key])),
+                removeButton('row field ' + key, () => { delete fields[key]; write(true); })));
+            const addField = ghost('Add row field', () => {
+                let name = 'field', count = 1;
+                while (fields[name] !== undefined) name = 'field' + ++count;
+                fields[name] = '';
+                write(true);
+            });
+            fallback = line('If no rows', 'Output the object once, from a single row built from these fields. Inside it, item_<name> reads them and query_loop_index is empty.',
+                h('div', { className: 'ddwpt-schema-each-fields' },
+                    h('p', { className: 'ddwpt-schema-each-help' }, 'Output it once, with a row built from:'),
+                    entries, addField),
+                removeButton('fallback row', () => { delete spec.else; write(true); }));
+        }
+
+        const adds = [
+            spec.if === undefined ? ghost('Only when…', () => { spec.if = ''; write(true); }) : null,
+            spec.else === undefined ? ghost('If there are no rows…', () => { spec.else = {}; write(true); }) : null,
+        ].filter(Boolean);
+
+        return h('div', { className: 'ddwpt-schema-each-form' }, rows, condition, fallback,
+            adds.length ? h('div', { className: 'ddwpt-schema-each-adds' }, adds) : null);
     }
 
     function DirectiveRow(node, directive, context, save) {
@@ -1078,15 +1147,8 @@
             control = MapsEditor(node['@maps'], save);
         } else if (SOURCE_DIRECTIVES.includes(directive)) {
             const value = node[directive];
-            if (directive === '@each' && value && typeof value === 'object') {
-                // {rows, if, else}: rows and the condition are editable here;
-                // the fallback row stays JSON.
-                control = h('span', { className: 'ddwpt-schema-each' },
-                    SourcePicker(value.rows || '', context, (source, structural) => { value.rows = source; save(structural); }, true),
-                    DirectiveIcon('@if'),
-                    SourcePicker(value.if || '', context, (source, structural) => { value.if = source; save(structural); }),
-                    value.else ? h('span', { className: 'ddwpt-schema-muted', title: JSON.stringify(value.else) }, '+ fallback row (JSON mode)') : null,
-                );
+            if (directive === '@each') {
+                control = EachEditor(node, context, save);
             } else {
                 control = SourcePicker(value || '', context, (source, structural) => { node[directive] = source; save(structural); }, directive === '@each');
             }
