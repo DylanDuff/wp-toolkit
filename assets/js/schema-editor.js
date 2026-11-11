@@ -97,6 +97,138 @@
         entries.forEach(([key, value]) => { object[key === from ? to : key] = value; });
     }
 
+    /** Move one entry of a list to another index, in place. */
+    function moveItem(list, from, to) {
+        list.splice(to, 0, list.splice(from, 1)[0]);
+    }
+
+    /** Rewrite an object's key order: keys not in `order` stay first, in place. */
+    function reorderKeys(object, order) {
+        const entries = Object.entries(object);
+        Object.keys(object).forEach((key) => delete object[key]);
+        entries.filter(([key]) => !order.includes(key)).forEach(([key, value]) => { object[key] = value; });
+        order.forEach((key) => { object[key] = entries.find(([entry]) => entry === key)[1]; });
+    }
+
+    /* ---------- Reordering ---------- */
+
+    // Stable ids for template objects, so focus and collapse state survive re-renders.
+    const objectIds = new WeakMap();
+    const collapsed = new WeakMap();
+    let nextObjectId = 0;
+    let pendingFocus = null;
+
+    function objectId(object) {
+        if (!objectIds.has(object)) objectIds.set(object, ++nextObjectId);
+        return objectIds.get(object);
+    }
+
+    /** Focus the handle a keyboard move asked for, once the panel has re-rendered. */
+    function restoreFocus(root) {
+        if (!pendingFocus) return;
+        const handle = root.querySelector('[data-handle-id="' + pendingFocus + '"]');
+        pendingFocus = null;
+        if (handle) handle.focus();
+    }
+
+    /**
+     * Grip for a [data-sortable] item: the item is draggable only while the
+     * grip is held, so inputs inside it still select text. Arrow keys move it.
+     */
+    function DragHandle(id, label, move) {
+        const arm = (draggable) => (event) => { event.currentTarget.closest('[data-sortable]').draggable = draggable; };
+        return h('button', {
+            type: 'button', className: 'ddwpt-schema-handle', 'data-handle-id': id, title: 'Drag to reorder',
+            'aria-label': 'Move ' + label + ' (arrow keys)',
+            onPointerdown: arm(true), onPointerup: arm(false),
+            onKeydown: (event) => {
+                const step = { ArrowUp: -1, ArrowDown: 1 }[event.key];
+                if (!step) return;
+                event.preventDefault();
+                pendingFocus = id;
+                move(step);
+            },
+        }, icon('grip-vertical'));
+    }
+
+    /** Drag-and-drop between the direct [data-sortable] children of `list`. */
+    function Sortable(list, onMove) {
+        let dragged = null;
+        const items  = () => Array.from(list.children).filter((child) => child.hasAttribute('data-sortable'));
+        const clear  = () => items().forEach((item) => item.classList.remove('is-drop-before', 'is-drop-after'));
+        const itemAt = (target) => {
+            while (target && target.parentNode !== list) target = target.parentNode;
+            return target && target.hasAttribute && target.hasAttribute('data-sortable') ? target : null;
+        };
+
+        list.addEventListener('dragstart', (event) => {
+            const item = itemAt(event.target);
+            if (!item || item !== event.target) return;
+            event.stopPropagation();
+            dragged = item;
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', '');
+            requestAnimationFrame(() => item.classList.add('is-dragging'));
+        });
+        list.addEventListener('dragover', (event) => {
+            if (!dragged) return;
+            const item = itemAt(event.target);
+            if (!item) return;
+            event.preventDefault();
+            event.stopPropagation();
+            clear();
+            if (item === dragged) return;
+            const box = item.getBoundingClientRect();
+            item.classList.add(event.clientY < box.top + box.height / 2 ? 'is-drop-before' : 'is-drop-after');
+        });
+        list.addEventListener('drop', (event) => {
+            if (!dragged) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const all    = items();
+            const target = all.find((item) => item.classList.contains('is-drop-before') || item.classList.contains('is-drop-after'));
+            clear();
+            if (!target) return;
+            const from = all.indexOf(dragged);
+            let to     = all.indexOf(target) + (target.classList.contains('is-drop-after') ? 1 : 0);
+            if (to > from) to--;
+            if (to !== from) onMove(from, to);
+        });
+        list.addEventListener('dragend', (event) => {
+            event.stopPropagation();
+            if (dragged) {
+                dragged.draggable = false;
+                dragged.classList.remove('is-dragging');
+            }
+            dragged = null;
+            clear();
+        });
+        return list;
+    }
+
+    /** Collapse toggle for a node; flips a class rather than re-rendering. */
+    function CollapseToggle(object, target, label) {
+        const toggle = h('button', { type: 'button', className: 'ddwpt-schema-collapse', 'aria-expanded': !collapsed.get(object),
+            'aria-label': 'Show or hide ' + label,
+            onClick: () => {
+                const next = !collapsed.get(object);
+                collapsed.set(object, next);
+                target.classList.toggle('is-collapsed', next);
+                toggle.setAttribute('aria-expanded', !next);
+            } }, icon('chevron-right'));
+        target.classList.toggle('is-collapsed', !!collapsed.get(object));
+        return toggle;
+    }
+
+    function removeButton(label, onClick) {
+        return h('button', { type: 'button', className: 'ddwpt-schema-remove', 'aria-label': 'Remove ' + label, title: 'Remove', onClick }, icon('x'));
+    }
+
+    function propertyCount(node) {
+        const count = Object.keys(node).filter((key) => key !== '@type' && !DIRECTIVES[key]).length;
+        return count === 1 ? '1 property' : count + ' properties';
+    }
+
     /* ---------- Tokens ---------- */
 
     /** "{{acf:x|minutes|duration}}" → { source: "acf:x", transforms: [{name, arg}] } */
@@ -311,11 +443,21 @@
         return definition;
     }
 
+    function TypeInput(node, save) {
+        return h('input', {
+            type: 'text', className: 'ddwpt-schema-type', value: node['@type'] || '', list: 'ddwpt-schema-types',
+            placeholder: 'schema.org type', 'aria-label': 'Schema type',
+            onChange: (event) => { node['@type'] = event.target.value; save(true); },
+        });
+    }
+
     /**
-     * Edits an object node in place: @type, directives, then property rows.
-     * `rerender()` redraws after structural edits; `changed()` saves keystrokes.
+     * Edits an object node in place: options (directives), then sortable
+     * property rows. `rerender()` redraws after structural edits; `changed()`
+     * saves keystrokes. Nested nodes get a collapsible head with their type;
+     * a card shows the type in its own head (`inCard`).
      */
-    function NodeEditor(node, parentContext, rerender, changed) {
+    function NodeEditor(node, parentContext, rerender, changed, inCard) {
         const save = (structural) => (structural ? rerender() : changed(false));
         const each = node['@each'];
         const context = Object.assign({}, parentContext, each !== undefined
@@ -323,37 +465,38 @@
             : {});
 
         const wrap = h('div', { className: 'ddwpt-schema-node' });
+        const body = h('div', { className: 'ddwpt-schema-node-body' });
 
-        // Type
-        const typeInput = h('input', {
-            type: 'text', className: 'ddwpt-schema-type', value: node['@type'] || '', list: 'ddwpt-schema-types', placeholder: 'schema.org type',
-            onChange: (event) => { node['@type'] = event.target.value; save(true); },
-        });
-        // A node that yields a plain value per row (@value) has no type.
-        if (node['@value'] === undefined || node['@type']) {
-            wrap.append(h('div', { className: 'ddwpt-schema-row is-type' },
-                h('label', { className: 'ddwpt-schema-key' }, '@type'), typeInput));
+        if (!inCard) {
+            // A node that yields a plain value per row (@value) has no type.
+            const typed = node['@value'] === undefined || node['@type'];
+            wrap.append(h('div', { className: 'ddwpt-schema-node-head' },
+                CollapseToggle(node, wrap, 'this object'),
+                typed ? TypeInput(node, save) : h('span', { className: 'ddwpt-schema-muted' }, 'Value per row'),
+                h('span', { className: 'ddwpt-schema-node-count' }, propertyCount(node))));
         }
 
-        // Directives
-        Object.keys(DIRECTIVES).forEach((directive) => {
-            if (node[directive] === undefined) return;
-            wrap.append(DirectiveRow(node, directive, directive === '@each' ? parentContext : context, save));
-        });
+        const directives = Object.keys(DIRECTIVES).filter((directive) => node[directive] !== undefined);
+        if (directives.length) {
+            body.append(h('div', { className: 'ddwpt-schema-options' },
+                directives.map((directive) => DirectiveRow(node, directive, directive === '@each' ? parentContext : context, save))));
+        }
 
-        // Properties
-        Object.keys(node).forEach((key) => {
-            if (key === '@type' || DIRECTIVES[key]) return;
-            wrap.append(PropertyRow(node, key, context, save));
-        });
+        const keys  = Object.keys(node).filter((key) => key !== '@type' && !DIRECTIVES[key]);
+        const move  = (from, to) => { moveItem(keys, from, to); reorderKeys(node, keys); save(true); };
+        const props = Sortable(h('div', { className: 'ddwpt-schema-props' },
+            keys.map((key, index) => PropertyRow(node, key, context, save, (step) => {
+                const target = index + step;
+                if (target >= 0 && target < keys.length) move(index, target);
+            }))), move);
 
-        wrap.append(AddRow(node, save));
+        body.append(props, AddRow(node, save));
+        wrap.append(body);
         return wrap;
     }
 
     function DirectiveRow(node, directive, context, save) {
-        const remove = button('×', () => { delete node[directive]; save(true); }, 'ddwpt-schema-remove');
-        const label  = h('label', { className: 'ddwpt-schema-key is-directive', title: directive }, DIRECTIVES[directive]);
+        const label = h('span', { className: 'ddwpt-schema-key is-directive', title: directive }, DIRECTIVES[directive]);
         let control;
 
         if (directive === '@maps') {
@@ -365,9 +508,9 @@
                 // the fallback row stays JSON.
                 control = h('span', { className: 'ddwpt-schema-each' },
                     SourcePicker(value.rows || '', context, (source, structural) => { value.rows = source; save(structural); }, true),
-                    h('span', { className: 'ddwpt-schema-muted' }, ' only if '),
+                    h('span', { className: 'ddwpt-schema-muted' }, 'only if'),
                     SourcePicker(value.if || '', context, (source, structural) => { value.if = source; save(structural); }),
-                    value.else ? h('span', { className: 'ddwpt-schema-muted', title: JSON.stringify(value.else) }, ' + fallback row (JSON mode)') : null,
+                    value.else ? h('span', { className: 'ddwpt-schema-muted', title: JSON.stringify(value.else) }, '+ fallback row (JSON mode)') : null,
                 );
             } else {
                 control = SourcePicker(value || '', context, (source, structural) => { node[directive] = source; save(structural); }, directive === '@each');
@@ -376,13 +519,16 @@
             control = ValueEditor(node[directive], context, (value, structural) => { node[directive] = value; save(structural); });
         }
 
-        return h('div', { className: 'ddwpt-schema-row is-directive' }, label, control, remove);
+        return h('div', { className: 'ddwpt-schema-row is-directive' },
+            h('span', { className: 'ddwpt-schema-handle-space' }), label, control,
+            removeButton(DIRECTIVES[directive], () => { delete node[directive]; save(true); }));
     }
 
-    function PropertyRow(node, key, context, save) {
+    function PropertyRow(node, key, context, save, move) {
         const required = typeProperties(node['@type']).required.includes(key);
         const name     = h('input', {
             type: 'text', className: 'ddwpt-schema-key', value: key, list: 'ddwpt-schema-props-' + (node['@type'] || 'any'),
+            'aria-label': 'Property name',
             onChange: (event) => {
                 const next = event.target.value.trim();
                 if (!next || next === key || node[next] !== undefined) { event.target.value = key; return; }
@@ -391,10 +537,11 @@
             },
         });
 
-        return h('div', { className: 'ddwpt-schema-row' + (required ? ' is-required' : '') },
-            name,
+        return h('div', { className: 'ddwpt-schema-row' + (required ? ' is-required' : ''), 'data-sortable': true },
+            DragHandle(objectId(node) + '/' + key, key, move),
+            h('span', { className: 'ddwpt-schema-key-wrap', title: required ? 'Required by Google' : null }, name),
             ValueEditor(node[key], context, (value, structural) => { node[key] = value; save(structural); }),
-            button('×', () => { delete node[key]; save(true); }, 'ddwpt-schema-remove'),
+            removeButton(key, () => { delete node[key]; save(true); }),
         );
     }
 
@@ -451,7 +598,7 @@
                     h('input', { type: 'text', value: from, onChange: (event) => { renameKey(rows, from, event.target.value); save(true); } }),
                     h('span', {}, '→'),
                     h('input', { type: 'text', value: rows[from], onInput: (event) => { rows[from] = event.target.value; save(false); } }),
-                    button('×', () => { delete rows[from]; save(true); }, 'ddwpt-schema-remove')));
+                    removeButton('row', () => { delete rows[from]; save(true); })));
             });
 
             list.append(button('+ Row', () => { rows[''] = ''; save(true); }, 'is-link'));
@@ -492,6 +639,8 @@
         'graduation-cap': '<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',
         braces: '<path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/>',
         plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+        'grip-vertical': '<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>',
+        'chevron-right': '<path d="m9 18 6-6-6-6"/>',
         x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
     };
 
@@ -659,7 +808,10 @@
             if (this.mode === 'json') {
                 body.append(this.jsonEditor());
             } else {
-                this.nodes().forEach((node, index) => body.append(this.nodeCard(node, index)));
+                const nodes = this.nodes();
+                const move  = (from, to) => { moveItem(nodes, from, to); this.changed(true); };
+                body.append(Sortable(h('div', { className: 'ddwpt-schema-cards' },
+                    nodes.map((node, index) => this.nodeCard(node, index, move))), move));
                 if (!this.nodes().length) {
                     body.append(h('p', { className: 'description' }, 'No schema yet. Start from a preset above, or add an empty node.'));
                 }
@@ -668,6 +820,7 @@
 
             body.append(this.preview());
             this.element.append(body);
+            restoreFocus(this.element);
         }
 
         changed(structural) {
@@ -698,27 +851,28 @@
                 }));
         }
 
-        nodeCard(node, index) {
-            const nodes  = this.nodes();
+        nodeCard(node, index, move) {
+            const nodes   = this.nodes();
             const context = { sources: this.sources, items: null };
-            const move   = (offset) => {
-                const target = index + offset;
-                if (target < 0 || target >= nodes.length) return;
-                [nodes[index], nodes[target]] = [nodes[target], nodes[index]];
-                this.changed(true);
-            };
+            const save    = (structural) => this.changed(structural);
+            const card    = h('div', { className: 'ddwpt-schema-card', 'data-sortable': true });
 
-            return h('div', { className: 'ddwpt-schema-card' },
+            card.append(
                 h('div', { className: 'ddwpt-schema-card-head' },
-                    h('strong', {}, node['@type'] || 'Untitled node'),
-                    h('span', { className: 'ddwpt-schema-card-actions' },
-                        button('↑', () => move(-1), 'is-link'),
-                        button('↓', () => move(1), 'is-link'),
-                        confirmButton('Remove', 'Click again to remove', () => {
-                            nodes.splice(index, 1);
-                            this.changed(true);
-                        }, 'is-link is-danger'))),
-                NodeEditor(node, context, () => this.changed(true), () => this.changed(false)));
+                    DragHandle('node-' + objectId(node), node['@type'] || 'node', (step) => {
+                        const target = index + step;
+                        if (target >= 0 && target < nodes.length) move(index, target);
+                    }),
+                    CollapseToggle(node, card, node['@type'] || 'node'),
+                    h('span', { className: 'ddwpt-schema-card-icon' }, icon(PRESET_ICONS[node['@type']])),
+                    TypeInput(node, save),
+                    h('span', { className: 'ddwpt-schema-node-count' }, propertyCount(node)),
+                    confirmButton('Remove', 'Click again to remove', () => {
+                        nodes.splice(index, 1);
+                        this.changed(true);
+                    }, 'is-link is-danger')),
+                NodeEditor(node, context, () => this.changed(true), () => this.changed(false), true));
+            return card;
         }
 
         jsonEditor() {
