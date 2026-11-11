@@ -22,6 +22,8 @@
         '@else':   'Fallback when empty',
         '@maps':   'Lookup tables',
     };
+    // Shorter names for the add buttons, where the full name is a mouthful.
+    const DIRECTIVE_BUTTONS = { '@else': 'Fallback', '@merge': 'Merge' };
     const SOURCE_DIRECTIVES = ['@each', '@if', '@unless', '@from'];
     // Where each directive's control sits in a node: how the node is produced
     // goes above the properties, what happens to the result goes below.
@@ -922,7 +924,7 @@
         return h('div', { className: 'ddwpt-schema-directive-buttons' }, missing.map((directive) =>
             h('button', { type: 'button', className: 'ddwpt-schema-ghost', title: DIRECTIVE_HELP[directive],
                 onClick: () => { node[directive] = directiveDefault(directive); save(true); } },
-                icon(DIRECTIVE_ICONS[directive]), DIRECTIVES[directive])));
+                icon(DIRECTIVE_ICONS[directive]), DIRECTIVE_BUTTONS[directive] || DIRECTIVES[directive])));
     }
 
     function TypeInput(node, save) {
