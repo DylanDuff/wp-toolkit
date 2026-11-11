@@ -1263,3 +1263,28 @@
   right: 0;
   left: auto;
 }
+
+/* Nested objects as a summary line until opened */
+.ddwpt-schema-value.is-object-summary > .ddwpt-schema-summary-value {
+  flex: 1;
+  padding-left: 4px;
+  border-color: var(--ddwpt-border);
+  background: var(--ddwpt-surface);
+}
+
+.ddwpt-schema-value.is-object-summary > .ddwpt-schema-summary-value > svg:first-child {
+  margin-left: 0;
+  opacity: 1;
+}
+
+.ddwpt-schema-object-summary {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  min-width: 0;
+}
+
+.ddwpt-schema-object-summary strong {
+  font-weight: 600;
+}

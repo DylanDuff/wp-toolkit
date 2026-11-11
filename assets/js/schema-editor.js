@@ -119,6 +119,8 @@
     // Stable ids for template objects, so focus and collapse state survive re-renders.
     const objectIds = new WeakMap();
     const collapsed = new WeakMap();
+    // Nested objects start as a summary; ones listed here are open.
+    const expandedObjects = new WeakSet();
     let nextObjectId = 0;
     let pendingFocus = null;
 
@@ -515,7 +517,11 @@
             { value: 'text', label: 'Text' },
             { value: 'object', label: 'Object' },
             { value: 'json', label: 'JSON' },
-        ], mode, (next) => set(convertValue(value, next), true), { className: 'ddwpt-schema-mode', 'aria-label': 'Value type' });
+        ], mode, (next) => {
+            const converted = convertValue(value, next);
+            if (next === 'object') expandedObjects.add(converted);
+            set(converted, true);
+        }, { className: 'ddwpt-schema-mode', 'aria-label': 'Value type' });
         wrap.append(modes);
 
         if (mode === 'field') {
@@ -560,6 +566,34 @@
                 SINGLE_TOKEN.test(part) ? TokenSummary(parseToken(part), context) : part));
         }
         return h('code', { className: 'ddwpt-schema-json-summary' }, JSON.stringify(value));
+    }
+
+    /** One line for a nested object: type, how it is produced, then its properties. */
+    function ObjectSummary(node, context) {
+        const label = (source) => context.sources.label(source, context.items);
+        const keys  = Object.keys(node).filter((key) => key !== '@type' && !DIRECTIVES[key]);
+        const parts = [];
+        if (node['@each'] !== undefined) parts.push('repeats over ' + (label(eachSource(node['@each'])) || '…'));
+        if (node['@from'] !== undefined) parts.push('from ' + (label(node['@from']) || '…'));
+        if (node['@if'] !== undefined) parts.push('only if ' + (label(node['@if']) || '…'));
+        if (node['@unless'] !== undefined) parts.push('unless ' + (label(node['@unless']) || '…'));
+        if (node['@value'] !== undefined) parts.push('one value per row');
+        else parts.push(keys.length ? keys.slice(0, 4).join(', ') + (keys.length > 4 ? ' +' + (keys.length - 4) : '') : 'no properties');
+        return h('span', { className: 'ddwpt-schema-object-summary' },
+            h('strong', {}, node['@type'] || (node['@value'] !== undefined ? 'List' : 'Object')),
+            parts.flatMap((part) => [h('span', { className: 'ddwpt-schema-muted' }, '·'), h('span', {}, part)]));
+    }
+
+    /**
+     * A nested object value: a summary line until opened, then the full
+     * editor. `set(value, structural)` writes it back.
+     */
+    function ObjectValue(value, context, label, set) {
+        if (expandedObjects.has(value)) return ValueEditor(value, context, set);
+        return h('div', { className: 'ddwpt-schema-value is-object-summary' },
+            h('button', { type: 'button', className: 'ddwpt-schema-summary-value', title: 'Open ' + label, 'aria-expanded': 'false',
+                onClick: () => { expandedObjects.add(value); set(value, true); } },
+                icon('chevron-right'), ObjectSummary(value, context)));
     }
 
     function JsonInput(value, onValid) {
@@ -640,7 +674,8 @@
             // A node that yields a plain value per row (@value) has no type.
             const typed = node['@value'] === undefined || node['@type'];
             wrap.append(h('div', { className: 'ddwpt-schema-node-head' },
-                CollapseToggle(node, wrap, 'this object'),
+                h('button', { type: 'button', className: 'ddwpt-schema-collapse', 'aria-expanded': 'true', 'aria-label': 'Close this object',
+                    onClick: () => { expandedObjects.delete(node); save(true); } }, icon('chevron-right')),
                 typed ? TypeInput(node, save) : h('span', { className: 'ddwpt-schema-muted' }, 'Value per row'),
                 h('span', { className: 'ddwpt-schema-node-count' }, propertyCount(node))));
         }
@@ -704,6 +739,13 @@
         const value  = node[directive];
         const source = (text) => text ? h('span', { className: 'ddwpt-schema-token-source' }, context.sources.label(text, context.items))
             : h('span', { className: 'ddwpt-schema-empty' }, 'No source');
+        if (directive === '@maps') {
+            const tables = Object.keys(value || {});
+            return tables.length ? h('span', { className: 'ddwpt-schema-token' }, tables.map((table) =>
+                h('span', { className: 'ddwpt-schema-chip is-static' }, h('span', { className: 'ddwpt-schema-chip-name' }, table),
+                    h('span', { className: 'ddwpt-schema-chip-arg' }, Object.keys(value[table]).length + ' rows'))))
+                : h('span', { className: 'ddwpt-schema-empty' }, 'No tables');
+        }
         if (!SOURCE_DIRECTIVES.includes(directive)) return ValueSummary(value, context);
         if (value && typeof value === 'object') {
             return h('span', { className: 'ddwpt-schema-token' }, source(value.rows),
@@ -715,7 +757,7 @@
 
     function DirectiveRow(node, directive, context, save) {
         const label = h('span', { className: 'ddwpt-schema-key is-directive', title: directive }, DIRECTIVES[directive]);
-        const editable = directive !== '@maps' && valueMode(node[directive]) !== 'object' || SOURCE_DIRECTIVES.includes(directive);
+        const editable = directive === '@maps' || SOURCE_DIRECTIVES.includes(directive) || valueMode(node[directive]) !== 'object';
         const { open, setOpen } = rowState(node, directive, save, editable);
         let control;
 
@@ -736,7 +778,10 @@
                 control = SourcePicker(value || '', context, (source, structural) => { node[directive] = source; save(structural); }, directive === '@each');
             }
         } else {
-            control = ValueEditor(node[directive], context, (value, structural) => { node[directive] = value; save(structural); });
+            const write = (value, structural) => { node[directive] = value; save(structural); };
+            control = valueMode(node[directive]) === 'object'
+                ? ObjectValue(node[directive], context, DIRECTIVES[directive], write)
+                : ValueEditor(node[directive], context, write);
         }
 
         return h('div', { className: 'ddwpt-schema-row is-directive' + (open ? ' is-open' : ''), onKeydown: closeOnEscape(open, setOpen) },
@@ -763,8 +808,9 @@
             },
         });
 
-        const content = open || valueMode(value) === 'object'
-            ? ValueEditor(value, context, (next, structural) => { node[key] = next; save(structural); })
+        const write   = (next, structural) => { node[key] = next; save(structural); };
+        const content = valueMode(value) === 'object' ? ObjectValue(value, context, key, write)
+            : open ? ValueEditor(value, context, write)
             : SummaryButton(key, ValueSummary(value, context), setOpen);
 
         return h('div', { className: 'ddwpt-schema-row' + (required ? ' is-required' : '') + (open ? ' is-open' : ''), 'data-sortable': true,
