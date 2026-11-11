@@ -23,6 +23,10 @@
         '@maps':   'Lookup tables',
     };
     const SOURCE_DIRECTIVES = ['@each', '@if', '@unless', '@from'];
+    // Where each directive's control sits in a node: how the node is produced
+    // goes above the properties, what happens to the result goes below.
+    const TOP_DIRECTIVES    = ['@each', '@value', '@from', '@if', '@unless'];
+    const BOTTOM_DIRECTIVES = ['@else', '@merge', '@maps'];
     const SINGLE_TOKEN      = /^\{\{([^{}]*)\}\}$/;
 
     /* ---------- DOM helpers ---------- */
@@ -528,6 +532,21 @@
         return definition;
     }
 
+    function directiveDefault(directive) {
+        if (directive === '@maps') return {};
+        return ['@value', '@else', '@merge'].includes(directive) ? '{{}}' : '';
+    }
+
+    /** Ghost buttons that add the directives this place offers and the node lacks. */
+    function DirectiveButtons(node, directives, save) {
+        const missing = directives.filter((directive) => node[directive] === undefined);
+        if (!missing.length) return null;
+        return h('div', { className: 'ddwpt-schema-directive-buttons' },
+            missing.map((directive) => h('button', { type: 'button', className: 'ddwpt-schema-directive-add',
+                onClick: () => { node[directive] = directiveDefault(directive); save(true); } },
+                icon('plus'), DIRECTIVES[directive])));
+    }
+
     function TypeInput(node, save) {
         return h('input', {
             type: 'text', className: 'ddwpt-schema-type', value: node['@type'] || '', list: 'ddwpt-schema-types',
@@ -561,11 +580,19 @@
                 h('span', { className: 'ddwpt-schema-node-count' }, propertyCount(node))));
         }
 
-        const directives = Object.keys(DIRECTIVES).filter((directive) => node[directive] !== undefined);
-        if (directives.length) {
-            body.append(h('div', { className: 'ddwpt-schema-options' },
-                directives.map((directive) => DirectiveRow(node, directive, directive === '@each' ? parentContext : context, save))));
-        }
+        // Item value only means something inside a loop; lookup tables live on root nodes.
+        const offered = (place) => place.filter((directive) =>
+            (directive !== '@value' || node['@each'] !== undefined) && (directive !== '@maps' || inCard));
+        const section = (place, className) => {
+            const present = place.filter((directive) => node[directive] !== undefined);
+            return present.length ? h('div', { className: 'ddwpt-schema-options ' + className },
+                present.map((directive) => DirectiveRow(node, directive, directive === '@each' ? parentContext : context, save))) : null;
+        };
+
+        const top = section(TOP_DIRECTIVES, 'is-top');
+        if (top) body.append(top);
+        const topButtons = DirectiveButtons(node, offered(TOP_DIRECTIVES), save);
+        if (topButtons) body.append(topButtons);
 
         const keys  = Object.keys(node).filter((key) => key !== '@type' && !DIRECTIVES[key]);
         const move  = (from, to) => { moveItem(keys, from, to); reorderKeys(node, keys); save(true); };
@@ -575,7 +602,10 @@
                 if (target >= 0 && target < keys.length) move(index, target);
             }))), move);
 
-        body.append(props, AddRow(node, save));
+        body.append(props);
+        const bottom = section(BOTTOM_DIRECTIVES, 'is-bottom');
+        if (bottom) body.append(bottom);
+        body.append(AddRow(node, save, DirectiveButtons(node, offered(BOTTOM_DIRECTIVES), save)));
         wrap.append(body);
         return wrap;
     }
@@ -630,7 +660,7 @@
         );
     }
 
-    function AddRow(node, save) {
+    function AddRow(node, save, extras) {
         const properties = typeProperties(node['@type']);
         const missing    = properties.required.filter((property) => node[property] === undefined);
         const options    = [{ value: '', label: '+ Add property' }];
@@ -639,9 +669,6 @@
             const unused = properties[group].filter((property) => node[property] === undefined);
             if (unused.length) options.push({ group: group[0].toUpperCase() + group.slice(1), options: unused.map((property) => ({ value: property, label: property })) });
         });
-        options.push({ group: 'Options', options: Object.entries(DIRECTIVES)
-            .filter(([directive]) => node[directive] === undefined)
-            .map(([directive, label]) => ({ value: directive, label })) });
         options.push({ value: '__custom', label: 'Other property…' });
 
         const add = (key) => {
@@ -654,7 +681,7 @@
                 return;
             }
             if (node[key] !== undefined) return;
-            node[key] = key === '@maps' ? {} : (key === '@else' || key === '@merge' ? '{{}}' : (DIRECTIVES[key] && key !== '@value' ? '' : '{{}}'));
+            node[key] = DIRECTIVES[key] ? directiveDefault(key) : '{{}}';
             save(true);
         };
 
@@ -663,6 +690,7 @@
             picker,
             missing.length ? h('span', { className: 'ddwpt-schema-missing' }, 'Missing required: ',
                 missing.map((property) => h('button', { type: 'button', className: 'ddwpt-schema-pill', onClick: () => add(property) }, property))) : null,
+            extras,
         );
         return row;
     }
