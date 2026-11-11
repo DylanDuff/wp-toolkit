@@ -1314,10 +1314,17 @@
   white-space: pre-wrap;
 }
 
-.ddwpt-schema-text-summary > .ddwpt-schema-token,
 .ddwpt-schema-chip.is-static {
   height: var(--schema-pill);
   padding: 0 6px;
+  border-radius: 4px;
+  line-height: var(--schema-pill);
+}
+
+/* A token in text may wrap its steps onto more lines, so it grows. */
+.ddwpt-schema-text-summary > .ddwpt-schema-token {
+  min-height: var(--schema-pill);
+  padding: 2px 6px;
   border-radius: 4px;
   line-height: var(--schema-pill);
 }
