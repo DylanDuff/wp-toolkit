@@ -639,8 +639,8 @@
 }
 
 /* In a header the pills take the right side, before remove or the type select */
-.ddwpt-schema-missing + .ddwpt-schema-remove,
-.ddwpt-schema-missing + .ddwpt-schema-mode {
+.ddwpt-schema-card-head > .ddwpt-schema-missing + .ddwpt-schema-remove,
+.ddwpt-schema-node-head > .ddwpt-schema-missing + .ddwpt-schema-mode {
   margin-left: 0;
 }
 
