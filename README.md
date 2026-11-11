@@ -96,6 +96,7 @@ Detailed documentation is in [`docs/`](docs/):
 - [`knowledge-base.md`](docs/knowledge-base.md) — adding articles, display modes, manifest structure
 - [`settings-export-import.md`](docs/settings-export-import.md) — export/import behaviour, security model, portability notes
 - [`ai-abilities.md`](docs/ai-abilities.md) — registered AI abilities, MCP visibility gotchas, whitelist mechanism
+- [`seo-schema.md`](docs/seo-schema.md) — Structured Data (JSON-LD) templates: sources, transforms, directives, editor, SEO plugin conflicts (experimental)
 
 ---
 

@@ -111,6 +111,12 @@ Render tweaks appear after the save button in their tab. Settings tweaks get a s
 | `sortable` | JSON `{order, hidden}` | jQuery UI Sortable; drag-to-reorder |
 | `wysiwyg` | HTML string | TinyMCE |
 
+### Custom field types
+
+A tweak can define its own field type: render it on `ddwpt_render_field_{type}` (args `$field, $value, $field_id`; output a hidden input named `$field_id`) and give the setting a `sanitize` callable, which overrides the type-based sanitizer for both saving and import. `seo-schema.php` (`schema_templates`) is the example.
+
+A setting with `'show_if' => ['other_field' => ['a', 'b']]` only shows while that sibling holds one of those values (see `docs/tweak-system.md`).
+
 ### Tabs
 Tabs are ad-hoc — any tweak can declare any `tab` string and it will appear automatically. The `ai` tab is the exception: it is always present regardless of whether any tweak declares it.
 
@@ -206,6 +212,12 @@ Third-party runtimes are vendored or CDN-loaded per element, deliberately: vendo
 
 ---
 
+## Structured Data (`inc/seo/`, `inc/tweaks/seo-schema.php`)
+
+Experimental (Experimental tab; output also requires `ddwpt_experiments_enabled`). Per-post-type JSON-LD templates with Bricks-style `{tag:filter|arg @fallback:'x'}` tokens (`Schema_Syntax`; the earlier `{{source|transform:arg}}` form still renders and the editor migrates it on load), edited in one editor with Visual, JSON and Preview modes plus presets. The template JSON is the only stored format; Visual mode is a view onto it. MCP agents read and write templates through `ai-schema-abilities.php` (also experimental), which reuses `seo_schema_save_template()` and `seo_schema_preview()`. See `docs/seo-schema.md` before touching the renderer or editor.
+
+---
+
 ## Dependencies
 
 | Dependency | Required | Notes |
@@ -234,5 +246,6 @@ Markdown articles auto-discovered from the directory. `manifest.php` provides in
 | `knowledge-base.md` | KB article authoring, display modes |
 | `settings-export-import.md` | Export/import security and portability |
 | `ai-abilities.md` | Registered AI abilities, MCP visibility gotchas, whitelist mechanism |
+| `seo-schema.md` | Structured Data tweak: template tokens, transforms, directives, editor, SEO plugin conflicts |
 
 Keep docs current when features change materially.

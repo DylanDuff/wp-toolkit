@@ -1,2 +1,7 @@
 .DS_Store
 **/.DS_Store
+
+# Agent and editor tooling
+.claude/
+.conductor/
+.codex/

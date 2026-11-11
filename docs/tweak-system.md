@@ -52,11 +52,38 @@ The `_enabled` checkbox is special: the loader identifies it by type `checkbox` 
 | `faq_import` | *(not persisted)* | Renders a JSON textarea + "Run Import" button; fires `wp_ajax_ddwpt_faq_import` |
 | `acf_export` | *(not persisted)* | Renders an "Export ACF Presets" button; fires `wp_ajax_ddwpt_acf_export`, downloads JSON |
 
+| *custom* | tweak-defined | Rendered by the tweak on `ddwpt_render_field_{type}`; see below |
+
 All fields accept `default` (used when the option has never been saved).
+
+### Custom field types
+
+Any `type` the plugin doesn't know is handed to the action `ddwpt_render_field_{type}` with `($field, $value, $field_id)`. The tweak echoes its UI there, including an input named `$field_id` that carries the value on save. Give the setting a `sanitize` callable to control storage; it takes precedence over the type-based sanitizer on save and on settings import.
+
+```php
+['id' => 'templates', 'type' => 'schema_templates', 'label' => 'Templates', 'sanitize' => 'my_sanitize_fn'],
+
+add_action('ddwpt_render_field_schema_templates', function ($field, $value, $field_id) {
+    printf('<input type="hidden" name="%1$s" id="%1$s" value="%2$s" />', esc_attr($field_id), esc_attr($value));
+}, 10, 3);
+```
+
+`inc/tweaks/seo-schema.php` is the reference implementation.
 
 Non-persisted types (currently `faq_import`, `acf_export`) are excluded from `register_settings()` and do not write to the options table. Each wires its own AJAX handler in the tweak callback and injects its nonce into `ddwptSettings` via the `ddwpt_localize_data` filter.
 
 Callable `options`/`items` are resolved at render time, so they can query the database.
+
+### Conditional fields (`show_if`)
+
+A setting can show only while sibling fields hold given values. Keys are field IDs (prefixed like setting IDs), values are one value or a list; every condition must match.
+
+```php
+['id' => 'organization_name', 'type' => 'text', 'label' => 'Organization name',
+ 'show_if' => ['organization_output' => ['template', 'all']]],
+```
+
+The row gets `data-show-if` and `settings.js` toggles its `hidden` attribute on change. Hidden fields still submit and keep their saved values; the callback should not assume they are empty.
 
 ## Tabs
 

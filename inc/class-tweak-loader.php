@@ -66,6 +66,8 @@ class Tweak_Loader
         'plugin-settings',
         'profile-overhaul',
         'experiments',
+        'seo-schema',
+        'ai-schema-abilities',
     ];
 
     public function load_all()
@@ -102,8 +104,15 @@ class Tweak_Loader
 
             // AUTO-PREFIX SETTINGS
             foreach ($def['settings'] as &$setting) {
-                if (!str_starts_with($setting['id'], $def['id'])) {
-                    $setting['id'] = $def['id'] . '_' . $setting['id'];
+                $setting['id'] = self::prefix_id($setting['id'], $def['id']);
+
+                // show_if keys name sibling fields, so they get the same prefix.
+                if (!empty($setting['show_if'])) {
+                    $conditions = [];
+                    foreach ((array) $setting['show_if'] as $field => $values) {
+                        $conditions[self::prefix_id($field, $def['id'])] = array_values((array) $values);
+                    }
+                    $setting['show_if'] = $conditions;
                 }
             }
             unset($setting);
@@ -150,5 +159,10 @@ class Tweak_Loader
         if (isset($tweak['render'])) return is_callable($tweak['render']);
         // Standard tweak: needs label, settings array, and callback.
         return isset($tweak['label'], $tweak['settings'], $tweak['callback']);
+    }
+
+    private static function prefix_id(string $id, string $tweak_id): string
+    {
+        return str_starts_with($id, $tweak_id) ? $id : $tweak_id . '_' . $id;
     }
 }

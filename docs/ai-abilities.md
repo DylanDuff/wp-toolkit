@@ -53,6 +53,11 @@ Without this, the ability exists in `wp_get_abilities()` and shows up in the AI 
 | `wp-toolkit/get-acf-field-group` | `ai-acf-field-abilities` | enabled + ACF active | `manage_options` |
 | `wp-toolkit/update-acf-field-group` | `ai-acf-field-abilities` | allow_write + ACF active | `manage_options` |
 | `wp-toolkit/update-acf-field` | `ai-acf-field-abilities` | allow_write + ACF active | `manage_options` |
+| `wp-toolkit/get-schema-guide` | `ai-schema-abilities` | enabled + Experiments | `manage_options` |
+| `wp-toolkit/preview-schema` | `ai-schema-abilities` | enabled + Experiments | `manage_options` |
+| `wp-toolkit/set-schema-template` | `ai-schema-abilities` | allow_write + Experiments | `manage_options` |
+| `wp-toolkit/save-schema-node` | `ai-schema-abilities` | allow_write + Experiments | `manage_options` |
+| `wp-toolkit/delete-schema-node` | `ai-schema-abilities` | allow_write + Experiments | `manage_options` |
 
 \* Resolved via `Redirection_Capabilities::has_access()`, which defaults to `manage_options` unless the site filters `redirection_capability_check`. Falls back to a plain `manage_options` check if the Redirection plugin's capability class isn't loaded.
 
@@ -118,6 +123,18 @@ Fills a gap in ACF PRO's own `acf/settings/enable_acf_ai` ability set (toggled b
 - **`parent` is immutable on edits.** The group-membership check runs against a field's *current* parent chain before the patch is applied; if a patch's own `field.parent` were then merged in, a caller could silently move the field to any other field/group after passing that check, defeating it. `update-acf-field` strips `parent` from the patch whenever `key` is provided — reparenting only happens implicitly via the group-scoped default when a field is first created.
 - **Field names are slugified, not stripped.** `sanitize_key()` (used elsewhere in this plugin for meta keys, e.g. `ai_content_save_meta()`) deletes characters outside `[a-z0-9_-]` rather than replacing them, so `"Event Date"` would silently become `"eventdate"`. `ai_acf_sanitize_field_name()` lowercases and collapses runs of other characters into a single underscore instead, matching ACF's own admin-side name sanitization more closely.
 - **No delete ability, matching the rest of the plugin's convention** (see above) — deactivate a group instead (`active: false` via `update-acf-field-group`); field removal isn't exposed at all, even though it was in scope for this feature originally — deliberately dropped to stay consistent with content/redirects.
+
+## Structured Data abilities (`ai-schema-abilities.php`)
+
+Experimental, like the Structured Data tweak itself: registration needs both `ddwpt_ai_schema_abilities_enabled` and `ddwpt_experiments_enabled`. Category `wp-toolkit-schema`.
+
+- **Agents only write template JSON.** Every write goes through `seo_schema_save_template()` (in `seo-schema.php`), which runs the same `seo_schema_sanitize_templates()` the settings form uses, so an ability can never store something the editor couldn't.
+- **`get-schema-guide` is the entry point.** It returns `AI_SCHEMA_GUIDE` (a markdown primer on the template format, tokens, tags, directives and examples) plus live site data: post types with their template status, the output switches (`status`), filters, known schema.org types with required/recommended properties and preset names. With `post_type` it adds that type's `sources` (the same `Schema_Sources::catalogue()` the editor's tag picker uses) and its current template; with `preset` it returns a starting template.
+- **No new ACF discovery.** The guide points agents at `list-acf-field-groups` / `get-acf-field-group` / `get-post` / `get-option-field` for field names, types and real values, and explains how a field name path maps to an `acf_` tag. Nothing here duplicates those abilities.
+- **Validation is two-tier.** `ai_schema_validate()` returns *errors* (not an array of objects, a root node without `@type` or `@each`) that block a save, and *warnings* (legacy `{{…}}` syntax, preset placeholders with no tag, tags the post type doesn't offer, unknown filters) that don't. Every write response also includes a render preview against the latest published post of the type, merged with the renderer's own warnings (empty sources, missing required properties).
+- **`preview-schema` is a dry run** against a given or latest post; it saves nothing.
+- **Output switches are separate from writes.** `set-schema-template` only changes a template's `enabled` flag when `enabled` is passed; node edits never touch it. Nothing prints until the Structured Data tweak, Experiments and the template's own flag are all on.
+- **`delete-schema-node` is the one delete in this plugin.** It removes a root node from a template (an edit to one option), not a post, field or redirect, so it doesn't break the no-delete convention above.
 
 ## Registering a new ability here
 

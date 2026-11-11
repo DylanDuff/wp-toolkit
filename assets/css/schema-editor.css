@@ -1,0 +1,1635 @@
+/* ── Structured Data editor (seo-schema tweak) ─────────────────── */
+
+/* The editor needs the whole card width, not the input column. */
+.ddwpt-field-row:has(.ddwpt-schema-editor) {
+  grid-template-columns: 1fr;
+}
+
+.ddwpt-schema-editor {
+  /* One type and spacing scale for the whole editor */
+  --schema-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --schema-text: 13px;
+  --schema-meta: 12px;
+  --schema-label: 11px;
+  --schema-control: 30px;
+  --schema-pill: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: var(--schema-text);
+}
+
+/* The editor sits in a settings grid cell: let it shrink so wide content
+   (preview JSON, long values) scrolls inside instead of widening the page. */
+.ddwpt-field-input:has(> .ddwpt-schema-editor),
+.ddwpt-schema-editor,
+.ddwpt-schema-panel,
+.ddwpt-schema-body,
+.ddwpt-schema-preview {
+  min-width: 0;
+}
+
+.ddwpt-schema-panel {
+  border: 1px solid var(--ddwpt-border);
+  border-radius: 8px;
+  background: var(--ddwpt-surface);
+}
+
+.ddwpt-schema-panel > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  padding: 10px 16px;
+  font-size: var(--schema-text);
+  cursor: pointer;
+}
+
+.ddwpt-schema-panel > summary strong {
+  font-weight: 600;
+}
+
+.ddwpt-schema-editor code.ddwpt-schema-slug {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--ddwpt-surface-alt);
+  color: var(--ddwpt-text-muted);
+  font-family: var(--schema-mono);
+  font-size: var(--schema-label);
+}
+
+.ddwpt-schema-panel[open] > summary {
+  border-bottom: 1px solid var(--ddwpt-border);
+}
+
+.ddwpt-schema-summary {
+  margin-left: auto;
+  color: var(--ddwpt-text-muted);
+  font-size: var(--schema-meta);
+}
+
+.ddwpt-schema-panel > summary .ddwpt-toggle input:focus-visible + .ddwpt-toggle-track {
+  outline: 2px solid var(--ddwpt-accent);
+  outline-offset: 2px;
+}
+
+.ddwpt-schema-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 16px;
+}
+
+.ddwpt-schema-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ddwpt-schema-modes {
+  display: inline-flex;
+  box-sizing: border-box;
+  height: var(--schema-control);
+  border: 1px solid var(--ddwpt-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.ddwpt-schema-mode-btn {
+  border: 0;
+  background: var(--ddwpt-surface);
+  color: var(--ddwpt-text-muted);
+  padding: 0 14px;
+  font-size: var(--schema-meta);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.ddwpt-schema-mode-btn + .ddwpt-schema-mode-btn {
+  border-left: 1px solid var(--ddwpt-border);
+}
+
+.ddwpt-schema-mode-btn.is-active {
+  background: var(--ddwpt-accent-light);
+  color: var(--ddwpt-accent);
+}
+
+/* Preset picker: modal with a tab per group of radio cards */
+.ddwpt-schema-editor .ddwpt-schema-preset-open {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ddwpt-schema-preset-open svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ddwpt-schema-preset-modal {
+  width: min(760px, calc(100vw - 32px));
+  max-height: min(640px, calc(100vh - 64px));
+  padding: 0;
+  border: 1px solid var(--ddwpt-border);
+  border-radius: var(--ddwpt-radius);
+  background: var(--ddwpt-surface);
+  color: var(--ddwpt-text);
+  box-shadow: 0 20px 50px rgba(17, 24, 39, 0.2);
+}
+
+.ddwpt-schema-preset-modal[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.ddwpt-schema-preset-modal::backdrop {
+  background: rgba(17, 24, 39, 0.45);
+}
+
+.ddwpt-schema-preset-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 0;
+}
+
+.ddwpt-schema-preset-modal-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.ddwpt-schema-preset-close {
+  display: inline-flex;
+  padding: 4px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--ddwpt-text-muted);
+  cursor: pointer;
+}
+
+.ddwpt-schema-preset-close:hover {
+  background: var(--ddwpt-surface-alt);
+  color: var(--ddwpt-text);
+}
+
+.ddwpt-schema-preset-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.ddwpt-schema-preset-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px 16px 0;
+  border-bottom: 1px solid var(--ddwpt-border);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.ddwpt-schema-preset-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: -1px;
+  padding: 8px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--ddwpt-text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ddwpt-schema-preset-tab:hover {
+  color: var(--ddwpt-text);
+}
+
+.ddwpt-schema-preset-tab[aria-selected="true"] {
+  border-bottom-color: var(--ddwpt-accent);
+  color: var(--ddwpt-accent);
+}
+
+.ddwpt-schema-preset-tab:focus-visible {
+  outline: 2px solid var(--ddwpt-accent);
+  outline-offset: -2px;
+}
+
+.ddwpt-schema-preset-count {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--ddwpt-surface-alt);
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.ddwpt-schema-preset-panels {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.ddwpt-schema-preset-modal-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--ddwpt-border);
+  background: var(--ddwpt-surface-alt);
+}
+
+.ddwpt-schema-preset-modal-foot .description {
+  margin: 0;
+  font-size: 12px;
+}
+
+.ddwpt-schema-preset-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.ddwpt-schema-preset-grid[hidden] {
+  display: none;
+}
+
+.ddwpt-schema-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.ddwpt-schema-preset-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--ddwpt-border);
+  border-radius: 8px;
+  background: var(--ddwpt-surface);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.ddwpt-schema-preset-card:hover {
+  border-color: var(--ddwpt-accent);
+}
+
+/* The radio stays focusable for keyboards; the card shows its state. */
+.ddwpt-schema-preset-card input[type="radio"] {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.ddwpt-schema-preset-card:has(input:checked) {
+  border-color: var(--ddwpt-accent);
+  background: var(--ddwpt-accent-light);
+  box-shadow: inset 0 0 0 1px var(--ddwpt-accent);
+}
+
+.ddwpt-schema-preset-card:has(input:focus-visible) {
+  outline: 2px solid var(--ddwpt-accent);
+  outline-offset: 2px;
+}
+
+.ddwpt-schema-preset-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--ddwpt-surface-alt);
+  color: var(--ddwpt-text-muted);
+}
+
+.ddwpt-schema-preset-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.ddwpt-schema-preset-card:has(input:checked) .ddwpt-schema-preset-icon {
+  background: var(--ddwpt-accent);
+  color: #fff;
+}
+
+.ddwpt-schema-preset-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.ddwpt-schema-preset-text strong {
+  font-size: 13px;
+}
+
+.ddwpt-schema-preset-text code {
+  padding: 0;
+  background: none;
+  font-size: 11px;
+  color: var(--ddwpt-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ddwpt-schema-preset-text small {
+  font-size: 11px;
+  color: var(--ddwpt-text-light);
+}
+
+
+.ddwpt-schema-source {
+  display: inline-flex;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.ddwpt-schema-source select {
+  max-width: 280px;
+}
+
+.ddwpt-schema-text {
+  flex: 1 1 260px;
+}
+
+.ddwpt-schema-muted {
+  color: var(--ddwpt-text-muted);
+  font-size: 12px;
+}
+
+/* Field box: source, transform steps and the add button read as one control */
+.ddwpt-schema-field {
+  position: relative;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  min-height: 30px;
+  padding: 2px;
+  box-sizing: border-box;
+  border: 1px solid var(--ddwpt-border);
+  border-radius: 6px;
+  background: var(--ddwpt-surface);
+}
+
+.ddwpt-schema-field:focus-within {
+  border-color: var(--ddwpt-accent);
+  box-shadow: 0 0 0 1px var(--ddwpt-accent);
+}
+
+.ddwpt-schema-editor .ddwpt-schema-cards .ddwpt-schema-field select,
+.ddwpt-schema-editor .ddwpt-schema-cards .ddwpt-schema-field .ddwpt-schema-source-custom {
+  height: 24px;
+  min-height: 24px;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  line-height: 22px;
+}
+
+.ddwpt-schema-transforms {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Each transform is a step in the chain: › name [arg] */
+.ddwpt-schema-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 2px 0 6px;
+  border-radius: 4px;
+  background: var(--ddwpt-accent-light);
+  color: var(--ddwpt-accent);
+  font-size: var(--schema-meta);
+  line-height: 1;
+}
+
+.ddwpt-schema-chip::before {
+  content: "›";
+  color: var(--ddwpt-text-light);
+  font-size: 13px;
+}
+
+.ddwpt-schema-chip-name {
+  font-family: var(--schema-mono);
+  font-size: var(--schema-label);
+  cursor: grab;
+  user-select: none;
+}
+
+.ddwpt-schema-chip.is-dragging {
+  opacity: 0.4;
+}
+
+.ddwpt-schema-chip.is-drop-before {
+  box-shadow: -2px 0 0 var(--ddwpt-accent);
+}
+
+.ddwpt-schema-chip.is-drop-after {
+  box-shadow: 2px 0 0 var(--ddwpt-accent);
+}
+
+.ddwpt-schema-editor .ddwpt-schema-cards .ddwpt-schema-chip input {
+  height: 20px !important;
+  min-height: 20px !important;
+  padding: 0 4px !important;
+  border-color: transparent !important;
+  border-radius: 3px !important;
+  font-size: 12px !important;
+  line-height: 20px;
+}
+
+.ddwpt-schema-chip-remove {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--ddwpt-text-light);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.ddwpt-schema-chip:hover .ddwpt-schema-chip-remove,
+.ddwpt-schema-chip-remove:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .ddwpt-schema-chip-remove {
+    opacity: 1;
+  }
+}
+
+.ddwpt-schema-chip-remove:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.ddwpt-schema-chip-remove svg {
+  width: 12px;
+  height: 12px;
+}
+
+.ddwpt-schema-add-transform {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--ddwpt-text-light);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ddwpt-schema-add-transform svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ddwpt-schema-row:hover .ddwpt-schema-add-transform,
+.ddwpt-schema-add-transform[aria-expanded="true"] {
+  color: var(--ddwpt-text-muted);
+}
+
+.ddwpt-schema-add-transform:hover,
+.ddwpt-schema-add-transform[aria-expanded="true"] {
+  background: var(--ddwpt-accent-light);
+  color: var(--ddwpt-accent) !important;
+}
+
+/* The add-filter button is pinned top right of its field box; the source
+   and steps wrap beside it instead of pushing it onto a new line. */
+.ddwpt-schema-field:has(> .ddwpt-schema-transforms) {
+  padding-right: 28px;
+}
+
+.ddwpt-schema-field > .ddwpt-schema-transforms {
+  display: contents;
+}
+
+.ddwpt-schema-field > .ddwpt-schema-transforms > .ddwpt-schema-add-transform {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+}
+
+/* Transform menu */
+.ddwpt-schema-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  width: min(340px, calc(100vw - 48px));
+  max-height: 320px;
+  border: 1px solid var(--ddwpt-border);
+  border-radius: 8px;
+  background: var(--ddwpt-surface);
+  box-shadow: 0 12px 32px rgba(17, 24, 39, 0.16);
+}
+
+.ddwpt-schema-editor .ddwpt-schema-menu .ddwpt-schema-menu-search {
+  width: auto;
+  height: 32px;
+  margin: 8px;
+  padding: 0 8px;
+  border: 1px solid var(--ddwpt-border) !important;
+  border-radius: 6px !important;
+  font-size: 13px !important;
+}
+
+.ddwpt-schema-editor .ddwpt-schema-menu .ddwpt-schema-menu-search:focus {
+  border-color: var(--ddwpt-accent) !important;
+  outline: none;
+  box-shadow: 0 0 0 1px var(--ddwpt-accent);
+}
+
+.ddwpt-schema-menu-list {
+  overflow-y: auto;
+  padding: 0 4px 6px;
+}
+
+.ddwpt-schema-menu-group {
+  padding: 8px 8px 4px;
+  color: var(--ddwpt-text-light);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ddwpt-schema-menu-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.ddwpt-schema-menu-item strong {
+  color: var(--ddwpt-text);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.ddwpt-schema-menu-item span {
+  color: var(--ddwpt-text-muted);
+  font-size: 12px;
+}
+
+.ddwpt-schema-menu-item:hover,
+.ddwpt-schema-menu-item.is-active {
+  background: var(--ddwpt-accent-light);
+}
+
+.ddwpt-schema-menu-item.is-active strong {
+  color: var(--ddwpt-accent);
+}
+
+.ddwpt-schema-menu-empty {
+  padding: 8px;
+  color: var(--ddwpt-text-muted);
+  font-size: 12px;
+}
+
+.ddwpt-schema-editor .ddwpt-schema-insert {
+  width: auto !important;
+  max-width: 120px;
+}
+
+/* Add row, missing required */
+.ddwpt-schema-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ddwpt-schema-missing {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  color: #92400e;
+  font-size: var(--schema-meta);
+}
+
+/* In a header the pills take the right side, before remove or the type select */
+.ddwpt-schema-card-head > .ddwpt-schema-missing + .ddwpt-schema-remove,
+.ddwpt-schema-node-head > .ddwpt-schema-missing + .ddwpt-schema-mode {
+  margin-left: 0;
+}
+
+.ddwpt-schema-pill {
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
+  border-radius: 999px;
+  padding: 0 8px;
+  height: var(--schema-pill);
+  font-family: var(--schema-mono);
+  font-size: var(--schema-label);
+  cursor: pointer;
+}
+
+.ddwpt-btn.is-link {
+  border-color: transparent !important;
+  background: transparent !important;
+}
+
+.ddwpt-btn.is-danger {
+  color: #b91c1c !important;
+}
+
+/* Lookup tables */
+.ddwpt-schema-maps,
+.ddwpt-schema-map {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ddwpt-schema-map-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ddwpt-schema-map-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto;
+  align-items: center;
+  gap: 6px;
+}
+
+/* JSON */
+.ddwpt-schema-editor .ddwpt-schema-json,
+.ddwpt-schema-editor .ddwpt-schema-json-input {
+  width: 100%;
+  font-family: var(--schema-mono);
+  font-size: 12px;
+}
+
+.ddwpt-schema-json-wrap {
+  flex: 1 1 260px;
+}
+
+.ddwpt-schema-json-mode .CodeMirror {
+  height: auto;
+  min-height: 320px;
+  border: 1px solid var(--ddwpt-border);
+  border-radius: 6px;
+}
+
+.ddwpt-schema-error {
+  color: #b91c1c;
+  font-size: 12px;
+  margin: 0;
+}
+
+.ddwpt-schema-error.is-flash {
+  font-weight: 600;
+}
+
+.ddwpt-schema-name-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ddwpt-schema-name-entry {
+  width: 200px;
+}
+
+/* Preview */
+.ddwpt-schema-preview-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.ddwpt-schema-preview-test {
+  margin-left: auto;
+  color: var(--ddwpt-accent);
+  font-size: var(--schema-meta);
+  text-decoration: none;
+}
+
+.ddwpt-schema-preview-test:hover,
+.ddwpt-schema-preview-test:focus-visible {
+  text-decoration: underline;
+}
+
+.ddwpt-schema-preview-test[hidden] {
+  display: none;
+}
+
+.ddwpt-schema-preview-json {
+  max-height: 420px;
+  overflow: auto;
+  background: var(--ddwpt-surface-alt);
+  border: 1px solid var(--ddwpt-border);
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 12px;
+}
+
+.ddwpt-schema-warnings {
+  margin: 0 0 8px;
+  padding: 8px 12px 8px 28px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+  color: #92400e;
+  font-size: 12px;
+}
+
+.ddwpt-schema-editor .ddwpt-schema-preset-add:not(:disabled) {
+  border-color: var(--ddwpt-accent);
+  background: var(--ddwpt-accent);
+  color: #fff;
+}
+
+/* ── Node editor ─────────────────────────────────────────────────── */
+
+/* One control style inside the editor, so it reads the same with or
+   without WordPress's form styles. */
+.ddwpt-schema-cards input[type="text"],
+.ddwpt-schema-cards select {
+  box-sizing: border-box;
+  max-width: 100%;
+  height: 30px;
+  min-height: 30px;
+  margin: 0;
+  padding: 0 8px;
+  border: 1px solid var(--ddwpt-border);
+  border-radius: 6px;
+  background-color: var(--ddwpt-surface);
+  box-shadow: none;
+  color: var(--ddwpt-text);
+  font-size: 13px;
+  line-height: 28px;
+}
+
+.ddwpt-schema-cards select {
+  padding-right: 24px;
+}
+
+.ddwpt-schema-cards input[type="text"]:focus,
+.ddwpt-schema-cards select:focus {
+  border-color: var(--ddwpt-accent);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--ddwpt-accent);
+}
+
+.ddwpt-schema-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Node cards */
+.ddwpt-schema-card {
+  border: 1px solid var(--ddwpt-border);
+  border-radius: 8px;
+  background: var(--ddwpt-surface);
+}
+
+.ddwpt-schema-card-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px 4px 4px;
+  border-bottom: 1px solid var(--ddwpt-border);
+  border-radius: 8px 8px 0 0;
+  background: var(--ddwpt-surface-alt);
+}
+
+.ddwpt-schema-card.is-collapsed > .ddwpt-schema-card-head {
+  border-bottom: 0;
+  border-radius: 8px;
+}
+
+.ddwpt-schema-card.is-collapsed > .ddwpt-schema-node {
+  display: none;
+}
+
+.ddwpt-schema-card-icon {
+  display: inline-flex;
+  color: var(--ddwpt-text-muted);
+}
+
+.ddwpt-schema-card-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.ddwpt-schema-editor .ddwpt-schema-cards .ddwpt-schema-card-head .ddwpt-schema-type {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+  border-color: transparent !important;
+  background-color: transparent;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ddwpt-schema-editor .ddwpt-schema-cards .ddwpt-schema-card-head .ddwpt-schema-type:hover {
+  border-color: var(--ddwpt-border) !important;
+  background-color: var(--ddwpt-surface);
+}
+
+.ddwpt-schema-node-count {
+  color: var(--ddwpt-text-light);
+  font-size: var(--schema-meta);
+  white-space: nowrap;
+}
+
+.ddwpt-schema-card-head > .ddwpt-schema-remove {
+  margin-left: auto;
+}
+
+.ddwpt-schema-card > .ddwpt-schema-node {
+  padding: 8px 8px 12px 4px;
+}
+
+/* Handles, collapse, remove */
+.ddwpt-schema-handle,
+.ddwpt-schema-collapse,
+.ddwpt-schema-remove {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--ddwpt-text-light);
+  cursor: pointer;
+}
+
+.ddwpt-schema-handle {
+  cursor: grab;
+  touch-action: none;
+}
+
+.ddwpt-schema-handle:active {
+  cursor: grabbing;
+}
+
+.ddwpt-schema-handle svg,
+.ddwpt-schema-collapse svg,
+.ddwpt-schema-remove svg {
+  width: 15px;
+  height: 15px;
+}
+
+.ddwpt-schema-handle:hover,
+.ddwpt-schema-collapse:hover {
+  background: var(--ddwpt-border);
+  color: var(--ddwpt-text);
+}
+
+.ddwpt-schema-remove:hover,
+.ddwpt-schema-remove.is-armed {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.ddwpt-schema-handle:focus-visible,
+.ddwpt-schema-collapse:focus-visible,
+.ddwpt-schema-remove:focus-visible {
+  outline: 2px solid var(--ddwpt-accent);
+  outline-offset: -2px;
+  opacity: 1;
+}
+
+.ddwpt-schema-collapse svg {
+  transition: transform 0.15s ease;
+  transform: rotate(90deg);
+}
+
+.is-collapsed > * > .ddwpt-schema-collapse svg,
+.is-collapsed > .ddwpt-schema-card-head > .ddwpt-schema-collapse svg {
+  transform: none;
+}
+
+/* Remove buttons stay out of the way until the row is in use. */
+.ddwpt-schema-row > .ddwpt-schema-remove,
+.ddwpt-schema-map-row > .ddwpt-schema-remove {
+  opacity: 0;
+}
+
+.ddwpt-schema-row:hover > .ddwpt-schema-remove,
+.ddwpt-schema-row:focus-within > .ddwpt-schema-remove,
+.ddwpt-schema-map-row:hover > .ddwpt-schema-remove,
+.ddwpt-schema-map-row:focus-within > .ddwpt-schema-remove {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .ddwpt-schema-row > .ddwpt-schema-remove,
+  .ddwpt-schema-map-row > .ddwpt-schema-remove {
+    opacity: 1;
+  }
+}
+
+/* Rows */
+.ddwpt-schema-node,
+.ddwpt-schema-node-body,
+.ddwpt-schema-props,
+.ddwpt-schema-options {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ddwpt-schema-node-body {
+  gap: 6px;
+}
+
+.ddwpt-schema-props:empty {
+  display: none;
+}
+
+.ddwpt-schema-row {
+  display: grid;
+  grid-template-columns: 24px minmax(120px, 190px) minmax(0, 1fr) 24px;
+  align-items: start;
+  gap: 6px;
+  padding: 2px 0;
+  border-radius: 6px;
+  position: relative;
+}
+
+.ddwpt-schema-props > .ddwpt-schema-row:hover {
+  background: var(--ddwpt-surface-alt);
+}
+
+.ddwpt-schema-handle-space {
+  width: 24px;
+}
+
+.ddwpt-schema-key-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.ddwpt-schema-editor .ddwpt-schema-cards input.ddwpt-schema-key {
+  width: 100%;
+  border-color: transparent !important;
+  padding-left: 18px;
+  background-color: transparent;
+  color: var(--ddwpt-text);
+  font-family: var(--schema-mono);
+  font-size: var(--schema-meta);
+  text-overflow: ellipsis;
+}
+
+.ddwpt-schema-editor .ddwpt-schema-cards input.ddwpt-schema-key:hover {
+  border-color: var(--ddwpt-border) !important;
+  background-color: var(--ddwpt-surface);
+}
+
+.ddwpt-schema-editor input[list]::-webkit-calendar-picker-indicator {
+  /* Chrome's datalist arrow; suggestions still appear as you type. */
+  display: none !important;
+}
+
+.ddwpt-schema-row.is-required > .ddwpt-schema-key-wrap::after {
+  content: "";
+  position: absolute;
+  top: 12px;
+  left: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ddwpt-accent);
+  pointer-events: none;
+}
+
+.ddwpt-schema-row.is-directive {
+  grid-template-columns: 24px minmax(0, 1fr) 24px;
+}
+
+.ddwpt-schema-value > .ddwpt-schema-node .ddwpt-schema-row.is-directive {
+  grid-template-columns: 24px minmax(0, 1fr) 24px;
+}
+
+.ddwpt-schema-directive-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 30px;
+  color: var(--ddwpt-accent);
+  cursor: help;
+}
+
+.ddwpt-schema-directive-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Inline (inside summaries): smaller, sits on the text line */
+.ddwpt-schema-via,
+.ddwpt-schema-token > .ddwpt-schema-directive-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.ddwpt-schema-via > .ddwpt-schema-directive-icon,
+.ddwpt-schema-token > .ddwpt-schema-directive-icon {
+  width: auto;
+  height: auto;
+}
+
+.ddwpt-schema-via svg,
+.ddwpt-schema-token > .ddwpt-schema-directive-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ddwpt-schema-menu-item:has(.ddwpt-schema-menu-icon) {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.ddwpt-schema-menu-item .ddwpt-schema-menu-icon {
+  display: inline-flex;
+  padding-top: 2px;
+  color: var(--ddwpt-accent);
+}
+
+.ddwpt-schema-menu-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.ddwpt-schema-menu-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+
+.ddwpt-schema-options {
+  padding: 2px 0;
+  border-radius: 6px;
+  background: var(--ddwpt-surface-alt);
+}
+
+/* Directive add buttons: above properties (how the node is produced) and
+   beside "Add property" (what happens to the result). */
+.ddwpt-schema-directive-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding-left: 30px;
+}
+
+/* Names the group: "Output" before the buttons that decide how a node is produced */
+.ddwpt-schema-directive-label {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 8px;
+  color: var(--ddwpt-text-light);
+  font-size: var(--schema-label);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ddwpt-schema-add .ddwpt-schema-directive-buttons {
+  margin-left: auto;
+  padding-left: 0;
+}
+
+/* Quiet add buttons: directive menus and "Empty node" */
+.ddwpt-schema-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--ddwpt-text-muted);
+  font-size: var(--schema-meta);
+  cursor: pointer;
+}
+
+.ddwpt-schema-ghost svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ddwpt-schema-ghost:hover,
+.ddwpt-schema-ghost:focus-visible {
+  background: var(--ddwpt-accent-light);
+  color: var(--ddwpt-accent);
+}
+
+.ddwpt-schema-ghost:focus-visible {
+  outline: 2px solid var(--ddwpt-accent);
+  outline-offset: -2px;
+}
+
+/* Drag states */
+.ddwpt-schema-row.is-dragging,
+.ddwpt-schema-card.is-dragging {
+  opacity: 0.4;
+}
+
+.ddwpt-schema-row.is-drop-before,
+.ddwpt-schema-card.is-drop-before {
+  box-shadow: 0 -2px 0 var(--ddwpt-accent);
+}
+
+.ddwpt-schema-row.is-drop-after,
+.ddwpt-schema-card.is-drop-after {
+  box-shadow: 0 2px 0 var(--ddwpt-accent);
+}
+
+/* Values */
+.ddwpt-schema-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ddwpt-schema-value.is-object {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.ddwpt-schema-node-head > .ddwpt-schema-mode {
+  margin-left: auto;
+}
+
+.ddwpt-schema-editor .ddwpt-schema-cards select.ddwpt-schema-mode {
+  width: auto;
+  min-width: 0;
+  border-color: transparent !important;
+  background-color: var(--ddwpt-surface-alt);
+  color: var(--ddwpt-text-muted);
+  font-size: var(--schema-meta);
+}
+
+/* Nested objects */
+.ddwpt-schema-value > .ddwpt-schema-node {
+  padding: 4px 0 6px 0;
+  border: 1px solid var(--ddwpt-border);
+  border-radius: 6px;
+  background: var(--ddwpt-surface);
+}
+
+.ddwpt-schema-node-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px 0 4px;
+}
+
+.ddwpt-schema-node-head .ddwpt-schema-type {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.ddwpt-schema-node.is-collapsed > .ddwpt-schema-node-body {
+  display: none;
+}
+
+.ddwpt-schema-node:not(.is-collapsed) > .ddwpt-schema-node-head > .ddwpt-schema-node-count {
+  display: none;
+}
+
+.ddwpt-schema-value > .ddwpt-schema-node .ddwpt-schema-row {
+  grid-template-columns: 24px minmax(110px, 170px) minmax(0, 1fr) 24px;
+}
+
+/* Type inputs are as wide as their text, up to a limit. */
+.ddwpt-schema-editor .ddwpt-schema-cards input.ddwpt-schema-type {
+  width: auto;
+  min-width: 80px;
+  max-width: 260px;
+  field-sizing: content;
+}
+
+.ddwpt-schema-node .ddwpt-schema-add {
+  padding: 6px 0 0 30px;
+}
+
+.ddwpt-schema-empty-node {
+  align-self: flex-start;
+}
+
+.ddwpt-schema-cards .ddwpt-schema-add select {
+  width: 190px;
+  max-width: 100%;
+  border-style: dashed;
+  color: var(--ddwpt-text-muted);
+}
+
+@media (max-width: 782px) {
+  .ddwpt-schema-row.is-directive > :nth-child(2) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .ddwpt-schema-row,
+  .ddwpt-schema-value > .ddwpt-schema-node .ddwpt-schema-row {
+    grid-template-columns: 24px minmax(0, 1fr) 24px;
+  }
+
+  .ddwpt-schema-row > .ddwpt-schema-value,
+  .ddwpt-schema-row > .ddwpt-schema-each-form,
+  .ddwpt-schema-row > .ddwpt-schema-source,
+  .ddwpt-schema-row > .ddwpt-schema-maps {
+    grid-column: 2 / 4;
+    grid-row: 2;
+  }
+}
+
+/* ── Read-only rows: a summary until the row is opened ──────────── */
+.ddwpt-schema-summary-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 30px;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--ddwpt-text);
+  font-size: var(--schema-text);
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ddwpt-schema-summary-value:hover,
+.ddwpt-schema-summary-value:focus-visible {
+  border-color: var(--ddwpt-border);
+  background: var(--ddwpt-surface);
+  outline: none;
+}
+
+.ddwpt-schema-summary-value > svg {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  margin-left: auto;
+  color: var(--ddwpt-text-light);
+  opacity: 0;
+}
+
+.ddwpt-schema-summary-value:hover > svg,
+.ddwpt-schema-summary-value:focus-visible > svg {
+  opacity: 1;
+}
+
+.ddwpt-schema-token,
+.ddwpt-schema-text-summary {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 4px;
+  min-width: 0;
+}
+
+.ddwpt-schema-text-summary {
+  white-space: pre-wrap;
+}
+
+.ddwpt-schema-chip.is-static {
+  height: var(--schema-pill);
+  padding: 0 6px;
+  border-radius: 4px;
+  line-height: var(--schema-pill);
+}
+
+/* A token in text may wrap its steps onto more lines, so it grows.
+   Badges (sources named in sentence-style summaries) share its shape. */
+.ddwpt-schema-badge,
+.ddwpt-schema-text-summary > .ddwpt-schema-token {
+  min-height: var(--schema-pill);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--ddwpt-surface-alt);
+  font-size: var(--schema-meta);
+  line-height: var(--schema-pill);
+}
+
+.ddwpt-schema-chip.is-static {
+  padding-left: 4px;
+}
+
+/* Badges joined by plain words: the words carry their own spaces. */
+.ddwpt-schema-text-summary.is-sentence {
+  column-gap: 0;
+}
+
+.ddwpt-schema-text-summary.is-sentence > .ddwpt-schema-badge + .ddwpt-schema-badge {
+  margin-left: 4px;
+}
+
+.ddwpt-schema-badge {
+  display: inline-flex;
+  align-items: center;
+  background: var(--ddwpt-surface);
+  box-shadow: inset 0 0 0 1px var(--ddwpt-border);
+}
+
+.ddwpt-schema-chip-arg {
+  color: var(--ddwpt-text);
+}
+
+.ddwpt-schema-empty {
+  color: var(--ddwpt-text-light);
+  font-style: italic;
+}
+
+.ddwpt-schema-json-summary {
+  display: block;
+  overflow: hidden;
+  padding: 0;
+  background: none;
+  font-family: var(--schema-mono);
+  font-size: var(--schema-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ddwpt-schema-row.is-open,
+.ddwpt-schema-row.is-open:hover {
+  background: var(--ddwpt-accent-light);
+}
+
+.ddwpt-schema-done {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--ddwpt-accent);
+  cursor: pointer;
+}
+
+.ddwpt-schema-done:hover {
+  background: var(--ddwpt-surface);
+}
+
+.ddwpt-schema-done svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Text values: input and insert button share one box, beside the type
+   select; the filter boxes take a full line beneath both */
+.ddwpt-schema-field.is-text {
+  flex: 1 1 0;
+  flex-wrap: nowrap;
+  min-width: 160px;
+}
+
+.ddwpt-schema-editor .ddwpt-schema-cards .ddwpt-schema-field.is-text .ddwpt-schema-text {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  min-height: 24px;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.ddwpt-schema-text-filters {
+  display: flex;
+  flex: 1 0 100%;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ddwpt-schema-text-filters > .ddwpt-schema-field {
+  display: flex;
+  width: 100%;
+}
+
+/* The tag a box belongs to (only with several), or "No filters" */
+.ddwpt-schema-field.is-filters > .ddwpt-schema-token-source,
+.ddwpt-schema-field.is-filters > .ddwpt-schema-empty {
+  padding: 0 6px;
+  font-size: var(--schema-meta);
+}
+
+.ddwpt-schema-field.is-filters > .ddwpt-schema-token-source {
+  color: var(--ddwpt-text-muted);
+}
+
+/* Repeat for each: labelled lines for rows, condition and the fallback row */
+.ddwpt-schema-each-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ddwpt-schema-each-line {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+}
+
+.ddwpt-schema-each-label {
+  padding-top: 7px;
+  color: var(--ddwpt-text-muted);
+  font-size: var(--schema-meta);
+  cursor: help;
+}
+
+.ddwpt-schema-each-control {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ddwpt-schema-each-fields {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--ddwpt-border);
+  border-radius: 6px;
+  background: var(--ddwpt-surface);
+}
+
+.ddwpt-schema-each-help {
+  margin: 0;
+  color: var(--ddwpt-text-muted);
+  font-size: var(--schema-meta);
+}
+
+.ddwpt-schema-each-field {
+  display: grid;
+  grid-template-columns: minmax(110px, 170px) auto minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.ddwpt-schema-each-field .ddwpt-schema-source select {
+  width: 100%;
+  max-width: none;
+}
+
+/* "item_" + the row field's name, read as one name */
+.ddwpt-schema-each-name {
+  display: flex;
+  align-items: center;
+  height: var(--schema-control);
+  padding-left: 8px;
+  box-sizing: border-box;
+  border: 1px solid var(--ddwpt-border);
+  border-radius: 6px;
+  background: var(--ddwpt-surface);
+  font-family: var(--schema-mono);
+  font-size: var(--schema-meta);
+}
+
+.ddwpt-schema-each-name:focus-within {
+  border-color: var(--ddwpt-accent);
+  box-shadow: 0 0 0 1px var(--ddwpt-accent);
+}
+
+.ddwpt-schema-each-prefix {
+  color: var(--ddwpt-text-light);
+}
+
+.ddwpt-schema-editor .ddwpt-schema-cards .ddwpt-schema-each-name input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  height: 26px;
+  min-height: 26px;
+  padding: 0 6px 0 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.ddwpt-schema-each-adds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-left: 84px;
+}
+
+.ddwpt-schema-directive-buttons {
+  position: relative;
+}
+
+.ddwpt-schema-add .ddwpt-schema-menu {
+  right: 0;
+  left: auto;
+}
+
+/* Nested objects as a summary line until opened */
+.ddwpt-schema-value.is-object-summary > .ddwpt-schema-summary-value {
+  flex: 1;
+  padding-left: 4px;
+}
+
+.ddwpt-schema-value.is-object-summary > .ddwpt-schema-summary-value > svg:first-child {
+  margin-left: 0;
+  opacity: 1;
+}
+
+.ddwpt-schema-object-summary {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  min-width: 0;
+}
+
+.ddwpt-schema-object-summary strong {
+  font-weight: 600;
+}
+
+/* Thin scrollbars for the editor's scrolling boxes; .ddwpt-scroll-thin opts other boxes in */
+:is(.ddwpt-schema-editor :is(pre, textarea, .ddwpt-schema-menu-list, .ddwpt-schema-preset-panels, .CodeMirror-scroll), .ddwpt-scroll-thin) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ddwpt-border) transparent;
+}
+
+:is(.ddwpt-schema-editor :is(pre, textarea, .ddwpt-schema-menu-list, .ddwpt-schema-preset-panels, .CodeMirror-scroll), .ddwpt-scroll-thin)::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+:is(.ddwpt-schema-editor :is(pre, textarea, .ddwpt-schema-menu-list, .ddwpt-schema-preset-panels, .CodeMirror-scroll), .ddwpt-scroll-thin)::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:is(.ddwpt-schema-editor :is(pre, textarea, .ddwpt-schema-menu-list, .ddwpt-schema-preset-panels, .CodeMirror-scroll), .ddwpt-scroll-thin)::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--ddwpt-border) padding-box;
+}
+
+:is(.ddwpt-schema-editor :is(pre, textarea, .ddwpt-schema-menu-list, .ddwpt-schema-preset-panels, .CodeMirror-scroll), .ddwpt-scroll-thin)::-webkit-scrollbar-thumb:hover {
+  background: var(--ddwpt-text-light) padding-box;
+}
+
+:is(.ddwpt-schema-editor :is(pre, textarea, .ddwpt-schema-menu-list, .ddwpt-schema-preset-panels, .CodeMirror-scroll), .ddwpt-scroll-thin)::-webkit-scrollbar-corner {
+  background: transparent;
+}
