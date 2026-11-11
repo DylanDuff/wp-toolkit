@@ -1,3 +1,71 @@
+.ddwpt-schema-row.is-directive {
+  grid-template-columns: 24px minmax(0, 1fr) 24px;
+}
+
+.ddwpt-schema-value > .ddwpt-schema-node .ddwpt-schema-row.is-directive {
+  grid-template-columns: 24px minmax(0, 1fr) 24px;
+}
+
+.ddwpt-schema-directive-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 30px;
+  color: var(--ddwpt-accent);
+  cursor: help;
+}
+
+.ddwpt-schema-directive-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Inline (inside summaries): smaller, sits on the text line */
+.ddwpt-schema-via,
+.ddwpt-schema-token > .ddwpt-schema-directive-icon,
+.ddwpt-schema-each > .ddwpt-schema-directive-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.ddwpt-schema-via > .ddwpt-schema-directive-icon,
+.ddwpt-schema-token > .ddwpt-schema-directive-icon {
+  width: auto;
+  height: auto;
+}
+
+.ddwpt-schema-via svg,
+.ddwpt-schema-token > .ddwpt-schema-directive-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ddwpt-schema-menu-item:has(.ddwpt-schema-menu-icon) {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.ddwpt-schema-menu-item .ddwpt-schema-menu-icon {
+  display: inline-flex;
+  padding-top: 2px;
+  color: var(--ddwpt-accent);
+}
+
+.ddwpt-schema-menu-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.ddwpt-schema-menu-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
 /* ── Structured Data editor (seo-schema tweak) ─────────────────── */
 
 /* The editor needs the whole card width, not the input column. */
@@ -1115,6 +1183,11 @@
 }
 
 @media (max-width: 782px) {
+  .ddwpt-schema-row.is-directive > :nth-child(2) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
   .ddwpt-schema-row,
   .ddwpt-schema-value > .ddwpt-schema-node .ddwpt-schema-row {
     grid-template-columns: 24px minmax(0, 1fr) 24px;

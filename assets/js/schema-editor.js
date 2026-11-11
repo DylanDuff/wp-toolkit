@@ -404,8 +404,10 @@
                 if (group) list.append(h('div', { className: 'ddwpt-schema-menu-group' }, group));
                 matches.forEach((item) => list.append(h('div', { role: 'option', className: 'ddwpt-schema-menu-item',
                     onPointerdown: (event) => event.preventDefault(), onClick: () => pick(item.value) },
-                    h('strong', {}, item.title),
-                    item.description ? h('span', {}, item.description) : null)));
+                    item.icon ? h('span', { className: 'ddwpt-schema-menu-icon' }, icon(item.icon)) : null,
+                    h('span', { className: 'ddwpt-schema-menu-text' },
+                        h('strong', {}, item.title),
+                        item.description ? h('span', {}, item.description) : null))));
             });
             if (!options().length) list.append(h('div', { className: 'ddwpt-schema-menu-empty' }, 'Nothing matches.'));
             active = 0;
@@ -573,15 +575,16 @@
         const label = (source) => context.sources.label(source, context.items);
         const keys  = Object.keys(node).filter((key) => key !== '@type' && !DIRECTIVES[key]);
         const parts = [];
-        if (node['@each'] !== undefined) parts.push('repeats over ' + (label(eachSource(node['@each'])) || '…'));
-        if (node['@from'] !== undefined) parts.push('from ' + (label(node['@from']) || '…'));
-        if (node['@if'] !== undefined) parts.push('only if ' + (label(node['@if']) || '…'));
-        if (node['@unless'] !== undefined) parts.push('unless ' + (label(node['@unless']) || '…'));
-        if (node['@value'] !== undefined) parts.push('one value per row');
+        const via   = (directive, source) => h('span', { className: 'ddwpt-schema-via' }, DirectiveIcon(directive), label(source) || '…');
+        if (node['@each'] !== undefined) parts.push(via('@each', eachSource(node['@each'])));
+        if (node['@from'] !== undefined) parts.push(via('@from', node['@from']));
+        if (node['@if'] !== undefined) parts.push(via('@if', node['@if']));
+        if (node['@unless'] !== undefined) parts.push(via('@unless', node['@unless']));
+        if (node['@value'] !== undefined) parts.push(h('span', { className: 'ddwpt-schema-via' }, DirectiveIcon('@value'), 'one value per row'));
         else parts.push(keys.length ? keys.slice(0, 4).join(', ') + (keys.length > 4 ? ' +' + (keys.length - 4) : '') : 'no properties');
         return h('span', { className: 'ddwpt-schema-object-summary' },
             h('strong', {}, node['@type'] || (node['@value'] !== undefined ? 'List' : 'Object')),
-            parts.flatMap((part) => [h('span', { className: 'ddwpt-schema-muted' }, '·'), h('span', {}, part)]));
+            parts.flatMap((part) => [h('span', { className: 'ddwpt-schema-muted' }, '·'), typeof part === 'string' ? h('span', {}, part) : part]));
     }
 
     /**
@@ -636,13 +639,24 @@
         '@maps':   'Named lookup tables for the map transform',
     };
 
+    const DIRECTIVE_ICONS = {
+        '@each': 'repeat', '@value': 'list', '@from': 'link', '@if': 'eye', '@unless': 'eye-off',
+        '@else': 'corner-down-right', '@merge': 'merge', '@maps': 'table',
+    };
+
+    /** A directive shown as its icon; the name and what it does are in the tooltip. */
+    function DirectiveIcon(directive) {
+        return h('span', { className: 'ddwpt-schema-directive-icon', role: 'img', 'aria-label': DIRECTIVES[directive],
+            title: DIRECTIVES[directive] + ': ' + DIRECTIVE_HELP[directive].toLowerCase() }, icon(DIRECTIVE_ICONS[directive]));
+    }
+
     /** One quiet button opening a menu of the directives this place offers and the node lacks. */
     function DirectiveButtons(node, directives, save, label) {
         const missing = directives.filter((directive) => node[directive] === undefined);
         if (!missing.length) return null;
         return h('div', { className: 'ddwpt-schema-directive-buttons' },
             MenuButton({ className: 'ddwpt-schema-directive-add' }, [icon('plus'), label],
-                () => [['', missing.map((directive) => ({ value: directive, title: DIRECTIVES[directive], description: DIRECTIVE_HELP[directive] }))]],
+                () => [['', missing.map((directive) => ({ value: directive, title: DIRECTIVES[directive], description: DIRECTIVE_HELP[directive], icon: DIRECTIVE_ICONS[directive] }))]],
                 (directive) => { node[directive] = directiveDefault(directive); save(true); }, 'Search options'));
     }
 
@@ -749,14 +763,13 @@
         if (!SOURCE_DIRECTIVES.includes(directive)) return ValueSummary(value, context);
         if (value && typeof value === 'object') {
             return h('span', { className: 'ddwpt-schema-token' }, source(value.rows),
-                value.if ? [h('span', { className: 'ddwpt-schema-muted' }, 'only if'), source(value.if)] : null,
+                value.if ? [DirectiveIcon('@if'), source(value.if)] : null,
                 value.else ? h('span', { className: 'ddwpt-schema-muted' }, '+ fallback row') : null);
         }
         return source(value);
     }
 
     function DirectiveRow(node, directive, context, save) {
-        const label = h('span', { className: 'ddwpt-schema-key is-directive', title: directive }, DIRECTIVES[directive]);
         const editable = directive === '@maps' || SOURCE_DIRECTIVES.includes(directive) || valueMode(node[directive]) !== 'object';
         const { open, setOpen } = rowState(node, directive, save, editable);
         let control;
@@ -770,7 +783,7 @@
                 // the fallback row stays JSON.
                 control = h('span', { className: 'ddwpt-schema-each' },
                     SourcePicker(value.rows || '', context, (source, structural) => { value.rows = source; save(structural); }, true),
-                    h('span', { className: 'ddwpt-schema-muted' }, 'only if'),
+                    DirectiveIcon('@if'),
                     SourcePicker(value.if || '', context, (source, structural) => { value.if = source; save(structural); }),
                     value.else ? h('span', { className: 'ddwpt-schema-muted', title: JSON.stringify(value.else) }, '+ fallback row (JSON mode)') : null,
                 );
@@ -785,7 +798,7 @@
         }
 
         return h('div', { className: 'ddwpt-schema-row is-directive' + (open ? ' is-open' : ''), onKeydown: closeOnEscape(open, setOpen) },
-            h('span', { className: 'ddwpt-schema-handle-space' }), label,
+            DirectiveIcon(directive),
             open || !editable ? control : SummaryButton(DIRECTIVES[directive], DirectiveSummary(node, directive, context), setOpen),
             open ? DoneButton(DIRECTIVES[directive], setOpen) : removeButton(DIRECTIVES[directive], () => { delete node[directive]; save(true); }));
     }
@@ -918,6 +931,14 @@
         'chevron-right': '<path d="m9 18 6-6-6-6"/>',
         pencil: '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>',
         check: '<path d="M20 6 9 17l-5-5"/>',
+        repeat: '<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
+        list: '<path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M3 6h.01"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M8 6h13"/>',
+        link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+        eye: '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
+        'eye-off': '<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/>',
+        'corner-down-right': '<polyline points="15 10 20 15 15 20"/><path d="M4 4v7a4 4 0 0 0 4 4h12"/>',
+        merge: '<path d="m8 6 4-4 4 4"/><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/><path d="m20 22-5-5"/>',
+        table: '<path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/>',
         function: '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M9 17c2 0 2.8-1 2.8-2.8V10c0-2 1-3.3 3.2-3"/><path d="M9 11.2h5.7"/>',
         x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
     };
