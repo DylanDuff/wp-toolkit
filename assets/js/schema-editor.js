@@ -655,7 +655,7 @@
         const missing = directives.filter((directive) => node[directive] === undefined);
         if (!missing.length) return null;
         return h('div', { className: 'ddwpt-schema-directive-buttons' },
-            MenuButton({ className: 'ddwpt-schema-directive-add' }, [icon('plus'), label],
+            MenuButton({ className: 'ddwpt-schema-ghost' }, [icon('plus'), label],
                 () => [['', missing.map((directive) => ({ value: directive, title: DIRECTIVES[directive], description: DIRECTIVE_HELP[directive], icon: DIRECTIVE_ICONS[directive] }))]],
                 (directive) => { node[directive] = directiveDefault(directive); save(true); }, 'Search options'));
     }
@@ -829,7 +829,7 @@
         return h('div', { className: 'ddwpt-schema-row' + (required ? ' is-required' : '') + (open ? ' is-open' : ''), 'data-sortable': true,
             onKeydown: closeOnEscape(open, setOpen) },
             DragHandle(objectId(node) + '/' + key, key, move),
-            h('span', { className: 'ddwpt-schema-key-wrap', title: required ? 'Required by Google' : null }, name),
+            h('span', { className: 'ddwpt-schema-key-wrap', title: required ? key + ' (required by Google)' : key }, name),
             content,
             open ? DoneButton(key, setOpen) : removeButton(key, () => { delete node[key]; save(true); }),
         );
@@ -1091,7 +1091,7 @@
             this.element.open = open;
 
             this.element.append(h('summary', {},
-                h('strong', {}, this.info.label), ' ', h('code', {}, this.slug),
+                h('strong', {}, this.info.label), h('code', { className: 'ddwpt-schema-slug' }, this.slug),
                 h('span', { className: 'ddwpt-schema-summary' }, this.summary()),
                 h('span', { className: 'ddwpt-schema-status' + (this.entry.enabled ? ' is-on' : '') }, this.entry.enabled ? 'On' : 'Off')));
 
@@ -1114,7 +1114,8 @@
                 if (!this.nodes().length) {
                     body.append(h('p', { className: 'description' }, 'No schema yet. Start from a preset above, or add an empty node.'));
                 }
-                body.append(button('+ Empty node', () => { this.nodes().push({ '@type': '' }); this.changed(true); }, 'is-link'));
+                body.append(h('button', { type: 'button', className: 'ddwpt-schema-ghost ddwpt-schema-empty-node',
+                    onClick: () => { this.nodes().push({ '@type': '' }); this.changed(true); } }, icon('plus'), 'Empty node'));
             }
 
             body.append(this.preview());
