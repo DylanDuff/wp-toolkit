@@ -135,6 +135,16 @@ class Plugin
         ];
     }
 
+    // A setting may bring its own `sanitize` callable (custom field types
+    // registered by a tweak); otherwise its type decides.
+    private function get_sanitizer(array $setting, array $sanitize_map)
+    {
+        if (!empty($setting["sanitize"]) && is_callable($setting["sanitize"])) {
+            return $setting["sanitize"];
+        }
+        return $sanitize_map[$setting["type"]] ?? "sanitize_text_field";
+    }
+
     public function register_settings()
     {
         $sanitize_map = $this->get_sanitize_map();
@@ -145,7 +155,7 @@ class Plugin
             foreach ($tweak["settings"] ?? [] as $setting) {
                 if (in_array($setting["type"], $no_persist, true)) continue;
                 register_setting($this->settings_group, $setting["id"], [
-                    "sanitize_callback" => $sanitize_map[$setting["type"]] ?? "sanitize_text_field",
+                    "sanitize_callback" => $this->get_sanitizer($setting, $sanitize_map),
                 ]);
             }
         }
@@ -186,13 +196,13 @@ class Plugin
         $valid_settings = [];
         foreach ($this->tweaks as $tweak) {
             foreach ($tweak["settings"] as $setting) {
-                $valid_settings[$setting["id"]] = $setting["type"];
+                $valid_settings[$setting["id"]] = $setting;
             }
         }
 
         foreach ($data as $key => $value) {
             if (!isset($valid_settings[$key])) continue;
-            $sanitize = $sanitize_map[$valid_settings[$key]] ?? "sanitize_text_field";
+            $sanitize = $this->get_sanitizer($valid_settings[$key], $sanitize_map);
             update_option($key, call_user_func($sanitize, $value));
         }
 
@@ -801,6 +811,11 @@ class Plugin
                 echo '<button type="button" class="ddwpt-btn ddwpt-json-copy-schema" style="margin-top:6px;">Copy schema to clipboard</button>';
                 echo '</div>';
                 echo '</div>';
+                break;
+
+            default:
+                // Custom field types are rendered by the tweak that defines them.
+                do_action("ddwpt_render_field_" . $field["type"], $field, $value, $field_id);
                 break;
         }
     }
