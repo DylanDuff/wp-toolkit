@@ -501,6 +501,22 @@
   color: var(--ddwpt-accent) !important;
 }
 
+/* The add-filter button is pinned top right of its field box; the source
+   and steps wrap beside it instead of pushing it onto a new line. */
+.ddwpt-schema-field:has(> .ddwpt-schema-transforms) {
+  padding-right: 28px;
+}
+
+.ddwpt-schema-field > .ddwpt-schema-transforms {
+  display: contents;
+}
+
+.ddwpt-schema-field > .ddwpt-schema-transforms > .ddwpt-schema-add-transform {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+}
+
 /* Transform menu */
 .ddwpt-schema-menu {
   position: absolute;
