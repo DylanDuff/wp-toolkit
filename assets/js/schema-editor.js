@@ -915,21 +915,14 @@
             title: DIRECTIVES[directive] + ': ' + DIRECTIVE_HELP[directive].toLowerCase() }, icon(DIRECTIVE_ICONS[directive]));
     }
 
-    /**
-     * Quiet add buttons for the directives this place offers and the node
-     * lacks: one icon-and-label button each when there are two or fewer,
-     * otherwise one button opening a menu of them.
-     */
-    function DirectiveButtons(node, directives, save, label) {
+    /** One quiet icon-and-label add button per directive this place offers and the node lacks. */
+    function DirectiveButtons(node, directives, save) {
         const missing = directives.filter((directive) => node[directive] === undefined);
         if (!missing.length) return null;
-        const add = (directive) => { node[directive] = directiveDefault(directive); save(true); };
-        return h('div', { className: 'ddwpt-schema-directive-buttons' }, missing.length <= 2
-            ? missing.map((directive) => h('button', { type: 'button', className: 'ddwpt-schema-ghost', title: DIRECTIVE_HELP[directive],
-                onClick: () => add(directive) }, icon(DIRECTIVE_ICONS[directive]), DIRECTIVES[directive]))
-            : MenuButton({ className: 'ddwpt-schema-ghost' }, [icon('plus'), label],
-                () => [['', missing.map((directive) => ({ value: directive, title: DIRECTIVES[directive], description: DIRECTIVE_HELP[directive], icon: DIRECTIVE_ICONS[directive] }))]],
-                add, 'Search options'));
+        return h('div', { className: 'ddwpt-schema-directive-buttons' }, missing.map((directive) =>
+            h('button', { type: 'button', className: 'ddwpt-schema-ghost', title: DIRECTIVE_HELP[directive],
+                onClick: () => { node[directive] = directiveDefault(directive); save(true); } },
+                icon(DIRECTIVE_ICONS[directive]), DIRECTIVES[directive])));
     }
 
     function TypeInput(node, save) {
@@ -1005,7 +998,7 @@
 
         const top = section(TOP_DIRECTIVES, 'is-top');
         if (top) body.append(top);
-        const topButtons = DirectiveButtons(node, offered(TOP_DIRECTIVES), save, 'Repeat or condition');
+        const topButtons = DirectiveButtons(node, offered(TOP_DIRECTIVES), save);
         if (topButtons) body.append(topButtons);
 
         const keys  = Object.keys(node).filter((key) => key !== '@type' && !DIRECTIVES[key]);
@@ -1019,7 +1012,7 @@
         body.append(props);
         const bottom = section(BOTTOM_DIRECTIVES, 'is-bottom');
         if (bottom) body.append(bottom);
-        body.append(AddRow(node, save, DirectiveButtons(node, offered(BOTTOM_DIRECTIVES), save, 'Fallback or merge')));
+        body.append(AddRow(node, save, DirectiveButtons(node, offered(BOTTOM_DIRECTIVES), save)));
         wrap.append(body);
         return wrap;
     }
