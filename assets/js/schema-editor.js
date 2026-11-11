@@ -1571,8 +1571,8 @@
             const posts  = h('select', { 'aria-label': 'Preview post', onChange: () => { this.previewPost = posts.value; render(); } },
                 h('option', { value: '' }, 'Loading posts…'));
             const output = h('div', { className: 'ddwpt-schema-preview-output' });
-            const test   = h('a', { className: 'ddwpt-schema-preview-test', target: '_blank', rel: 'noopener', hidden: true },
-                'Test the live page in Google\'s Rich Results Test ↗');
+            const test   = h('a', { className: 'ddwpt-schema-preview-test', target: '_blank', rel: 'noopener', hidden: true,
+                title: 'Test this post\'s live page' }, 'Google\'s Rich Results Test ↗');
             const render = () => {
                 if (!posts.value) return;
                 output.textContent = 'Rendering…';
