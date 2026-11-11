@@ -106,6 +106,36 @@
         toggle.addEventListener('change', sync);
     });
 
+    // ── Conditional fields (show_if) ──────────────────────────────────
+    // Hidden fields keep their saved values; only their rows are hidden.
+    document.querySelectorAll('[data-show-if]').forEach(function (row) {
+        var conditions = JSON.parse(row.dataset.showIf);
+        var form = row.closest('form') || document;
+
+        function fieldValue(name) {
+            var inputs = form.querySelectorAll('[name="' + name + '"]');
+            var value = '';
+            inputs.forEach(function (input) {
+                if ((input.type === 'checkbox' || input.type === 'radio') && !input.checked) return;
+                value = input.value;
+            });
+            return value;
+        }
+
+        function sync() {
+            row.hidden = !Object.keys(conditions).every(function (name) {
+                return conditions[name].map(String).indexOf(fieldValue(name)) !== -1;
+            });
+        }
+
+        Object.keys(conditions).forEach(function (name) {
+            form.querySelectorAll('[name="' + name + '"]').forEach(function (input) {
+                input.addEventListener('change', sync);
+            });
+        });
+        sync();
+    });
+
     // ── Saved button state ────────────────────────────────────────────
     if (sessionStorage.getItem('ddwpt_saved')) {
         sessionStorage.removeItem('ddwpt_saved');

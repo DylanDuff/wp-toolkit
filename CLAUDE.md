@@ -115,6 +115,8 @@ Render tweaks appear after the save button in their tab. Settings tweaks get a s
 
 A tweak can define its own field type: render it on `ddwpt_render_field_{type}` (args `$field, $value, $field_id`; output a hidden input named `$field_id`) and give the setting a `sanitize` callable, which overrides the type-based sanitizer for both saving and import. `seo-schema.php` (`schema_templates`) is the example.
 
+A setting with `'show_if' => ['other_field' => ['a', 'b']]` only shows while that sibling holds one of those values (see `docs/tweak-system.md`).
+
 ### Tabs
 Tabs are ad-hoc — any tweak can declare any `tab` string and it will appear automatically. The `ai` tab is the exception: it is always present regardless of whether any tweak declares it.
 

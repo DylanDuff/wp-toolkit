@@ -74,6 +74,17 @@ Non-persisted types (currently `faq_import`, `acf_export`) are excluded from `re
 
 Callable `options`/`items` are resolved at render time, so they can query the database.
 
+### Conditional fields (`show_if`)
+
+A setting can show only while sibling fields hold given values. Keys are field IDs (prefixed like setting IDs), values are one value or a list; every condition must match.
+
+```php
+['id' => 'organization_name', 'type' => 'text', 'label' => 'Organization name',
+ 'show_if' => ['organization_output' => ['template', 'all']]],
+```
+
+The row gets `data-show-if` and `settings.js` toggles its `hidden` attribute on change. Hidden fields still submit and keep their saved values; the callback should not assume they are empty.
+
 ## Tabs
 
 Tabs are created automatically from the `tab` values used across tweaks. Preferred display order (defined in `class-plugin.php::get_all_tabs()`):

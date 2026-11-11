@@ -391,7 +391,7 @@ class Plugin
                     $value = get_option($setting["id"], $setting["default"] ?? "");
                 ?>
                 <?php if (!empty($setting["accordion"])): ?>
-                <details class="ddwpt-field-accordion">
+                <details class="ddwpt-field-accordion"<?php echo $this->show_if_attribute($setting); ?>>
                     <summary class="ddwpt-field-accordion-summary">
                         <?php echo esc_html($setting["label"]); ?>
                     </summary>
@@ -403,7 +403,7 @@ class Plugin
                     </div>
                 </details>
                 <?php else: ?>
-                <div class="ddwpt-field-row">
+                <div class="ddwpt-field-row"<?php echo $this->show_if_attribute($setting); ?>>
                     <label class="ddwpt-field-label" for="<?php echo esc_attr($setting["id"]); ?>">
                         <?php echo esc_html($setting["label"]); ?>
                     </label>
@@ -853,6 +853,13 @@ class Plugin
             <?php endif; ?>
         </div>
         <?php
+    }
+
+    /** data-show-if for fields that only apply while a sibling has given values. */
+    private function show_if_attribute(array $setting): string
+    {
+        if (empty($setting["show_if"])) return "";
+        return ' data-show-if="' . esc_attr(wp_json_encode($setting["show_if"])) . '"';
     }
 
     private function kses_desc(string $text): string

@@ -385,6 +385,11 @@
   border-top: 1px solid var(--ddwpt-border);
 }
 
+/* show_if: rows set display, so [hidden] needs restating. */
+[data-show-if][hidden] {
+  display: none !important;
+}
+
 .ddwpt-field-row {
   display: grid;
   grid-template-columns: 190px 1fr;
