@@ -161,8 +161,11 @@
         }, icon('grip-vertical'));
     }
 
-    /** Drag-and-drop between the direct [data-sortable] children of `list`. */
-    function Sortable(list, onMove) {
+    /**
+     * Drag-and-drop between the direct [data-sortable] children of `list`.
+     * `horizontal` drops before or after by x instead of y (inline chips).
+     */
+    function Sortable(list, onMove, horizontal) {
         let dragged = null;
         const items  = () => Array.from(list.children).filter((child) => child.hasAttribute('data-sortable'));
         const clear  = () => items().forEach((item) => item.classList.remove('is-drop-before', 'is-drop-after'));
@@ -188,8 +191,9 @@
             event.stopPropagation();
             clear();
             if (item === dragged) return;
-            const box = item.getBoundingClientRect();
-            item.classList.add(event.clientY < box.top + box.height / 2 ? 'is-drop-before' : 'is-drop-after');
+            const box    = item.getBoundingClientRect();
+            const before = horizontal ? event.clientX < box.left + box.width / 2 : event.clientY < box.top + box.height / 2;
+            item.classList.add(before ? 'is-drop-before' : 'is-drop-after');
         });
         list.addEventListener('drop', (event) => {
             if (!dragged) return;
@@ -645,12 +649,17 @@
 
     /** Transforms as inline steps after the source, plus a button that opens the menu. */
     function TransformChips(transforms, onChange) {
-        const wrap = h('span', { className: 'ddwpt-schema-transforms' });
+        // Steps run left to right, so dragging a chip by its name reorders them.
+        const wrap = Sortable(h('span', { className: 'ddwpt-schema-transforms' }), (from, to) => {
+            moveItem(transforms, from, to);
+            onChange(transforms, true);
+        }, true);
+        const arm = (draggable) => (event) => { event.currentTarget.parentNode.draggable = draggable; };
 
         transforms.forEach((transform, index) => {
             const info = config.transforms[transform.name] || {};
-            wrap.append(h('span', { className: 'ddwpt-schema-chip', title: info.label || '' },
-                h('span', { className: 'ddwpt-schema-chip-name' }, transform.name),
+            wrap.append(h('span', { className: 'ddwpt-schema-chip', title: info.label || '', 'data-sortable': true },
+                h('span', { className: 'ddwpt-schema-chip-name', title: 'Drag to reorder', onPointerdown: arm(true), onPointerup: arm(false) }, transform.name),
                 info.arg || transform.arg !== '' ? h('input', {
                     type: 'text', value: transform.arg, placeholder: info.arg || '', size: Math.max(4, (transform.arg || info.arg || '').length),
                     'aria-label': transform.name + ' ' + (info.arg || 'argument'),

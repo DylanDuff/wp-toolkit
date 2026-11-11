@@ -426,6 +426,20 @@
 .ddwpt-schema-chip-name {
   font-family: var(--schema-mono);
   font-size: var(--schema-label);
+  cursor: grab;
+  user-select: none;
+}
+
+.ddwpt-schema-chip.is-dragging {
+  opacity: 0.4;
+}
+
+.ddwpt-schema-chip.is-drop-before {
+  box-shadow: -2px 0 0 var(--ddwpt-accent);
+}
+
+.ddwpt-schema-chip.is-drop-after {
+  box-shadow: 2px 0 0 var(--ddwpt-accent);
 }
 
 .ddwpt-schema-editor .ddwpt-schema-cards .ddwpt-schema-chip input {
