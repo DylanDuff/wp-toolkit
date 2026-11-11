@@ -66,6 +66,7 @@ class Tweak_Loader
         'plugin-settings',
         'profile-overhaul',
         'experiments',
+        'seo-schema',
     ];
 
     public function load_all()
