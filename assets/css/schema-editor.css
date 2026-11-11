@@ -127,6 +127,7 @@
 
 /* Preset picker: modal with a tab per group of radio cards */
 .ddwpt-schema-editor .ddwpt-schema-preset-open {
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -701,46 +702,12 @@
 }
 
 /* Preview */
-.ddwpt-schema-preview > summary {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--ddwpt-text-muted);
-  font-size: var(--schema-meta);
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.ddwpt-schema-preview > summary::before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  margin: 0 8px 0 12px;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-  transform: rotate(-45deg);
-  transition: transform 0.15s ease;
-}
-
-.ddwpt-schema-preview[open] > summary::before {
-  transform: rotate(45deg);
-}
-
-.ddwpt-schema-preview > summary::-webkit-details-marker {
-  display: none;
-}
-
-.ddwpt-schema-preview > summary:hover,
-.ddwpt-schema-preview[open] > summary {
-  color: var(--ddwpt-text);
-}
-
 .ddwpt-schema-preview-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin: 8px 0;
+  margin: 0 0 8px;
 }
 
 .ddwpt-schema-preview-json {

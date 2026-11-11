@@ -168,7 +168,7 @@ One panel per public post type, each with an **Output** toggle and two modes ove
 
 **Presets** (`Schema_Types::presets()`, picked from a modal with a tab per group of type cards) append a node with the type's required and recommended properties, obvious ones pre-mapped (`name` → `post.title`, `image` → `post.thumbnail`) and the rest blank. Filter with `ddwpt_schema_presets`; add types with `ddwpt_schema_types`.
 
-**Preview** renders the unsaved template against a chosen post over AJAX (`ddwpt_schema_preview`), listing empty sources and missing required properties, with a link to Google's Rich Results Test.
+**Preview** is the third editor mode, beside Visual and JSON (the preset button sits at the right of the toolbar and hides in Preview). It loads the post list on entry, renders the first post straight away and re-renders when another post is picked; Refresh re-runs it. It renders the unsaved template against a chosen post over AJAX (`ddwpt_schema_preview`), listing empty sources and missing required properties, with a link to Google's Rich Results Test.
 
 The editor's source picker comes from `Schema_Sources::catalogue()`: core post fields, ACF field groups assigned to the post type (groups flattened to dot paths, repeaters flagged as lists with their row fields offered as `item.*` inside a loop), public taxonomies, Site Options fields, and site references.
 

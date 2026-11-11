@@ -1113,6 +1113,8 @@
 
             if (this.mode === 'json') {
                 body.append(this.jsonEditor());
+            } else if (this.mode === 'preview') {
+                body.append(this.preview());
             } else {
                 const nodes = this.nodes();
                 const move  = (from, to) => { moveItem(nodes, from, to); this.changed(true); };
@@ -1125,7 +1127,6 @@
                     onClick: () => { this.nodes().push({ '@type': '' }); this.changed(true); } }, icon('plus'), 'Empty node'));
             }
 
-            body.append(this.preview());
             this.element.append(body);
             restoreFocus(this.element);
         }
@@ -1151,8 +1152,8 @@
             }, label);
 
             return h('div', { className: 'ddwpt-schema-toolbar' },
-                h('span', { className: 'ddwpt-schema-modes', role: 'group', 'aria-label': 'Editor mode' }, modeButton('visual', 'Visual'), modeButton('json', 'JSON')),
-                PresetPicker(this.slug, this.presetState, (type) => {
+                h('span', { className: 'ddwpt-schema-modes', role: 'group', 'aria-label': 'Editor mode' }, modeButton('visual', 'Visual'), modeButton('json', 'JSON'), modeButton('preview', 'Preview')),
+                this.mode === 'preview' ? null : PresetPicker(this.slug, this.presetState, (type) => {
                     this.nodes().push(clone(config.presets[type].template));
                     this.changed(true);
                 }));
@@ -1211,10 +1212,12 @@
             return wrap;
         }
 
+        /** Preview mode: renders the unsaved template against a chosen post. */
         preview() {
-            const posts   = h('select', { 'aria-label': 'Preview post' }, h('option', { value: '' }, 'Loading posts…'));
-            const output  = h('div', { className: 'ddwpt-schema-preview-output' });
-            const run     = button('Preview', () => {
+            const posts  = h('select', { 'aria-label': 'Preview post', onChange: () => { this.previewPost = posts.value; render(); } },
+                h('option', { value: '' }, 'Loading posts…'));
+            const output = h('div', { className: 'ddwpt-schema-preview-output' });
+            const render = () => {
                 if (!posts.value) return;
                 output.textContent = 'Rendering…';
                 request('ddwpt_schema_preview', { post_id: posts.value, template: JSON.stringify(this.nodes()) }).then((result) => {
@@ -1228,26 +1231,21 @@
                         h('pre', { className: 'ddwpt-schema-preview-json' }, json),
                         h('a', { href: testUrl, target: '_blank', rel: 'noopener' }, 'Test the live page in Google\'s Rich Results Test ↗'));
                 });
+            };
+
+            request('ddwpt_schema_posts', { post_type: this.slug }).then((result) => {
+                posts.innerHTML = '';
+                const items = result.success ? result.data : [];
+                if (!items.length) posts.append(h('option', { value: '' }, 'No published posts'));
+                items.forEach((post) => posts.append(h('option', { value: post.id }, post.title)));
+                if (this.previewPost && items.some((post) => String(post.id) === String(this.previewPost))) posts.value = this.previewPost;
+                render();
             });
 
-            const details = h('details', { className: 'ddwpt-schema-preview' },
-                h('summary', {}, 'Preview'),
-                h('div', { className: 'ddwpt-schema-preview-controls' }, posts, run,
+            return h('div', { className: 'ddwpt-schema-preview' },
+                h('div', { className: 'ddwpt-schema-preview-controls' }, posts, button('Refresh', render),
                     h('span', { className: 'description' }, 'Renders the template as it is now, before saving.')),
                 output);
-
-            details.addEventListener('toggle', () => {
-                if (!details.open || posts.dataset.loaded) return;
-                posts.dataset.loaded = '1';
-                request('ddwpt_schema_posts', { post_type: this.slug }).then((result) => {
-                    posts.innerHTML = '';
-                    const items = result.success ? result.data : [];
-                    if (!items.length) posts.append(h('option', { value: '' }, 'No published posts'));
-                    items.forEach((post) => posts.append(h('option', { value: post.id }, post.title)));
-                });
-            });
-
-            return details;
         }
     }
 
