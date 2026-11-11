@@ -1381,9 +1381,7 @@
 
 /* Text values: input and insert button share one box */
 .ddwpt-schema-field.is-text {
-  display: flex;
   flex-wrap: nowrap;
-  flex: 1 1 260px;
 }
 
 .ddwpt-schema-editor .ddwpt-schema-cards .ddwpt-schema-field.is-text .ddwpt-schema-text {
@@ -1395,13 +1393,22 @@
   box-shadow: none !important;
 }
 
-/* One source + filter row per field in a text value, under its input */
-.ddwpt-schema-text-fields {
-  display: flex;
-  flex: 1 0 100%;
-  flex-direction: column;
+.ddwpt-schema-value.is-text {
   align-items: flex-start;
+}
+
+/* A text value: its input, then one full-width filter box per field */
+.ddwpt-schema-text-value {
+  display: flex;
+  flex: 1 1 260px;
+  flex-direction: column;
   gap: 4px;
+  min-width: 0;
+}
+
+.ddwpt-schema-text-value > .ddwpt-schema-field {
+  display: flex;
+  width: 100%;
 }
 
 /* The tag a filter box belongs to, as a quiet label before its steps */
