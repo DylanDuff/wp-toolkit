@@ -844,7 +844,8 @@
 }
 
 .ddwpt-schema-editor .ddwpt-schema-cards .ddwpt-schema-card-head .ddwpt-schema-type {
-  flex: 0 1 260px;
+  flex: 0 1 auto;
+  width: auto;
   min-width: 0;
   border-color: transparent !important;
   background-color: transparent;
@@ -1209,7 +1210,7 @@
 }
 
 .ddwpt-schema-node-head .ddwpt-schema-type {
-  flex: 0 1 220px;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -1225,8 +1226,12 @@
   grid-template-columns: 24px minmax(110px, 170px) minmax(0, 1fr) 24px;
 }
 
-.ddwpt-schema-type {
-  max-width: 320px;
+/* Type inputs are as wide as their text, up to a limit. */
+.ddwpt-schema-editor .ddwpt-schema-cards input.ddwpt-schema-type {
+  width: auto;
+  min-width: 80px;
+  max-width: 260px;
+  field-sizing: content;
 }
 
 .ddwpt-schema-node .ddwpt-schema-add {

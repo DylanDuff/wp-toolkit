@@ -664,8 +664,15 @@
         return h('input', {
             type: 'text', className: 'ddwpt-schema-type', value: node['@type'] || '', list: 'ddwpt-schema-types',
             placeholder: 'schema.org type', 'aria-label': 'Schema type',
+            size: fitSize(node['@type'] || 'schema.org type'),
+            onInput: (event) => { event.target.size = fitSize(event.target.value || event.target.placeholder); },
             onChange: (event) => { node['@type'] = event.target.value; save(true); },
         });
+    }
+
+    /** Width for an input that grows with its text, where CSS field-sizing is unsupported. */
+    function fitSize(text) {
+        return Math.max(4, text.length + 1);
     }
 
     /**
