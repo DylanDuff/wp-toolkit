@@ -1314,20 +1314,32 @@
 }
 
 /* A token in text may wrap its steps onto more lines, so it grows. */
+.ddwpt-schema-text-summary > .ddwpt-schema-badge,
 .ddwpt-schema-text-summary > .ddwpt-schema-token {
   min-height: var(--schema-pill);
   padding: 2px 6px;
   border-radius: 4px;
-  line-height: var(--schema-pill);
-}
-
-.ddwpt-schema-text-summary > .ddwpt-schema-token {
   background: var(--ddwpt-surface-alt);
   font-size: var(--schema-meta);
+  line-height: var(--schema-pill);
 }
 
 .ddwpt-schema-chip.is-static {
   padding-left: 4px;
+}
+
+/* Badges joined by plain words: the words carry their own spaces. */
+.ddwpt-schema-text-summary.is-sentence {
+  column-gap: 0;
+}
+
+.ddwpt-schema-text-summary.is-sentence > .ddwpt-schema-badge + .ddwpt-schema-badge {
+  margin-left: 4px;
+}
+
+.ddwpt-schema-text-summary > .ddwpt-schema-badge {
+  background: var(--ddwpt-surface);
+  box-shadow: inset 0 0 0 1px var(--ddwpt-border);
 }
 
 .ddwpt-schema-chip-arg {

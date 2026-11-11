@@ -1062,11 +1062,12 @@
         }
         if (!SOURCE_DIRECTIVES.includes(directive)) return ValueSummary(value, context);
         if (directive === '@each' && value && typeof value === 'object') {
+            // Sources and row fields as badges, joined by plain words.
+            const badge  = (content) => h('span', { className: 'ddwpt-schema-badge' }, content);
             const fields = Object.keys(value.else || {});
-            const part   = (label, content) => [h('span', { className: 'ddwpt-schema-muted' }, label), content];
-            return h('span', { className: 'ddwpt-schema-token' }, source(value.rows),
-                value.if ? part('only when', source(value.if)) : null,
-                value.else ? part('if none, one row of', h('span', {}, fields.join(', ') || 'no fields')) : null);
+            return h('span', { className: 'ddwpt-schema-text-summary is-sentence' }, badge(source(value.rows)),
+                value.if ? [' only when ', badge(source(value.if))] : null,
+                value.else ? [', otherwise one row of ', ...(fields.length ? fields.map((field) => badge(field)) : ['no fields'])] : null);
         }
         return source(value);
     }
