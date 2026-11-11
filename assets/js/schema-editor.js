@@ -23,7 +23,7 @@
         '@maps':   'Lookup tables',
     };
     // Shorter names for the add buttons, where the full name is a mouthful.
-    const DIRECTIVE_BUTTONS = { '@else': 'Fallback', '@merge': 'Merge' };
+    const DIRECTIVE_BUTTONS = { '@else': 'Fallback', '@merge': 'Merge', '@maps': 'Lookup' };
     const SOURCE_DIRECTIVES = ['@each', '@if', '@unless', '@from'];
     // Where each directive's control sits in a node: how the node is produced
     // goes above the properties, what happens to the result goes below.
