@@ -106,6 +106,47 @@ if (!function_exists(__NAMESPACE__ . '\\seo_schema_templates')) {
         return (new Schema_Renderer($post_id))->render($template);
     }
 
+    /** Saves one post type's entry; null leaves that part as it is. */
+    function seo_schema_save_template(string $post_type, ?array $template, ?bool $enabled = null): array
+    {
+        $templates = seo_schema_templates();
+        $entry     = $templates[$post_type] ?? ['enabled' => false, 'template' => []];
+
+        if ($template !== null) $entry['template'] = $template;
+        if ($enabled !== null) $entry['enabled'] = $enabled;
+
+        $templates[$post_type] = $entry;
+        update_option('ddwpt_seo_schema_templates', seo_schema_sanitize_templates($templates));
+
+        return seo_schema_templates()[$post_type] ?? $entry;
+    }
+
+    /**
+     * Renders a template against one post the way the page would print it,
+     * with the renderer's warnings plus missing required properties. Shared
+     * by the editor's Preview and the preview-schema ability.
+     */
+    function seo_schema_preview(int $post_id, array $template): array
+    {
+        $options    = seo_schema_options();
+        $site_nodes = seo_schema_page_site_nodes($options, true);
+        $renderer   = new Schema_Renderer($post_id);
+        $nodes      = $renderer->render($template);
+        $warnings   = $renderer->warnings();
+
+        foreach ($nodes as $node) {
+            foreach (Schema_Types::missing_required($node) as $property) {
+                $warnings[] = sprintf('%s is missing required property "%s"', is_string($node['@type'] ?? null) ? $node['@type'] : 'Node', $property);
+            }
+        }
+
+        return [
+            'graph'    => ['@context' => 'https://schema.org', '@graph' => array_merge($site_nodes, $nodes)],
+            'warnings' => array_values(array_unique($warnings)),
+            'test_url' => 'https://search.google.com/test/rich-results?url=' . rawurlencode(get_permalink($post_id)),
+        ];
+    }
+
     /** Template for the current singular view, or null when we don't handle it. */
     function seo_schema_current_template(): ?array
     {
@@ -190,25 +231,12 @@ if (!function_exists(__NAMESPACE__ . '\\seo_schema_templates')) {
                 wp_send_json_error('Pick a post and make sure the template is valid JSON.');
             }
 
-            $options    = seo_schema_options();
-            $site_nodes = seo_schema_page_site_nodes($options, true);
-            $renderer   = new Schema_Renderer($post->ID);
-            $nodes    = $renderer->render($template);
-            $warnings = $renderer->warnings();
-
-            foreach ($nodes as $node) {
-                foreach (Schema_Types::missing_required($node) as $property) {
-                    $warnings[] = sprintf('%s is missing required property "%s"', is_string($node['@type'] ?? null) ? $node['@type'] : 'Node', $property);
-                }
-            }
+            $preview = seo_schema_preview($post->ID, $template);
 
             wp_send_json_success([
-                'json'     => wp_json_encode(
-                    ['@context' => 'https://schema.org', '@graph' => array_merge($site_nodes, $nodes)],
-                    JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-                ),
-                'warnings' => array_values(array_unique($warnings)),
-                'testUrl'  => 'https://search.google.com/test/rich-results?url=' . rawurlencode(get_permalink($post)),
+                'json'     => wp_json_encode($preview['graph'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                'warnings' => $preview['warnings'],
+                'testUrl'  => $preview['test_url'],
             ]);
         });
     }
