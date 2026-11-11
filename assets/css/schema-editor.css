@@ -182,7 +182,7 @@ input.ddwpt-schema-key {
   padding-left: 10px;
 }
 
-.ddwpt-schema-mode {
+.ddwpt-schema-editor .ddwpt-schema-mode {
   width: auto !important;
   min-width: 72px;
 }
@@ -257,13 +257,13 @@ input.ddwpt-schema-key {
   padding: 0 4px;
 }
 
-.ddwpt-schema-add-transform {
+.ddwpt-schema-editor .ddwpt-schema-add-transform {
   width: auto !important;
   max-width: 140px;
   font-size: 12px !important;
 }
 
-.ddwpt-schema-insert {
+.ddwpt-schema-editor .ddwpt-schema-insert {
   width: auto !important;
   max-width: 120px;
 }
@@ -350,6 +350,20 @@ input.ddwpt-schema-key {
   color: #b91c1c;
   font-size: 12px;
   margin: 0;
+}
+
+.ddwpt-schema-error.is-flash {
+  font-weight: 600;
+}
+
+.ddwpt-schema-name-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ddwpt-schema-name-entry {
+  width: 200px;
 }
 
 /* Preview */

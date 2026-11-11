@@ -62,6 +62,30 @@
         return element;
     }
 
+    /** Two-step destructive button: the first click arms it, the second acts. */
+    function confirmButton(label, armedLabel, onConfirm, className) {
+        const element = button(label, () => {
+            if (element.dataset.armed) { onConfirm(); return; }
+            element.dataset.armed = '1';
+            element.textContent = armedLabel;
+            setTimeout(() => { delete element.dataset.armed; element.textContent = label; }, 3000);
+        }, className);
+        return element;
+    }
+
+    /** Inline name entry in place of window.prompt (blocked in some frames). */
+    function NameEntry(placeholder, onSubmit) {
+        const input = h('input', { type: 'text', className: 'ddwpt-schema-name-entry', placeholder,
+            onKeydown: (event) => {
+                if (event.key === 'Enter') { event.preventDefault(); submit(); }
+                if (event.key === 'Escape') wrap.remove();
+            } });
+        const submit = () => { const name = input.value.trim(); if (name) onSubmit(name); };
+        const wrap = h('span', { className: 'ddwpt-schema-name-wrap' }, input, button('Add', submit), button('Cancel', () => wrap.remove(), 'is-link'));
+        requestAnimationFrame(() => input.focus());
+        return wrap;
+    }
+
     function clone(value) {
         return JSON.parse(JSON.stringify(value));
     }
@@ -390,17 +414,25 @@
 
         const add = (key) => {
             if (!key) return;
-            if (key === '__custom') key = (window.prompt('Property name') || '').trim();
-            if (!key || node[key] !== undefined) return;
+            if (key === '__custom') {
+                picker.value = '';
+                if (!row.querySelector('.ddwpt-schema-name-wrap')) {
+                    picker.after(NameEntry('Property name', (name) => add(name)));
+                }
+                return;
+            }
+            if (node[key] !== undefined) return;
             node[key] = key === '@maps' ? {} : (key === '@else' || key === '@merge' ? '{{}}' : (DIRECTIVES[key] && key !== '@value' ? '' : '{{}}'));
             save(true);
         };
 
-        return h('div', { className: 'ddwpt-schema-add' },
-            select(options, '', add, { 'aria-label': 'Add property' }),
+        const picker = select(options, '', add, { 'aria-label': 'Add property' });
+        const row    = h('div', { className: 'ddwpt-schema-add' },
+            picker,
             missing.length ? h('span', { className: 'ddwpt-schema-missing' }, 'Missing required: ',
                 missing.map((property) => h('button', { type: 'button', className: 'ddwpt-schema-pill', onClick: () => add(property) }, property))) : null,
         );
+        return row;
     }
 
     /** @maps: { tableName: { from: to } } as editable key/value rows. */
@@ -426,10 +458,14 @@
             wrap.append(list);
         });
 
-        wrap.append(button('+ Lookup table', () => {
-            const name = (window.prompt('Table name, e.g. diets') || '').trim();
-            if (name && !maps[name]) { maps[name] = {}; save(true); }
-        }, 'is-link'));
+        const addTable = button('+ Lookup table', () => {
+            if (wrap.querySelector('.ddwpt-schema-name-wrap')) return;
+            addTable.after(NameEntry('Table name, e.g. diets', (name) => {
+                if (!maps[name]) maps[name] = {};
+                save(true);
+            }));
+        }, 'is-link');
+        wrap.append(addTable);
 
         return wrap;
     }
@@ -505,7 +541,11 @@
                 type: 'button', className: 'ddwpt-schema-mode-btn' + (this.mode === mode ? ' is-active' : ''), 'aria-pressed': this.mode === mode,
                 onClick: () => {
                     if (this.mode === mode) return;
-                    if (this.jsonError) { window.alert('Fix the JSON first: ' + this.jsonError); return; }
+                    if (this.jsonError) {
+                        // The JSON error is already shown under the editor; keep the user there.
+                        this.element.querySelector('.ddwpt-schema-json-mode .ddwpt-schema-error').classList.add('is-flash');
+                        return;
+                    }
                     this.mode = mode;
                     this.render();
                 },
@@ -536,8 +576,7 @@
                     h('span', { className: 'ddwpt-schema-card-actions' },
                         button('↑', () => move(-1), 'is-link'),
                         button('↓', () => move(1), 'is-link'),
-                        button('Remove', () => {
-                            if (!window.confirm('Remove this ' + (node['@type'] || '') + ' node?')) return;
+                        confirmButton('Remove', 'Click again to remove', () => {
                             nodes.splice(index, 1);
                             this.changed(true);
                         }, 'is-link is-danger'))),
