@@ -895,14 +895,21 @@
             title: DIRECTIVES[directive] + ': ' + DIRECTIVE_HELP[directive].toLowerCase() }, icon(DIRECTIVE_ICONS[directive]));
     }
 
-    /** One quiet button opening a menu of the directives this place offers and the node lacks. */
+    /**
+     * Quiet add buttons for the directives this place offers and the node
+     * lacks: one icon-and-label button each when there are two or fewer,
+     * otherwise one button opening a menu of them.
+     */
     function DirectiveButtons(node, directives, save, label) {
         const missing = directives.filter((directive) => node[directive] === undefined);
         if (!missing.length) return null;
-        return h('div', { className: 'ddwpt-schema-directive-buttons' },
-            MenuButton({ className: 'ddwpt-schema-ghost' }, [icon('plus'), label],
+        const add = (directive) => { node[directive] = directiveDefault(directive); save(true); };
+        return h('div', { className: 'ddwpt-schema-directive-buttons' }, missing.length <= 2
+            ? missing.map((directive) => h('button', { type: 'button', className: 'ddwpt-schema-ghost', title: DIRECTIVE_HELP[directive],
+                onClick: () => add(directive) }, icon(DIRECTIVE_ICONS[directive]), DIRECTIVES[directive]))
+            : MenuButton({ className: 'ddwpt-schema-ghost' }, [icon('plus'), label],
                 () => [['', missing.map((directive) => ({ value: directive, title: DIRECTIVES[directive], description: DIRECTIVE_HELP[directive], icon: DIRECTIVE_ICONS[directive] }))]],
-                (directive) => { node[directive] = directiveDefault(directive); save(true); }, 'Search options'));
+                add, 'Search options'));
     }
 
     function TypeInput(node, save) {
