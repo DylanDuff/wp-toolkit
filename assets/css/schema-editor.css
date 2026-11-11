@@ -690,6 +690,22 @@
   margin: 0 0 8px;
 }
 
+.ddwpt-schema-preview-test {
+  margin-left: auto;
+  color: var(--ddwpt-accent);
+  font-size: var(--schema-meta);
+  text-decoration: none;
+}
+
+.ddwpt-schema-preview-test:hover,
+.ddwpt-schema-preview-test:focus-visible {
+  text-decoration: underline;
+}
+
+.ddwpt-schema-preview-test[hidden] {
+  display: none;
+}
+
 .ddwpt-schema-preview-json {
   max-height: 420px;
   overflow: auto;

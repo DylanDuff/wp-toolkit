@@ -1231,6 +1231,8 @@
             const posts  = h('select', { 'aria-label': 'Preview post', onChange: () => { this.previewPost = posts.value; render(); } },
                 h('option', { value: '' }, 'Loading posts…'));
             const output = h('div', { className: 'ddwpt-schema-preview-output' });
+            const test   = h('a', { className: 'ddwpt-schema-preview-test', target: '_blank', rel: 'noopener', hidden: true },
+                'Test the live page in Google\'s Rich Results Test ↗');
             const render = () => {
                 if (!posts.value) return;
                 output.textContent = 'Rendering…';
@@ -1241,9 +1243,9 @@
                     if (warnings.length) {
                         output.append(h('ul', { className: 'ddwpt-schema-warnings' }, warnings.map((warning) => h('li', {}, warning))));
                     }
-                    output.append(
-                        h('pre', { className: 'ddwpt-schema-preview-json' }, json),
-                        h('a', { href: testUrl, target: '_blank', rel: 'noopener' }, 'Test the live page in Google\'s Rich Results Test ↗'));
+                    output.append(h('pre', { className: 'ddwpt-schema-preview-json' }, json));
+                    test.href   = testUrl;
+                    test.hidden = false;
                 });
             };
 
@@ -1257,7 +1259,7 @@
             });
 
             return h('div', { className: 'ddwpt-schema-preview' },
-                h('div', { className: 'ddwpt-schema-preview-controls' }, posts, button('Refresh', render)),
+                h('div', { className: 'ddwpt-schema-preview-controls' }, posts, button('Refresh', render), test),
                 output);
         }
     }
