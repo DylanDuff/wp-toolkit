@@ -7,16 +7,15 @@ defined('ABSPATH') || exit;
 /**
  * Turns a schema template into JSON-LD nodes for one post.
  *
- * A template is the JSON-LD you want with {{source|transform:arg}} tokens.
- * A string that is exactly one token keeps the resolved type (list, object,
- * number); a token inside longer text is interpolated. Keys starting with
+ * A template is the JSON-LD you want with Bricks-style {tag:filter|arg}
+ * tokens (Schema_Syntax). A string that is exactly one token keeps the
+ * resolved type (list, object, number); a token inside longer text is
+ * interpolated. Keys starting with
  * @each, @if, @unless, @maps, @merge, @from, @value and @else are directives
  * the renderer consumes. Empty values are pruned. See docs/seo-schema.md.
  */
 class Schema_Renderer
 {
-    private const TOKEN = '/\{\{\s*(.+?)\}\}/s';
-
     private const DIRECTIVES = ['@each', '@if', '@unless', '@maps', '@merge', '@from', '@value', '@else'];
 
     /** @var int[] Post context stack; @from pushes a related post. */
@@ -220,29 +219,38 @@ class Schema_Renderer
 
     private function string(string $text)
     {
-        if (preg_match('/^\{\{\s*(.+?)\}\}$/s', $text, $match) && substr_count($text, '{{') === 1) {
-            return $this->resolve_expression($match[1]);
+        if ($single = Schema_Syntax::single($text)) {
+            return $single['body'] === '' ? null : $this->resolve_expression($single['body'], $single['legacy']);
         }
 
-        if (strpos($text, '{{') === false) {
+        $tokens = Schema_Syntax::tokens($text);
+        if (!$tokens) {
             return $text;
         }
 
-        $tokens = 0;
+        $result = '';
+        $static = '';
         $empty  = 0;
-        $result = preg_replace_callback(self::TOKEN, function ($match) use (&$tokens, &$empty) {
-            $tokens++;
-            $value = $this->resolve_expression($match[1]);
-            if (is_array($value)) {
+        $offset = 0;
+
+        foreach ($tokens as $token) {
+            $before  = substr($text, $offset, $token['start'] - $offset);
+            $static .= $before;
+            $value   = $this->resolve_expression($token['body'], $token['legacy']);
+            if (is_array($value) && array_is_list($value)) {
                 $value = implode(', ', array_filter(array_map([Schema_Transforms::class, 'to_text'], $value), 'strlen'));
             }
             $value = Schema_Transforms::to_text($value);
             if ($value === '') $empty++;
-            return $value;
-        }, $text);
+            $result .= $before . $value;
+            $offset  = $token['start'] + $token['length'];
+        }
+
+        $static .= substr($text, $offset);
+        $result .= substr($text, $offset);
 
         // Text made only of tokens that all came back empty is empty too.
-        if ($tokens === $empty && trim(preg_replace(self::TOKEN, '', $text)) === '') {
+        if ($empty === count($tokens) && trim($static) === '') {
             return null;
         }
 
@@ -251,7 +259,7 @@ class Schema_Renderer
 
     private function truthy($condition): bool
     {
-        $value = is_string($condition) && strpos($condition, '{{') === false
+        $value = is_string($condition) && !Schema_Syntax::tokens($condition)
             ? $this->resolve_expression($condition)
             : $this->value($condition);
 
@@ -260,35 +268,39 @@ class Schema_Renderer
 
     /* ---------- Expressions ---------- */
 
-    /** "source|transform:arg|transform" → value */
-    public function resolve_expression(string $expression)
+    /**
+     * "tag:filter|arg @fallback:'text'" (or a legacy "source|transform:arg")
+     * → value. $legacy is known for a braced token; bare values are sniffed.
+     */
+    public function resolve_expression(string $expression, ?bool $legacy = null)
     {
-        $parts  = explode('|', $expression);
-        $source = trim(array_shift($parts));
+        $parsed = Schema_Syntax::parse($expression, $legacy);
+        $source = $parsed['source'];
         $value  = $source === '' ? null : Schema_Sources::resolve($source, $this);
 
-        if (self::is_empty($value) && $source !== '') {
+        if (self::is_empty($value) && $source !== '' && $parsed['fallback'] === null) {
             $this->warn("Empty: {$source}");
         }
 
-        foreach ($parts as $part) {
-            $colon = strpos($part, ':');
-            $name  = trim($colon === false ? $part : substr($part, 0, $colon));
-            $arg   = $colon === false ? '' : substr($part, $colon + 1);
-            if ($name === '') continue;
+        foreach ($parsed['filters'] as [$name, $arg]) {
             $value = Schema_Transforms::apply($name, $value, $arg, $this);
+        }
+
+        if (self::is_empty($value) && $parsed['fallback'] !== null) {
+            $value = $this->string($parsed['fallback']);
         }
 
         return $value;
     }
 
     /**
-     * A transform argument that names a source (e.g. "acf:cook_time",
-     * "ref:organization") is resolved; anything else is literal text.
+     * A filter argument that names a source ("acf_cook_time", "item_longitude",
+     * legacy "acf:cook_time") or holds tags is resolved; anything else is literal.
      */
     public function resolve_argument(string $arg)
     {
         $arg = trim($arg);
+        if (Schema_Syntax::tokens($arg)) return $this->string($arg);
         return Schema_Sources::is_source($arg) ? Schema_Sources::resolve($arg, $this) : $arg;
     }
 

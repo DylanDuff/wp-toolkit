@@ -6,21 +6,46 @@ defined('ABSPATH') || exit;
 
 /**
  * Where token values come from, and the list of sources each post type
- * offers to the editor.
+ * offers to the editor. Tag names follow Bricks dynamic data:
  *
- *   post.title | post.url | post.excerpt | post.content | post.date | post.modified
- *   post.thumbnail | post.author | post.id | post.type
- *   acf:group.sub_field   ACF value, dot path into groups
- *   meta:key              raw post meta
- *   tax:a,b               assigned terms of one or more taxonomies
- *   option:field          ACF options page value (falls back to get_option)
- *   site.name | site.url | site.logo
- *   item | item.field | item.@index   current row inside @each
- *   ref:organization | ref:website    {"@id": ...} reference to a site node
+ *   post_title | post_url | post_excerpt | post_content | post_date | post_modified
+ *   featured_image | author_name | post_id | post_type
+ *   acf_group_sub_field     ACF value; field names joined by "_" into groups and rows
+ *   acf_option_field        ACF options page value (falls back to get_option)
+ *   cf_key                  raw post meta (Bricks' custom field prefix)
+ *   post_terms_taxonomy     assigned terms
+ *   site_title | site_url | site_logo
+ *   item | item_field | query_loop_index   current row inside @each
+ *   ref_organization | ref_website         {"@id": ...} reference to a site node
+ *
+ * The earlier dotted names (post.title, acf:group.field, tax:a,b, item.@index,
+ * ref:organization...) still resolve. Underscored paths are matched against
+ * the actual field and row keys, longest first, so field names may contain
+ * underscores themselves.
  */
 class Schema_Sources
 {
     private const PREFIXES = ['post.', 'acf:', 'meta:', 'tax:', 'option:', 'site.', 'item', 'ref:'];
+
+    private const TAG_PREFIXES = ['post_', 'acf_', 'cf_', 'site_', 'ref_', 'item', 'query_loop_index', 'featured_image', 'author_name'];
+
+    /** Bricks tag → earlier source name, for tags that map one to one. */
+    private const TAGS = [
+        'post_title'       => 'post.title',
+        'post_url'         => 'post.url',
+        'post_excerpt'     => 'post.excerpt',
+        'post_content'     => 'post.content',
+        'post_date'        => 'post.date',
+        'post_modified'    => 'post.modified',
+        'featured_image'   => 'post.thumbnail',
+        'author_name'      => 'post.author',
+        'post_id'          => 'post.id',
+        'post_type'        => 'post.type',
+        'site_title'       => 'site.name',
+        'site_url'         => 'site.url',
+        'site_logo'        => 'site.logo',
+        'query_loop_index' => 'item.@index',
+    ];
 
     private static $site = [];
 
@@ -51,7 +76,7 @@ class Schema_Sources
 
     public static function is_source(string $text): bool
     {
-        foreach (self::PREFIXES as $prefix) {
+        foreach (array_merge(self::PREFIXES, self::TAG_PREFIXES) as $prefix) {
             if (str_starts_with($text, $prefix)) return true;
         }
         return false;
@@ -60,6 +85,31 @@ class Schema_Sources
     public static function resolve(string $source, Schema_Renderer $renderer)
     {
         $post_id = $renderer->post_id();
+        $source  = self::TAGS[$source] ?? $source;
+
+        // Bricks-style tags with an underscored path
+        if (preg_match('/^(acf_option_|acf_|cf_|post_terms_|ref_|item_)(.+)$/', $source, $tag)) {
+            [, $prefix, $path] = $tag;
+            switch ($prefix) {
+                case 'acf_option_':
+                    $fields = function_exists('get_fields') ? (get_fields('option') ?: []) : [];
+                    $value  = self::descend_tag($fields, $path);
+                    return $value ?? get_option($path, null);
+                case 'acf_':
+                    return self::descend_tag(function_exists('get_fields') ? (get_fields($post_id) ?: []) : [], $path);
+                case 'cf_':
+                    return get_post_meta($post_id, $path, true);
+                case 'post_terms_':
+                    $terms = get_the_terms($post_id, $path);
+                    return is_array($terms) ? $terms : [];
+                case 'ref_':
+                    $source = 'ref:' . $path;
+                    break;
+                case 'item_':
+                    $item = $renderer->item();
+                    return $item ? self::descend_tag($item['row'], $path) : null;
+            }
+        }
 
         if ($source === 'item' || str_starts_with($source, 'item.')) {
             $item = $renderer->item();
@@ -134,6 +184,34 @@ class Schema_Sources
         return null;
     }
 
+    /**
+     * Walks an underscored path ("location_general_phone") through arrays,
+     * matching the longest key at each level so keys may hold underscores.
+     */
+    private static function descend_tag($value, string $path)
+    {
+        if ($path === '') return $value;
+
+        if (is_object($value)) {
+            return in_array($path, ['name', 'slug', 'url', 'title'], true) ? Schema_Transforms::pluck($value, $path) : ($value->$path ?? null);
+        }
+
+        if (!is_array($value)) return null;
+
+        $keys = array_map('strval', array_keys($value));
+        usort($keys, fn($a, $b) => strlen($b) - strlen($a));
+
+        foreach ($keys as $key) {
+            if ($path === $key) return $value[$key];
+            if (str_starts_with($path, $key . '_')) {
+                $found = self::descend_tag($value[$key], substr($path, strlen($key) + 1));
+                if ($found !== null) return $found;
+            }
+        }
+
+        return null;
+    }
+
     /** Walks a dot path through arrays and objects. */
     private static function descend($value, array $path)
     {
@@ -170,16 +248,16 @@ class Schema_Sources
             [
                 'label'   => 'Site',
                 'sources' => [
-                    ['value' => 'site.name',        'label' => 'Site name'],
-                    ['value' => 'site.url',         'label' => 'Home URL'],
-                    ['value' => 'site.logo',        'label' => 'Logo'],
-                    ['value' => 'ref:organization', 'label' => 'Organization (reference)'],
-                    ['value' => 'ref:website',      'label' => 'WebSite (reference)'],
+                    ['value' => 'site_title',       'label' => 'Site name'],
+                    ['value' => 'site_url',         'label' => 'Home URL'],
+                    ['value' => 'site_logo',        'label' => 'Logo'],
+                    ['value' => 'ref_organization', 'label' => 'Organization (reference)'],
+                    ['value' => 'ref_website',      'label' => 'WebSite (reference)'],
                 ],
             ],
         ];
 
-        $options = self::acf_sources(self::options_field_groups(), 'option:');
+        $options = self::acf_sources(self::options_field_groups(), 'acf_option_');
         if ($options) {
             $shared[] = ['label' => 'Site Options', 'sources' => $options];
         }
@@ -190,20 +268,20 @@ class Schema_Sources
             $groups = [[
                 'label'   => 'Post',
                 'sources' => [
-                    ['value' => 'post.title',     'label' => 'Title'],
-                    ['value' => 'post.url',       'label' => 'Permalink'],
-                    ['value' => 'post.content',   'label' => 'Content'],
-                    ['value' => 'post.excerpt',   'label' => 'Excerpt'],
-                    ['value' => 'post.thumbnail', 'label' => 'Featured image'],
-                    ['value' => 'post.date',      'label' => 'Published date'],
-                    ['value' => 'post.modified',  'label' => 'Modified date'],
-                    ['value' => 'post.author',    'label' => 'Author name'],
-                    ['value' => 'post.id',        'label' => 'ID'],
+                    ['value' => 'post_title',     'label' => 'Title'],
+                    ['value' => 'post_url',       'label' => 'Permalink'],
+                    ['value' => 'post_content',   'label' => 'Content'],
+                    ['value' => 'post_excerpt',   'label' => 'Excerpt'],
+                    ['value' => 'featured_image', 'label' => 'Featured image'],
+                    ['value' => 'post_date',      'label' => 'Published date'],
+                    ['value' => 'post_modified',  'label' => 'Modified date'],
+                    ['value' => 'author_name',    'label' => 'Author name'],
+                    ['value' => 'post_id',        'label' => 'ID'],
                 ],
             ]];
 
             $field_groups = function_exists('acf_get_field_groups') ? acf_get_field_groups(['post_type' => $slug]) : [];
-            $acf          = self::acf_sources($field_groups, 'acf:');
+            $acf          = self::acf_sources($field_groups, 'acf_');
             if ($acf) {
                 $groups[] = ['label' => 'ACF', 'sources' => $acf];
             }
@@ -212,10 +290,10 @@ class Schema_Sources
             foreach (get_object_taxonomies($slug, 'objects') as $taxonomy) {
                 if (!$taxonomy->public || $taxonomy->name === 'post_format') continue;
                 $taxonomies[] = [
-                    'value'    => 'tax:' . $taxonomy->name,
+                    'value'    => 'post_terms_' . $taxonomy->name,
                     'label'    => $taxonomy->labels->name,
                     'list'     => true,
-                    'children' => [['value' => 'item.name', 'label' => 'Name'], ['value' => 'item.slug', 'label' => 'Slug'], ['value' => 'item.url', 'label' => 'URL']],
+                    'children' => [['value' => 'item_name', 'label' => 'Name'], ['value' => 'item_slug', 'label' => 'Slug'], ['value' => 'item_url', 'label' => 'URL']],
                 ];
             }
             if ($taxonomies) {
@@ -266,7 +344,7 @@ class Schema_Sources
             $label = trim($context . ' › ' . ($field['label'] ?: $field['name']), ' ›');
 
             if ($field['type'] === 'group') {
-                self::walk_fields($field['sub_fields'] ?? [], $prefix, $value . '.', $label, $sources);
+                self::walk_fields($field['sub_fields'] ?? [], $prefix, $value . '_', $label, $sources);
                 continue;
             }
 
@@ -274,9 +352,9 @@ class Schema_Sources
 
             if (in_array($field['type'], ['repeater', 'flexible_content'], true)) {
                 $children = [];
-                self::walk_fields($field['sub_fields'] ?? [], 'item.', '', '', $children);
+                self::walk_fields($field['sub_fields'] ?? [], 'item_', '', '', $children);
                 $entry['list']     = true;
-                $entry['children'] = array_merge([['value' => 'item.@index', 'label' => 'Row number']], $children);
+                $entry['children'] = array_merge([['value' => 'query_loop_index', 'label' => 'Row number']], $children);
             }
 
             if (in_array($field['type'], ['relationship', 'post_object', 'taxonomy', 'gallery', 'checkbox', 'select'], true)) {

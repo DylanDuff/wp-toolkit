@@ -8,6 +8,7 @@ use DDWPTweaks\SEO\Schema_Sources;
 use DDWPTweaks\SEO\Schema_Transforms;
 use DDWPTweaks\SEO\Schema_Types;
 
+require_once __DIR__ . '/../seo/class-schema-syntax.php';
 require_once __DIR__ . '/../seo/class-schema-transforms.php';
 require_once __DIR__ . '/../seo/class-schema-sources.php';
 require_once __DIR__ . '/../seo/class-schema-renderer.php';
@@ -261,7 +262,7 @@ return [
                 'EducationalOrganization' => 'Educational organization',
                 'NGO'                 => 'Non-profit',
             ],
-            'description' => 'Used for <code>{{ref:organization}}</code> in templates, and for the Organization node when you output it.',
+            'description' => 'Used for <code>{ref_organization}</code> in templates, and for the Organization node when you output it.',
         ],
         [
             'id'          => 'organization_name',

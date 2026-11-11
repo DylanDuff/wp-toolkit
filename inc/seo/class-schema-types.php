@@ -142,29 +142,29 @@ class Schema_Types
     public static function presets(): array
     {
         $common = [
-            'name'          => '{{post.title}}',
-            'headline'      => '{{post.title}}',
-            'title'         => '{{post.title}}',
-            'url'           => '{{post.url}}',
-            'image'         => '{{post.thumbnail}}',
-            'description'   => '{{post.content|summary:220}}',
-            'datePublished' => '{{post.date}}',
-            'datePosted'    => '{{post.date}}',
-            'dateModified'  => '{{post.modified}}',
-            'author'        => '{{ref:organization}}',
-            'publisher'     => '{{ref:organization}}',
-            'provider'      => '{{ref:organization}}',
-            'hiringOrganization' => '{{ref:organization}}',
-            'parentOrganization' => '{{ref:organization}}',
-            'mainEntityOfPage'   => '{{post.url}}',
-            'address'       => '{{|address:AU}}',
-            'geo'           => '{{|geo:}}',
-            'openingHoursSpecification' => '{{|hours}}',
-            'telephone'     => '{{|phone:+61}}',
-            'prepTime'      => '{{|minutes|duration}}',
-            'cookTime'      => '{{|minutes|duration}}',
-            'recipeIngredient'   => ['@each' => '', '@value' => '{{item}}'],
-            'recipeInstructions' => ['@each' => '', '@type' => 'HowToStep', 'text' => '{{item|clean}}'],
+            'name'          => '{post_title}',
+            'headline'      => '{post_title}',
+            'title'         => '{post_title}',
+            'url'           => '{post_url}',
+            'image'         => '{featured_image}',
+            'description'   => '{post_content:summary|220}',
+            'datePublished' => '{post_date}',
+            'datePosted'    => '{post_date}',
+            'dateModified'  => '{post_modified}',
+            'author'        => '{ref_organization}',
+            'publisher'     => '{ref_organization}',
+            'provider'      => '{ref_organization}',
+            'hiringOrganization' => '{ref_organization}',
+            'parentOrganization' => '{ref_organization}',
+            'mainEntityOfPage'   => '{post_url}',
+            'address'       => '{:address|AU}',
+            'geo'           => '{:geo}',
+            'openingHoursSpecification' => '{:hours}',
+            'telephone'     => '{:phone|+61}',
+            'prepTime'      => '{:minutes:duration}',
+            'cookTime'      => '{:minutes:duration}',
+            'recipeIngredient'   => ['@each' => '', '@value' => '{item}'],
+            'recipeInstructions' => ['@each' => '', '@type' => 'HowToStep', 'text' => '{item:clean}'],
             'mainEntity'    => [
                 '@each'          => '',
                 '@type'          => 'Question',
@@ -172,14 +172,14 @@ class Schema_Types
                 'acceptedAnswer' => ['@type' => 'Answer', 'text' => ''],
             ],
             'offers'        => ['@type' => 'Offer', 'price' => '', 'priceCurrency' => 'AUD', 'availability' => 'https://schema.org/InStock'],
-            'location'      => ['@type' => 'Place', 'name' => '', 'address' => '{{|address:AU}}'],
-            'jobLocation'   => ['@type' => 'Place', 'address' => '{{|address:AU}}'],
+            'location'      => ['@type' => 'Place', 'name' => '', 'address' => '{:address|AU}'],
+            'jobLocation'   => ['@type' => 'Place', 'address' => '{:address|AU}'],
         ];
 
         $presets = [];
 
         foreach (self::all() as $type => $definition) {
-            $template = ['@type' => $type, '@id' => '{{post.url}}#' . strtolower($type)];
+            $template = ['@type' => $type, '@id' => '{post_url}#' . strtolower($type)];
 
             foreach (array_merge($definition['required'], $definition['recommended']) as $property) {
                 $template[$property] = $common[$property] ?? '';

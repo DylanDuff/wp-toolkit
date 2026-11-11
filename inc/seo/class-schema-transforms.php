@@ -5,7 +5,7 @@ namespace DDWPTweaks\SEO;
 defined('ABSPATH') || exit;
 
 /**
- * Pipe transforms for schema template tokens: {{source|transform:arg|...}}.
+ * Filters for schema template tokens: {tag:filter|arg:filter} (see Schema_Syntax).
  *
  * Each transform is callable($value, string $arg, Schema_Renderer $renderer)
  * and returns the new value (null drops it). Themes add their own through
@@ -65,13 +65,14 @@ class Schema_Transforms
             'int'     => ['arg' => '',              'label' => 'Whole number'],
             'float'   => ['arg' => '',              'label' => 'Decimal number'],
             'date'    => ['arg' => '',              'label' => 'Date to ISO 8601'],
-            'default' => ['arg' => 'value or source', 'label' => 'Fallback when empty'],
+            'fallback' => ['arg' => 'text or tags',  'label' => 'Used when the value is empty; written as @fallback'],
             'prefix'  => ['arg' => 'text',          'label' => 'Text before the value, only when it is not empty'],
             'suffix'  => ['arg' => 'text',          'label' => 'Text after the value, only when it is not empty'],
             'plural'  => ['arg' => 'word',          'label' => '4 to "4 serves", 1 to "1 serve"'],
         ];
 
         foreach (array_keys(self::all()) as $name) {
+            if ($name === 'default') continue; // earlier name for fallback, kept for old templates
             $catalogue[$name] = $catalogue[$name] ?? ['arg' => '', 'label' => 'Custom transform'];
         }
 
@@ -125,6 +126,7 @@ class Schema_Transforms
             'int'      => fn($value) => self::map_scalars($value, fn($item) => is_numeric($item) ? (int) $item : null),
             'float'    => fn($value) => self::map_scalars($value, fn($item) => is_numeric($item) ? (float) $item : null),
             'date'     => fn($value) => self::map_scalars($value, [self::class, 'date']),
+            'fallback' => fn($value, $arg, $renderer) => Schema_Renderer::is_empty($value) ? $renderer->resolve_argument($arg) : $value,
             'default'  => fn($value, $arg, $renderer) => Schema_Renderer::is_empty($value) ? $renderer->resolve_argument($arg) : $value,
             'prefix'   => fn($value, $arg) => Schema_Renderer::is_empty($value) ? null : $arg . self::to_text($value),
             'suffix'   => fn($value, $arg) => Schema_Renderer::is_empty($value) ? null : self::to_text($value) . $arg,
