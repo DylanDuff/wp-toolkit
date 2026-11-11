@@ -354,7 +354,6 @@
         return { source: source.trim(), transforms, legacy: false };
     }
 
-    /** "{tag:filter|arg}" → token model, or null when the string isn't one token. */
     function quoteArg(arg) {
         return /[:'{}@|]|^\s|\s$/.test(arg) ? "'" + arg.replace(/'/g, "\\'") + "'" : arg;
     }
@@ -686,22 +685,56 @@
     }
 
     /**
-     * Text with its fields: the raw input, then one source picker and filter
-     * row per {tag} in it. A lone {tag} keeps the value's type when rendered,
-     * so there is no separate "field" mode. Edits to a row rewrite that token
-     * in place; typing in the input re-renders the rows on change.
+     * Text with its fields. The input shows each token as its bare tag
+     * ("{post_title}"); the filters and fallback applied to it are edited in
+     * one box per token below. A lone {tag} keeps the value's type when
+     * rendered, so there is no separate "field" mode.
      */
     function TextValue(value, context, set) {
         const signature = (text) => tokens(text).map((token) => token.body).join('\n');
+        const parsed = tokens(value).map((found) => parseExpression(found.body, found.legacy));
         let current = value;
+
+        // Stored text → what the input shows: tokens reduced to their tag.
+        const display = (text) => {
+            let out = '', offset = 0;
+            tokens(text).forEach((found) => {
+                out += text.slice(offset, found.start) + '{' + parseExpression(found.body, found.legacy).source + '}';
+                offset = found.start + found.length;
+            });
+            return out + text.slice(offset);
+        };
+
+        // Input text → stored text. Each tag takes the filters of the token
+        // it was rendered from: the same tag first, else the same position
+        // while the token count is unchanged, so retyping a tag keeps them.
+        const store = (text) => {
+            const shown = [...text.matchAll(/\{([A-Za-z_][^{}:|@\s]*)?\}/g)];
+            const used  = new Set();
+            const pick  = (source, index) => {
+                let match = parsed.findIndex((token, at) => !used.has(at) && token.source === source);
+                if (match < 0 && shown.length === parsed.length && !used.has(index)) match = index;
+                if (match < 0) return [];
+                used.add(match);
+                return parsed[match].transforms;
+            };
+            let out = '', offset = 0;
+            shown.forEach((found, index) => {
+                const source = found[1] || '';
+                out += text.slice(offset, found.index) + formatToken({ source, transforms: pick(source, index) });
+                offset = found.index + found[0].length;
+            });
+            return out + text.slice(offset);
+        };
+
         const write = (next, structural) => {
             current = next;
-            input.value = next;
+            input.value = display(next);
             set(next, structural);
         };
-        const input = h('input', { type: 'text', className: 'ddwpt-schema-text', value,
-            onInput: (event) => { current = event.target.value; set(current, false); },
-            // Re-render the rows only when the fields themselves changed.
+        const input = h('input', { type: 'text', className: 'ddwpt-schema-text', value: display(value),
+            onInput: (event) => { current = store(event.target.value); set(current, false); },
+            // Re-render the boxes only when the tokens themselves changed.
             onChange: () => { if (signature(current) !== signature(value)) set(current, true); } });
         const insert = MenuButton({ className: 'ddwpt-schema-add-transform', title: 'Insert a field', 'aria-label': 'Insert a field' },
             icon('braces'), () => sourceMenuGroups(context),
@@ -714,16 +747,13 @@
             write(current.slice(0, found.start) + formatToken(token) + current.slice(found.start + found.length), structural);
         };
 
-        const fields = tokens(value).map((found, index) => {
-            const token = parseExpression(found.body, found.legacy);
-            return h('span', { className: 'ddwpt-schema-field' },
-                SourcePicker(token.source, context, (source, structural) => { token.source = source; replace(index, token, structural); }),
-                TransformChips(token.transforms, (transforms, structural) => { token.transforms = transforms; replace(index, token, structural); }));
-        });
+        const boxes = parsed.map((token, index) => h('span', { className: 'ddwpt-schema-field is-filters' },
+            h('span', { className: 'ddwpt-schema-token-source' }, token.source ? context.sources.label(token.source, context.items) : 'No source'),
+            TransformChips(token.transforms, (transforms, structural) => { token.transforms = transforms; replace(index, token, structural); })));
 
         return [
             h('span', { className: 'ddwpt-schema-field is-text' }, input, insert),
-            fields.length ? h('div', { className: 'ddwpt-schema-text-fields' }, fields) : null,
+            boxes.length ? h('div', { className: 'ddwpt-schema-text-fields' }, boxes) : null,
         ];
     }
 

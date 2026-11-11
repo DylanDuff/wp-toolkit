@@ -1374,6 +1374,13 @@
   gap: 4px;
 }
 
+/* The tag a filter box belongs to, as a quiet label before its steps */
+.ddwpt-schema-field.is-filters > .ddwpt-schema-token-source {
+  padding: 0 6px;
+  color: var(--ddwpt-text-muted);
+  font-size: var(--schema-meta);
+}
+
 .ddwpt-schema-directive-buttons {
   position: relative;
 }
