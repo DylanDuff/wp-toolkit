@@ -166,7 +166,7 @@ One panel per public post type, each with an **Output** toggle and two modes ove
 - **Visual**: a row per property. Each value is a **Field** (source picker + transform chips), **Text** (with inline tokens), **Object** (nested rows) or raw **JSON**. Directives show as named rows ("Repeat for each", "Use related post"...). Property names autocomplete from the node's `@type`; required properties are marked and missing ones offered as one-click pills.
 - **JSON**: the whole template in CodeMirror. Invalid JSON blocks switching back to Visual, so nothing is lost.
 
-**Presets** (`Schema_Types::presets()`) append a node with the type's required and recommended properties, obvious ones pre-mapped (`name` → `post.title`, `image` → `post.thumbnail`) and the rest blank. Filter with `ddwpt_schema_presets`; add types with `ddwpt_schema_types`.
+**Presets** (`Schema_Types::presets()`, picked from a modal with a tab per group of type cards) append a node with the type's required and recommended properties, obvious ones pre-mapped (`name` → `post.title`, `image` → `post.thumbnail`) and the rest blank. Filter with `ddwpt_schema_presets`; add types with `ddwpt_schema_types`.
 
 **Preview** renders the unsaved template against a chosen post over AJAX (`ddwpt_schema_preview`), listing empty sources and missing required properties, with a link to Google's Rich Results Test.
 

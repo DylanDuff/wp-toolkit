@@ -491,7 +491,8 @@
         briefcase: '<path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/>',
         'graduation-cap': '<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',
         braces: '<path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/>',
-        'chevron-down': '<path d="m6 9 6 6 6-6"/>',
+        plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+        x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
     };
 
     const PRESET_ICONS = {
@@ -531,16 +532,21 @@
     }
 
     /**
-     * Accordion of preset radio cards. `state` ({open, type}) lives on the
-     * panel so the choice survives re-renders; onAdd receives the type.
+     * "Add from preset" button and the modal it opens: one tab per group,
+     * each a grid of radio cards. `state` ({type, tab}) lives on the panel
+     * so the choice survives re-renders; onAdd receives the chosen type.
      */
     function PresetPicker(slug, state, onAdd) {
-        const name = 'ddwpt-preset-' + slug;
-        const add  = h('button', { type: 'button', className: 'ddwpt-btn ddwpt-schema-preset-add', disabled: !state.type,
+        const name   = 'ddwpt-preset-' + slug;
+        const groups = presetGroups();
+        if (!groups.some(([group]) => group === state.tab)) state.tab = groups.length ? groups[0][0] : '';
+
+        const add = h('button', { type: 'button', className: 'ddwpt-btn ddwpt-schema-preset-add', disabled: !state.type,
             onClick: () => {
                 if (!state.type) return;
                 const type = state.type;
-                Object.assign(state, { open: false, type: '' });
+                state.type = '';
+                dialog.close();
                 onAdd(type);
             } });
         const label = () => { add.textContent = state.type ? 'Add ' + config.presets[state.type].label : 'Choose a preset'; };
@@ -551,7 +557,8 @@
             const required = (config.types[type] && config.types[type].required || []).length;
             return h('label', { className: 'ddwpt-schema-preset-card' },
                 h('input', { type: 'radio', name, value: type, form: 'ddwpt-schema-none', checked: state.type === type,
-                    onChange: () => { state.type = type; add.disabled = false; label(); } }),
+                    onChange: () => { state.type = type; add.disabled = false; label(); },
+                    onDblclick: () => add.click() }),
                 h('span', { className: 'ddwpt-schema-preset-icon' }, icon(PRESET_ICONS[type])),
                 h('span', { className: 'ddwpt-schema-preset-text' },
                     h('strong', {}, preset.label),
@@ -559,15 +566,49 @@
                     required ? h('small', {}, required + ' required') : null));
         };
 
-        const details = h('details', { className: 'ddwpt-schema-presets', open: state.open,
-            onToggle: () => { state.open = details.open; } },
-            h('summary', {}, h('span', {}, 'Add from preset'), icon('chevron-down')),
-            h('div', { className: 'ddwpt-schema-presets-body' },
-                presetGroups().map(([group, types]) => h('fieldset', { className: 'ddwpt-schema-preset-group' },
-                    h('legend', {}, group),
-                    h('div', { className: 'ddwpt-schema-preset-grid' }, types.map(card)))),
-                h('div', { className: 'ddwpt-schema-presets-foot' }, add)));
-        return details;
+        const tabs   = [];
+        const panels = [];
+        const showTab = (group, focus) => {
+            state.tab = group;
+            groups.forEach(([other], index) => {
+                const active = other === group;
+                tabs[index].setAttribute('aria-selected', active);
+                tabs[index].tabIndex = active ? 0 : -1;
+                panels[index].hidden = !active;
+                if (active && focus) tabs[index].focus();
+            });
+        };
+
+        groups.forEach(([group, types], index) => {
+            const id = name + '-' + index;
+            tabs.push(h('button', { type: 'button', role: 'tab', id: id + '-tab', 'aria-controls': id, className: 'ddwpt-schema-preset-tab',
+                onClick: () => showTab(group),
+                onKeydown: (event) => {
+                    const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+                    if (!step) return;
+                    event.preventDefault();
+                    showTab(groups[(index + step + groups.length) % groups.length][0], true);
+                } },
+                group, h('span', { className: 'ddwpt-schema-preset-count' }, types.length)));
+            panels.push(h('div', { role: 'tabpanel', id, 'aria-labelledby': id + '-tab', className: 'ddwpt-schema-preset-grid' }, types.map(card)));
+        });
+
+        const dialog = h('dialog', { className: 'ddwpt-schema-preset-modal', 'aria-labelledby': name + '-title',
+            // A click on the backdrop lands on the dialog element itself.
+            onClick: (event) => { if (event.target === dialog) dialog.close(); } },
+            h('div', { className: 'ddwpt-schema-preset-modal-head' },
+                h('h3', { id: name + '-title' }, 'Add from preset'),
+                h('button', { type: 'button', className: 'ddwpt-schema-preset-close', 'aria-label': 'Close', onClick: () => dialog.close() }, icon('x'))),
+            h('div', { className: 'ddwpt-schema-preset-tabs', role: 'tablist', 'aria-label': 'Preset groups' }, tabs),
+            h('div', { className: 'ddwpt-schema-preset-panels' }, panels),
+            h('div', { className: 'ddwpt-schema-preset-modal-foot' },
+                h('span', { className: 'description' }, 'Adds a node with the type\'s required and recommended properties.'),
+                h('span', { className: 'ddwpt-schema-preset-actions' }, button('Cancel', () => dialog.close(), 'is-link'), add)));
+        showTab(state.tab);
+
+        const open = h('button', { type: 'button', className: 'ddwpt-btn ddwpt-schema-preset-open', onClick: () => dialog.showModal() },
+            icon('plus'), 'Add from preset');
+        return [open, dialog];
     }
 
     /* ---------- Post type panel ---------- */
@@ -579,7 +620,7 @@
             this.entry   = entry;
             this.commit  = commit;
             this.mode    = 'visual';
-            this.presetState = { open: false, type: '' };
+            this.presetState = { type: '', tab: '' };
             this.sources = new SourceCatalogue(slug);
             this.element = h('details', { className: 'ddwpt-schema-panel' });
             this.render();
