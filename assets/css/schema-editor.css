@@ -629,12 +629,22 @@
 }
 
 .ddwpt-schema-missing {
-  font-size: var(--schema-meta);
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
   color: #92400e;
+  font-size: var(--schema-meta);
+}
+
+/* In a header the pills take the right side, before remove or the type select */
+.ddwpt-schema-missing + .ddwpt-schema-remove,
+.ddwpt-schema-missing + .ddwpt-schema-mode {
+  margin-left: 0;
 }
 
 .ddwpt-schema-pill {
-  margin-left: 4px;
   border: 1px solid #fcd34d;
   background: #fffbeb;
   color: #92400e;

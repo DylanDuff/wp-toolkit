@@ -1002,6 +1002,7 @@
                     onClick: () => { expandedObjects.delete(node); save(true); } }, icon('chevron-right')),
                 typed ? TypeInput(node, save) : h('span', { className: 'ddwpt-schema-muted' }, 'Value per row'),
                 h('span', { className: 'ddwpt-schema-node-count' }, propertyCount(node)),
+                typed ? MissingRequired(node, save) : null,
                 headExtra || null));
         }
 
@@ -1210,9 +1211,16 @@
         );
     }
 
+    /** Required properties the node lacks, as one-click pills for its header. */
+    function MissingRequired(node, save) {
+        const missing = typeProperties(node['@type']).required.filter((property) => node[property] === undefined);
+        return missing.length ? h('span', { className: 'ddwpt-schema-missing' }, 'Missing required:',
+            missing.map((property) => h('button', { type: 'button', className: 'ddwpt-schema-pill', title: 'Add ' + property,
+                onClick: () => { node[property] = '{}'; save(true); } }, property))) : null;
+    }
+
     function AddRow(node, save, extras) {
         const properties = typeProperties(node['@type']);
-        const missing    = properties.required.filter((property) => node[property] === undefined);
         const options    = [{ value: '', label: '+ Add property' }];
 
         ['required', 'recommended', 'other'].forEach((group) => {
@@ -1238,8 +1246,6 @@
         const picker = select(options, '', add, { 'aria-label': 'Add property' });
         const row    = h('div', { className: 'ddwpt-schema-add' },
             picker,
-            missing.length ? h('span', { className: 'ddwpt-schema-missing' }, 'Missing required: ',
-                missing.map((property) => h('button', { type: 'button', className: 'ddwpt-schema-pill', onClick: () => add(property) }, property))) : null,
             extras,
         );
         return row;
@@ -1542,6 +1548,7 @@
                     h('span', { className: 'ddwpt-schema-card-icon' }, icon(PRESET_ICONS[node['@type']])),
                     TypeInput(node, save),
                     h('span', { className: 'ddwpt-schema-node-count' }, propertyCount(node)),
+                    MissingRequired(node, save),
                     confirmRemoveButton(node['@type'] || 'node', () => {
                         nodes.splice(index, 1);
                         this.changed(true);
