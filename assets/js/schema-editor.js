@@ -769,6 +769,7 @@
         const name = (token) => token.source ? context.sources.label(token.source, context.items).split(' › ').pop() : 'No source';
         const boxes = parsed.map((token, index) => h('span', { className: 'ddwpt-schema-field is-filters' },
             parsed.length > 1 ? h('span', { className: 'ddwpt-schema-token-source' }, name(token)) : null,
+            token.transforms.length ? null : h('span', { className: 'ddwpt-schema-empty' }, 'No filters'),
             TransformChips(token.transforms, (transforms, structural) => { token.transforms = transforms; replace(index, token, structural); })));
 
         // The input sits beside the type select; the filter boxes take a full
@@ -842,7 +843,8 @@
         const label = (source) => context.sources.label(source, context.items);
         const keys  = Object.keys(node).filter((key) => key !== '@type' && !DIRECTIVES[key]);
         const parts = [];
-        const via   = (directive, source) => h('span', { className: 'ddwpt-schema-via' }, DirectiveIcon(directive), label(source) || '…');
+        const via   = (directive, source) => h('span', { className: 'ddwpt-schema-via' }, DirectiveIcon(directive),
+            h('span', { className: 'ddwpt-schema-badge' }, label(source) || '…'));
         if (node['@each'] !== undefined) parts.push(via('@each', eachSource(node['@each'])));
         ['@from', '@if', '@unless'].forEach((directive) => {
             if (typeof node[directive] === 'string') parts.push(via(directive, parseExpression(node[directive]).source));
@@ -1050,9 +1052,10 @@
             : h('span', { className: 'ddwpt-schema-empty' }, 'No source');
         if (directive === '@maps') {
             const tables = Object.keys(value || {});
-            return tables.length ? h('span', { className: 'ddwpt-schema-token' }, tables.map((table) =>
-                h('span', { className: 'ddwpt-schema-chip is-static' }, h('span', { className: 'ddwpt-schema-chip-name' }, table),
-                    h('span', { className: 'ddwpt-schema-chip-arg' }, Object.keys(value[table]).length + ' rows'))))
+            return tables.length ? h('span', { className: 'ddwpt-schema-text-summary is-sentence' }, tables.flatMap((table, index) => [
+                index ? ', ' : null,
+                h('span', { className: 'ddwpt-schema-badge' }, table),
+                ' ' + Object.keys(value[table]).length + ' rows']).filter(Boolean))
                 : h('span', { className: 'ddwpt-schema-empty' }, 'No tables');
         }
         if (!SOURCE_DIRECTIVES.includes(directive)) return ValueSummary(value, context);
@@ -1471,7 +1474,7 @@
                 body.append(Sortable(h('div', { className: 'ddwpt-schema-cards' },
                     nodes.map((node, index) => this.nodeCard(node, index, move))), move));
                 if (!this.nodes().length) {
-                    body.append(h('p', { className: 'description' }, 'No schema yet. Start from a preset above, or add an empty node.'));
+                    body.append(h('p', { className: 'description' }, 'No schema yet. Add one from a preset, or start with an empty node.'));
                 }
                 body.append(h('button', { type: 'button', className: 'ddwpt-schema-ghost ddwpt-schema-empty-node',
                     onClick: () => { this.nodes().push({ '@type': '' }); this.changed(true); } }, icon('plus'), 'Empty node'));
