@@ -26,7 +26,7 @@ One option, `ddwpt_seo_schema_templates`, a JSON object keyed by post type:
 }
 ```
 
-`template` is a list of root nodes (a single object is accepted too). Every root node joins the page `@graph`. Because it is a normal tweak option it travels with settings export/import.
+`enabled` is the switch in each post type's panel header (a `Toggle` in the editor; its clicks never open or close the panel). `template` is a list of root nodes (a single object is accepted too). Every root node joins the page `@graph`. Because it is a normal tweak option it travels with settings export/import.
 
 Other settings: `organization_output` (`none` default, `template`, `all`), `organization_type`, `organization_name`, `organization_logo`, `conflict_mode` (all prefixed `ddwpt_seo_schema_`). The organization fields only show while `organization_output` is not `none` (`show_if`); with `none`, inline `ref:organization` nodes use any saved values, otherwise the site title and logo fallbacks.
 

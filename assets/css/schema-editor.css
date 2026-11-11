@@ -58,23 +58,9 @@
   font-size: var(--schema-meta);
 }
 
-.ddwpt-schema-status {
-  min-width: 26px;
-  font-size: var(--schema-label);
-  font-weight: 600;
-  line-height: 16px;
-  text-align: center;
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: var(--ddwpt-surface-alt);
-  color: var(--ddwpt-text-muted);
-  border: 1px solid var(--ddwpt-border);
-}
-
-.ddwpt-schema-status.is-on {
-  background: #ecfdf5;
-  color: #065f46;
-  border-color: #6ee7b7;
+.ddwpt-schema-panel > summary .ddwpt-toggle input:focus-visible + .ddwpt-toggle-track {
+  outline: 2px solid var(--ddwpt-accent);
+  outline-offset: 2px;
 }
 
 .ddwpt-schema-body {
@@ -82,12 +68,6 @@
   flex-direction: column;
   gap: 12px;
   padding: 14px 16px 16px;
-}
-
-.ddwpt-schema-enable {
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 .ddwpt-schema-toolbar {

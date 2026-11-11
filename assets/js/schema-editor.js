@@ -670,6 +670,22 @@
         });
     }
 
+    /**
+     * The plugin's switch (settings.css .ddwpt-toggle). It lives in a panel's
+     * <summary>, so clicks are handled here and never open or close the panel.
+     */
+    function Toggle(checked, label, onToggle) {
+        const input = h('input', { type: 'checkbox', checked, 'aria-label': label });
+        return h('label', { className: 'ddwpt-toggle', title: label + (checked ? ': on' : ': off'),
+            onClick: (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                // input.checked is already flipped while a keyboard click dispatches.
+                onToggle(!checked, document.activeElement === input);
+            } },
+            input, h('span', { className: 'ddwpt-toggle-track' }, h('span', { className: 'ddwpt-toggle-thumb' })));
+    }
+
     /** Width for an input that grows with its text, where CSS field-sizing is unsupported. */
     function fitSize(text) {
         return Math.max(4, text.length + 1);
@@ -1100,15 +1116,13 @@
             this.element.append(h('summary', {},
                 h('strong', {}, this.info.label), h('code', { className: 'ddwpt-schema-slug' }, this.slug),
                 h('span', { className: 'ddwpt-schema-summary' }, this.summary()),
-                h('span', { className: 'ddwpt-schema-status' + (this.entry.enabled ? ' is-on' : '') }, this.entry.enabled ? 'On' : 'Off')));
+                Toggle(this.entry.enabled, 'Output schema on single ' + this.info.label.toLowerCase(), (enabled, focused) => {
+                    this.entry.enabled = enabled;
+                    this.changed(true);
+                    if (focused) this.element.querySelector('summary .ddwpt-toggle input').focus();
+                })));
 
             const body = h('div', { className: 'ddwpt-schema-body' });
-            body.append(h('label', { className: 'ddwpt-schema-enable' },
-                h('input', { type: 'checkbox', checked: this.entry.enabled, onChange: (event) => {
-                    this.entry.enabled = event.target.checked;
-                    this.changed(true);
-                } }),
-                ' Output this schema on single ' + this.info.label.toLowerCase()));
             body.append(this.toolbar());
 
             if (this.mode === 'json') {
@@ -1243,8 +1257,7 @@
             });
 
             return h('div', { className: 'ddwpt-schema-preview' },
-                h('div', { className: 'ddwpt-schema-preview-controls' }, posts, button('Refresh', render),
-                    h('span', { className: 'description' }, 'Renders the template as it is now, before saving.')),
+                h('div', { className: 'ddwpt-schema-preview-controls' }, posts, button('Refresh', render)),
                 output);
         }
     }
