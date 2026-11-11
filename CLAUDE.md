@@ -214,7 +214,7 @@ Third-party runtimes are vendored or CDN-loaded per element, deliberately: vendo
 
 ## Structured Data (`inc/seo/`, `inc/tweaks/seo-schema.php`)
 
-Experimental (Experimental tab; output also requires `ddwpt_experiments_enabled`). Per-post-type JSON-LD templates with Bricks-style `{tag:filter|arg @fallback:'x'}` tokens (`Schema_Syntax`; the earlier `{{source|transform:arg}}` form still renders and the editor migrates it on load), edited in one editor with Visual, JSON and Preview modes plus presets. The template JSON is the only stored format; Visual mode is a view onto it. See `docs/seo-schema.md` before touching the renderer or editor.
+Experimental (Experimental tab; output also requires `ddwpt_experiments_enabled`). Per-post-type JSON-LD templates with Bricks-style `{tag:filter|arg @fallback:'x'}` tokens (`Schema_Syntax`; the earlier `{{source|transform:arg}}` form still renders and the editor migrates it on load), edited in one editor with Visual, JSON and Preview modes plus presets. The template JSON is the only stored format; Visual mode is a view onto it. MCP agents read and write templates through `ai-schema-abilities.php` (also experimental), which reuses `seo_schema_save_template()` and `seo_schema_preview()`. See `docs/seo-schema.md` before touching the renderer or editor.
 
 ---
 

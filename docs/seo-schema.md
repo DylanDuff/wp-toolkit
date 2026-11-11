@@ -189,6 +189,10 @@ One panel per public post type, each with an **Output** toggle and two modes ove
 
 The editor's source picker comes from `Schema_Sources::catalogue()`: core post fields, ACF field groups assigned to the post type (groups flattened to underscored `acf_group_field` tags, repeaters flagged as lists with their row fields offered as `item_*` inside a loop), public taxonomies, Site Options fields, and site references.
 
+## AI abilities
+
+`ai-schema-abilities.php` (Experimental tab, needs Experiments on) lets MCP agents read and write templates as JSON: `get-schema-guide` (format primer plus this site's tags, filters, types and presets), `preview-schema` (dry run against a real post), and, with "Allow template changes", `set-schema-template`, `save-schema-node` and `delete-schema-node`. Writes reuse `seo_schema_save_template()` and the settings sanitizer; previews reuse `seo_schema_preview()`, the same function behind the editor's Preview mode. Agents find ACF field names with the existing ACF and content abilities. See `docs/ai-abilities.md`.
+
 ---
 
 ## Output and conflicts
