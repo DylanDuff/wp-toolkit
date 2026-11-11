@@ -232,7 +232,20 @@ return [
             'description' => 'Build JSON-LD per post type from post fields, ACF, taxonomies and Site Options, and output it in <code>wp_head</code>. Experimental: only runs while Experiments is enabled.',
         ],
         [
+            'id'      => 'organization_output',
+            'type'    => 'select',
+            'label'   => 'Organization and WebSite',
+            'default' => 'none',
+            'options' => [
+                'none'     => 'Leave to the SEO plugin',
+                'template' => 'Output on pages with a template',
+                'all'      => 'Output on every page',
+            ],
+            'description' => 'Who outputs the site Organization and WebSite nodes. Leave them to the SEO plugin unless none outputs them; the organization fields only appear when you output them here.',
+        ],
+        [
             'id'      => 'organization_type',
+            'show_if' => ['organization_output' => ['template', 'all']],
             'type'    => 'select',
             'label'   => 'Organization type',
             'default' => 'Organization',
@@ -252,27 +265,17 @@ return [
         ],
         [
             'id'          => 'organization_name',
+            'show_if'     => ['organization_output' => ['template', 'all']],
             'type'        => 'text',
             'label'       => 'Organization name',
             'description' => 'Defaults to the site title.',
         ],
         [
             'id'          => 'organization_logo',
+            'show_if'     => ['organization_output' => ['template', 'all']],
             'type'        => 'media',
             'label'       => 'Organization logo',
             'description' => 'Defaults to the Site Options brand logo, then the theme\'s custom logo.',
-        ],
-        [
-            'id'      => 'organization_output',
-            'type'    => 'select',
-            'label'   => 'Organization and WebSite',
-            'default' => 'none',
-            'options' => [
-                'none'     => 'Leave to the SEO plugin',
-                'template' => 'Output on pages with a template',
-                'all'      => 'Output on every page',
-            ],
-            'description' => 'Opt in only if no SEO plugin outputs them. When left to the plugin, <code>{{ref:organization}}</code> embeds the organization details above instead of referencing a node.',
         ],
         [
             'id'      => 'conflict_mode',
