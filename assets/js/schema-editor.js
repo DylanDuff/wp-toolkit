@@ -763,10 +763,12 @@
             parsed.length > 1 ? h('span', { className: 'ddwpt-schema-token-source' }, name(token)) : null,
             TransformChips(token.transforms, (transforms, structural) => { token.transforms = transforms; replace(index, token, structural); })));
 
-        // One column, so the filter boxes start and end in line with the input.
-        return h('div', { className: 'ddwpt-schema-text-value' },
+        // The input sits beside the type select; the filter boxes take a full
+        // line beneath both, so long filter chains get the whole width.
+        return [
             h('span', { className: 'ddwpt-schema-field is-text' }, input, insert),
-            boxes);
+            boxes.length ? h('div', { className: 'ddwpt-schema-text-filters' }, boxes) : null,
+        ];
     }
 
     /**
@@ -789,7 +791,7 @@
         if (mode !== 'object') wrap.append(modes);
 
         if (mode === 'text') {
-            wrap.append(TextValue(value, context, set));
+            wrap.append(...TextValue(value, context, set).filter(Boolean));
         } else if (mode === 'object') {
             wrap.append(NodeEditor(value, context, () => set(value, true), (keystroke) => set(value, keystroke), false, modes));
         } else {
