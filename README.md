@@ -97,6 +97,7 @@ Detailed documentation is in [`docs/`](docs/):
 - [`settings-export-import.md`](docs/settings-export-import.md) — export/import behaviour, security model, portability notes
 - [`ai-abilities.md`](docs/ai-abilities.md) — registered AI abilities, MCP visibility gotchas, whitelist mechanism
 - [`seo-schema.md`](docs/seo-schema.md) — Structured Data (JSON-LD) templates: sources, transforms, directives, editor, SEO plugin conflicts (experimental)
+- [`fluent-forms-mirror.md`](docs/fluent-forms-mirror.md): Fluent Forms Mirror, `ff_form` CPT for Bricks query loops and popup context, sync triggers
 
 ---
 
