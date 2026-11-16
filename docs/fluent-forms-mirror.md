@@ -22,7 +22,7 @@ One mirror per form. Mirrors with no matching form, no `fluentform_id`, or a dup
 
 Bricks only lists public post types in the Query Loop post type picker. Everything else is switched off: `publicly_queryable`, `query_var`, `rewrite`, `has_archive` are false, it is excluded from search, nav menus and the admin bar, and a `template_redirect` guard 404s any singular or archive request that still gets through (for example `?p=` or a preview link).
 
-The admin list sits under the Fluent Forms menu (`show_in_menu => 'fluent_forms'`) with a Form ID column. `create_posts` is `do_not_allow`: mirrors are only created by the sync.
+The admin list sits under the Fluent Forms menu (`show_in_menu => 'fluent_forms'`) with a Form ID column. It is moved to the end of that submenu on `admin_menu` (priority `PHP_INT_MAX`): WordPress adds CPT submenus before Fluent Forms adds its own, and the top-level menu link points at the first submenu item, so leaving it first would send the Fluent Forms link to the mirror list. `create_posts` is `do_not_allow`: mirrors are only created by the sync.
 
 ## Sync
 

@@ -175,6 +175,27 @@ return [
             }
         });
 
+        // WP adds CPT submenus before Fluent Forms adds its own, so the mirror
+        // list lands first and hijacks the top-level Fluent Forms link (WP
+        // points it at the first submenu item). Move it to the end.
+        add_action('admin_menu', function () {
+            global $submenu;
+
+            $parent = 'fluent_forms';
+            $slug   = 'edit.php?post_type=' . FLUENTFORMS_MIRROR_POST_TYPE;
+            if (empty($submenu[$parent])) {
+                return;
+            }
+
+            foreach ($submenu[$parent] as $position => $item) {
+                if (($item[2] ?? '') === $slug) {
+                    unset($submenu[$parent][$position]);
+                    $submenu[$parent][] = $item;
+                    break;
+                }
+            }
+        }, PHP_INT_MAX);
+
         // Form ID column in the mirror list table.
         add_filter('manage_' . FLUENTFORMS_MIRROR_POST_TYPE . '_posts_columns', function ($columns) {
             $columns[FLUENTFORMS_MIRROR_META_KEY] = 'Form ID';
