@@ -199,7 +199,9 @@ Gaps sit *between* slides, so N per view means N−1 gaps to subtract; without t
 
 **Fractional values (`3.5`) are supported**, unlike Splide. Embla has no per-page or `slidesPerView` option at all — `measureSize()` reads each slide's rect and every scroll snap, `canLoop()` sum and translate is derived from those measurements, with no integer assumption anywhere. So "3.5 slides" is purely a CSS width to us and an ordinary measured width to Embla. The control carries `'step' => 'any'`; without it the number input defaults to `step="1"` and rejects decimals.
 
-Neither may be written as an inline style — inline outranks media queries and would pin every breakpoint to one value. The `var()` fallbacks mirror the control defaults (`DEFAULT_PER_PAGE`); keep them in step.
+Neither may be written as an inline style — inline outranks media queries and would pin every breakpoint to one value.
+
+**These controls (Items to show, Rows, Spacing) have no `default`, only a `placeholder`.** Bricks writes a control's `default` into the element's own settings when the element is inserted, and element-level CSS outranks a global class. So a default made every new slider carry `--embla-per-page: 2` and `--embla-rows: 1` at element level, and any class setting those controls silently lost. The `var()` fallbacks in the CSS are therefore the real defaults, and the placeholders (`DEFAULT_PER_PAGE`) only display them; keep the two in step. Sliders inserted before this still have the old values saved on the element; clear the element-level field to let a class take over.
 
 ### The loop seam gap
 
@@ -284,10 +286,10 @@ When it does regroup, `applyRowGrouping()` unwraps any previous grouping and cle
 **Rows is breakpoint-aware**, like Items to show and Spacing, but it changes DOM structure rather than just CSS, so it takes two halves:
 
 - The control writes a unitless `--embla-rows` on the root (`breakpoints => true` plus a `css` key), so the breakpoint media queries resolve the active value. `'rerender' => true` is required: a `css` control is patched in place in the builder, so without it `$scripts` never fires and the old grouping stays.
-- When any `rows:{breakpoint}` override is saved, PHP passes `responsiveRows: true` in the config and renders the children **flat** with `data-embla-rows`, skipping the server-side groups: the server can't know the active breakpoint. The pre-init grid already reads `var(--embla-rows)`, so it lays the flat children out correctly per breakpoint until the JS groups them. No inline `--embla-rows` is set in this mode (here or in `flattenForQuery()`), since it would outrank the media queries.
-- The JS `resolveRows()` reads the computed `--embla-rows` (falling back to the base `config.rows`, for pages whose generated CSS predates this), and a rAF-throttled `resize` handler rebuilds any responsive slider whose resolved count no longer matches the one it was grouped with (`builtRows`). The builder's breakpoint switch resizes the canvas iframe, so the same handler covers it.
+- When any `rows:{breakpoint}` override is saved, **or one of the element's global classes sets Rows** (`rows_from_css()`, which reads the class settings from the `bricks_global_classes` option), PHP passes `cssRows: true` in the config and renders the children **flat** with `data-embla-rows`, skipping the server-side groups: the server can't know which breakpoint or class value applies. The pre-init grid already reads `var(--embla-rows)`, so it lays the flat children out correctly per breakpoint until the JS groups them. No inline `--embla-rows` is set in this mode (here or in `flattenForQuery()`), since it would outrank the media queries.
+- The JS `resolveRows()` always reads the computed `--embla-rows` (falling back to the base `config.rows`, for pages whose generated CSS predates this), so a class value applies even in the builder, where the server's view of unsaved class edits is stale. A rAF-throttled `resize` handler rebuilds any slider whose resolved count no longer matches the one it was grouped with (`builtRows`). The builder's breakpoint switch resizes the canvas iframe, so the same handler covers it.
 
-Sliders with only a base Rows value keep the original path unchanged: server-side groups, `config.rows`, no resize work.
+Sliders with only an element-level base Rows value keep server-side groups; the computed value matches `config.rows` there, so the JS never regroups them.
 
 ### The children placeholder (builder only)
 
