@@ -42,6 +42,7 @@ class Tweak_Loader
         'admin-theme',
         'bricks-combine-panels',
         'bricks-menu-images',
+        'bricks-term-order',
         'bricks-toolbar-logo',
         'acss-gutenberg',
         'bricks-post-editor',

@@ -208,6 +208,8 @@ Two builder behaviours are undocumented upstream and fail silently — see `docs
 - **`public $scripts = ['myInitFn']`** is the only way element JS re-runs after a builder re-render. A `<script>` emitted from `render()` works on the frontend and is inert in the canvas.
 - **A control with a `css` key does not trigger a re-render** (stylesheet is patched in place), so `$scripts` won't fire for it. Controls that change a JS runtime option must therefore *not* declare `css`. `'rerender' => true` forces one either way.
 
+Bricks builds `Setup::$control_options` on `init` before tweak callbacks run, so `bricks/setup/control_options` filters must be added at file-load time (same pattern as the ACF filters below). `bricks-term-order.php` is the example: it adds `term_order` to `termsOrderBy` for term query loops.
+
 Third-party runtimes are vendored or CDN-loaded per element, deliberately: vendor when nothing users author depends on the version (Embla), stay on a CDN when the runtime must track upstream export formats (Rive, Unicorn Studio, Mapbox). Always pin an exact version.
 
 ---
