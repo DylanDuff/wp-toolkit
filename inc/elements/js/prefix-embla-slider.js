@@ -14,9 +14,8 @@
     // observer outlives destroy(), so it has to be disconnected on re-init too.
     var heightObservers = {};
 
-    // Keyed by element id: the row count each slider was last grouped with, for
-    // sliders whose Rows varies per breakpoint. Compared on resize to spot a
-    // breakpoint change that needs a regroup.
+    // Keyed by element id: the row count each slider was last grouped with.
+    // Compared on resize to spot a breakpoint change that needs a regroup.
     var builtRows = {};
 
     var keyCounter = 0;
@@ -181,16 +180,14 @@
     /**
      * The row count to group by right now.
      *
-     * With per-breakpoint Rows, the active value is whatever the breakpoint media
-     * queries resolve --embla-rows to on the root (the control writes it as CSS, like
-     * --embla-per-page). config.rows is the base value, used when the generated CSS
-     * doesn't carry the property yet (a page whose CSS file predates this) and for
-     * sliders without breakpoint overrides, whose behaviour stays exactly as before.
+     * Whatever the cascade resolves --embla-rows to on the root: the Rows control
+     * writes it as CSS (like --embla-per-page), so this covers breakpoint overrides
+     * and a value set on a global class, neither of which is in the element's own
+     * settings. config.rows is the element's base value, used when no stylesheet
+     * carries the property (a page whose generated CSS predates it).
      */
     function resolveRows(root, config) {
         var base = config.rows > 1 ? config.rows : 1;
-        if (!config.responsiveRows) return base;
-
         var computed = parseInt(getComputedStyle(root).getPropertyValue('--embla-rows'), 10);
 
         return computed >= 1 ? computed : base;
@@ -286,10 +283,7 @@
         var rows = resolveRows(root, config);
         applyRowGrouping(container, rows);
 
-        if (elementId) {
-            if (config.responsiveRows) builtRows[elementId] = rows;
-            else delete builtRows[elementId];
-        }
+        if (elementId) builtRows[elementId] = rows;
 
         // A slide is whatever ends up a direct child — the items themselves, or the
         // column wrappers in grid mode. Clear the class off everything first so items
@@ -603,9 +597,9 @@
             var container = root.querySelector('.embla__container');
             applyRowGrouping(container, 1);
 
-            // Per-breakpoint rows take --embla-rows from the generated CSS; an inline
-            // value would pin every breakpoint to one count.
-            if (config.responsiveRows) {
+            // Rows from CSS (breakpoints, a class) take --embla-rows from the
+            // stylesheets; an inline value would pin every breakpoint to one count.
+            if (config.cssRows) {
                 root.setAttribute('data-embla-rows', config.rows || 1);
             } else if (config.rows > 1) {
                 root.setAttribute('data-embla-rows', config.rows);
@@ -637,8 +631,8 @@
 
     /*
      * Per-breakpoint Rows. Grouping is DOM structure, so a media query alone can't
-     * apply it: on resize, re-read each responsive slider's --embla-rows and rebuild
-     * the ones whose count changed. Covers the builder too, whose breakpoint switch
+     * apply it: on resize, re-read each slider's --embla-rows and rebuild the ones
+     * whose count changed. Covers the builder too, whose breakpoint switch
      * resizes the canvas iframe. Sliders mid-AJAX are left alone; their rebuild
      * reads the current value anyway.
      */

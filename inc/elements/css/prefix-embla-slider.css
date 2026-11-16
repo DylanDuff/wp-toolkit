@@ -58,8 +58,9 @@
  * viewport also has to fit N-1 gaps — subtract them before dividing, or the
  * last visible slide is clipped by the accumulated gap width.
  * Both custom properties come from breakpoint-aware Bricks controls: --embla-per-page
- * from "Items to show", --embla-gap from "Spacing". The fallbacks mirror those
- * controls' defaults (see Prefix_Element_Embla_Slider::DEFAULT_PER_PAGE).
+ * from "Items to show", --embla-gap from "Spacing". The controls have no default
+ * value (it would outrank global classes), so these fallbacks are the defaults;
+ * the controls' placeholders mirror them (Prefix_Element_Embla_Slider::DEFAULT_PER_PAGE).
  */
 :where(.brxe-prefix-embla-slider) .embla__slide {
     min-width: 0;
