@@ -226,6 +226,7 @@ Experimental (Experimental tab; output also requires `ddwpt_experiments_enabled`
 | ACF PRO | No | Multiple tweaks; guard with `class_exists('ACF')` |
 | Bricks Builder | No | 6+ tweaks; guard with `defined('BRICKS_VERSION')` |
 | Redirection | No | AI redirect-management abilities; guard with `defined('REDIRECTION_VERSION')` |
+| Fluent Forms | No | `fluentforms-mirror` CPT mirror; guard with `defined('FLUENTFORM')` |
 
 `plugin-update-checker/` is vendored (YahnisElsts v5.6+). Do not remove.
 
@@ -247,5 +248,6 @@ Markdown articles auto-discovered from the directory. `manifest.php` provides in
 | `settings-export-import.md` | Export/import security and portability |
 | `ai-abilities.md` | Registered AI abilities, MCP visibility gotchas, whitelist mechanism |
 | `seo-schema.md` | Structured Data tweak: template tokens, transforms, directives, editor, SEO plugin conflicts |
+| `fluent-forms-mirror.md` | Fluent Forms → `ff_form` CPT mirror for Bricks query loops and popups, sync triggers |
 
 Keep docs current when features change materially.

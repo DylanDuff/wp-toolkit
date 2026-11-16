@@ -62,6 +62,7 @@ class Tweak_Loader
         'rive-bricks',
         'unicorn-studio-bricks',
         'wpsr-bricks',
+        'fluentforms-mirror',
         'settings-import-export',
         'plugin-settings',
         'profile-overhaul',
