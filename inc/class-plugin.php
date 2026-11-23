@@ -888,7 +888,7 @@ class Plugin
 
     private function get_all_tabs()
     {
-        $preferred = ["general", "acf", "wp-admin", "animations", "bricks", "experimental", "ai", "settings"];
+        $preferred = ["general", "acf", "wp-admin", "animations", "bricks", "seo", "experimental", "ai", "settings"];
 
         $tabs        = [];
         $has_general = false;
@@ -915,6 +915,9 @@ class Plugin
         }
         if (isset($tabs["wp-admin"])) {
             $tabs["wp-admin"] = "WP Admin";
+        }
+        if (isset($tabs["seo"])) {
+            $tabs["seo"] = "SEO";
         }
 
         $sorted = [];
@@ -999,6 +1002,7 @@ class Plugin
             "animations"   => "Sparkles-Lucide.svg",
             "themes"       => "Swatch-Book-Lucide.svg",
             "debug"        => "Bug-Play-Lucide.svg",
+            "seo"          => "Search-Lucide.svg",
             "experimental" => "Flask-Conical-Lucide.svg",
             "ai"           => "Sparkles-Lucide.svg",
             "settings"     => "Swatch-Book-Lucide.svg",

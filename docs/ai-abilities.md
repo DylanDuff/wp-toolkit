@@ -53,11 +53,11 @@ Without this, the ability exists in `wp_get_abilities()` and shows up in the AI 
 | `wp-toolkit/get-acf-field-group` | `ai-acf-field-abilities` | enabled + ACF active | `manage_options` |
 | `wp-toolkit/update-acf-field-group` | `ai-acf-field-abilities` | allow_write + ACF active | `manage_options` |
 | `wp-toolkit/update-acf-field` | `ai-acf-field-abilities` | allow_write + ACF active | `manage_options` |
-| `wp-toolkit/get-schema-guide` | `ai-schema-abilities` | enabled + Experiments | `manage_options` |
-| `wp-toolkit/preview-schema` | `ai-schema-abilities` | enabled + Experiments | `manage_options` |
-| `wp-toolkit/set-schema-template` | `ai-schema-abilities` | allow_write + Experiments | `manage_options` |
-| `wp-toolkit/save-schema-node` | `ai-schema-abilities` | allow_write + Experiments | `manage_options` |
-| `wp-toolkit/delete-schema-node` | `ai-schema-abilities` | allow_write + Experiments | `manage_options` |
+| `wp-toolkit/get-schema-guide` | `ai-schema-abilities` | enabled | `manage_options` |
+| `wp-toolkit/preview-schema` | `ai-schema-abilities` | enabled | `manage_options` |
+| `wp-toolkit/set-schema-template` | `ai-schema-abilities` | allow_write | `manage_options` |
+| `wp-toolkit/save-schema-node` | `ai-schema-abilities` | allow_write | `manage_options` |
+| `wp-toolkit/delete-schema-node` | `ai-schema-abilities` | allow_write | `manage_options` |
 
 \* Resolved via `Redirection_Capabilities::has_access()`, which defaults to `manage_options` unless the site filters `redirection_capability_check`. Falls back to a plain `manage_options` check if the Redirection plugin's capability class isn't loaded.
 
@@ -126,14 +126,14 @@ Fills a gap in ACF PRO's own `acf/settings/enable_acf_ai` ability set (toggled b
 
 ## Structured Data abilities (`ai-schema-abilities.php`)
 
-Experimental, like the Structured Data tweak itself: registration needs both `ddwpt_ai_schema_abilities_enabled` and `ddwpt_experiments_enabled`. Category `wp-toolkit-schema`.
+SEO tab, alongside the Structured Data tweak: registration needs `ddwpt_ai_schema_abilities_enabled` (Experiments is no longer required since 1.5.19). Category `wp-toolkit-schema`.
 
 - **Agents only write template JSON.** Every write goes through `seo_schema_save_template()` (in `seo-schema.php`), which runs the same `seo_schema_sanitize_templates()` the settings form uses, so an ability can never store something the editor couldn't.
 - **`get-schema-guide` is the entry point.** It returns `AI_SCHEMA_GUIDE` (a markdown primer on the template format, tokens, tags, directives and examples) plus live site data: post types with their template status, the output switches (`status`), filters, known schema.org types with required/recommended properties and preset names. With `post_type` it adds that type's `sources` (the same `Schema_Sources::catalogue()` the editor's tag picker uses) and its current template; with `preset` it returns a starting template.
 - **No new ACF discovery.** The guide points agents at `list-acf-field-groups` / `get-acf-field-group` / `get-post` / `get-option-field` for field names, types and real values, and explains how a field name path maps to an `acf_` tag. Nothing here duplicates those abilities.
 - **Validation is two-tier.** `ai_schema_validate()` returns *errors* (not an array of objects, a root node without `@type` or `@each`) that block a save, and *warnings* (legacy `{{…}}` syntax, preset placeholders with no tag, tags the post type doesn't offer, unknown filters) that don't. Every write response also includes a render preview against the latest published post of the type, merged with the renderer's own warnings (empty sources, missing required properties).
 - **`preview-schema` is a dry run** against a given or latest post; it saves nothing.
-- **Output switches are separate from writes.** `set-schema-template` only changes a template's `enabled` flag when `enabled` is passed; node edits never touch it. Nothing prints until the Structured Data tweak, Experiments and the template's own flag are all on.
+- **Output switches are separate from writes.** `set-schema-template` only changes a template's `enabled` flag when `enabled` is passed; node edits never touch it. Nothing prints until the Structured Data tweak and the template's own flag are both on.
 - **`delete-schema-node` is the one delete in this plugin.** It removes a root node from a template (an edit to one option), not a post, field or redirect, so it doesn't break the no-delete convention above.
 
 ## Registering a new ability here
