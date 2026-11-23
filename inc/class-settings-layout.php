@@ -69,6 +69,7 @@ class Settings_Layout
                 'fluent-forms'       => 'Fluent Forms',
                 'wp-social-ninja'    => 'WP Social Ninja',
                 'google-tag-manager' => 'Google Tag Manager',
+                'shopify'            => 'Shopify',
             ],
         ],
         'seo' => [

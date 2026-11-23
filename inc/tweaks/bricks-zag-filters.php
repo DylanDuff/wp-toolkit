@@ -61,8 +61,11 @@ if ($ddwpt_zag_standalone) {
 return [
     'id'    => 'ddwpt_zag_filters',
     'label' => 'Zag Filters',
-    'tab'   => 'bricks',
+    'tab'   => 'builder',
     'group' => 'elements',
+    'description' => 'Zag.js query filter elements: select, date picker, sort and search.',
+    'tags'  => ['Frontend', 'Drop-in'],
+    'requires' => ['Bricks'],
 
     'settings' => [
         [

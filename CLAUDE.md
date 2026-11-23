@@ -236,6 +236,7 @@ SEO tab (moved out of Experimental in 1.5.19; option names unchanged). Per-post-
 | Bricks Builder | No | 6+ tweaks; guard with `defined('BRICKS_VERSION')` |
 | Redirection | No | AI redirect-management abilities; guard with `defined('REDIRECTION_VERSION')` |
 | Fluent Forms | No | `fluentforms-mirror` CPT mirror; guard with `defined('FLUENTFORM')` |
+| Shopify store | No | `acf-shopify-products` field types need a shop domain + Storefront API token; stands down while the standalone ACF Shopify Product Field plugin (`ASPF_PLUGIN_FILE`) is active |
 
 `plugin-update-checker/` is vendored (YahnisElsts v5.6+). Do not remove.
 
@@ -262,5 +263,6 @@ Markdown articles auto-discovered from the directory. `manifest.php` provides in
 | `linked-author.md` | Team member as post author: filters, `{linked_author:field}` tag |
 | `acf-admin-screens.md` | ACF tab error highlighting, tidier term edit screens and left tabs on term screens |
 | `zag-filters/` | Zag Filters elements: drop-in compatibility, filter impersonation, frontend, build; one file per element |
+| `acf-shopify-products.md` | Shopify Product(s) ACF field types, Storefront API client, Bricks loop tags, migration from the standalone plugin |
 
 Keep docs current when features change materially.
