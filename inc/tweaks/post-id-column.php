@@ -5,8 +5,9 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_post_id_column',
     'label' => 'Show Post ID Column',
-    'tab'   => 'wp-admin',
-    'group' => 'tables',
+    'tab'   => 'admin',
+    'group' => 'list-tables',
+    'description' => 'Add an ID column to post, page, and custom post type list tables.',
 
     'settings' => [
         [

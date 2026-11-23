@@ -2,126 +2,197 @@
 
 namespace DDWPTweaks\Tweaks;
 
-return [
-    'id'     => 'ddwpt_ai_mcp_info',
-    'tab'    => 'ai',
-    'group'  => 'overview',
-    'render' => function (\DDWPTweaks\Plugin $plugin) {
-        $mcp_file      = 'mcp-adapter/mcp-adapter.php';
-        $mcp_installed = file_exists(WP_PLUGIN_DIR . '/' . $mcp_file);
-        $mcp_active    = $mcp_installed && is_plugin_active($mcp_file);
+/** MCP Adapter state: 'active', 'inactive' (installed only) or 'missing'. */
+function ai_mcp_adapter_state(): string
+{
+    $file = 'mcp-adapter/mcp-adapter.php';
+    if (!file_exists(WP_PLUGIN_DIR . '/' . $file)) return 'missing';
+    return \DDWPTweaks\Settings_Layout::plugin_active($file) ? 'active' : 'inactive';
+}
 
-        $badge = $mcp_active
-            ? ['label' => 'Active',        'class' => 'is-active']
-            : ($mcp_installed
-                ? ['label' => 'Inactive',      'class' => 'is-inactive']
-                : ['label' => 'Not installed', 'class' => 'is-missing']);
+function ai_mcp_copy_field(string $value, string $label = 'Copy'): string
+{
+    return '<div class="ddwpt-copy-field">'
+        . '<code class="ddwpt-copy-value">' . esc_html($value) . '</code>'
+        . '<button type="button" class="ddwpt-btn ddwpt-copy-btn" data-copy="' . esc_attr($value) . '">' . esc_html($label) . '</button>'
+        . '</div>';
+}
 
-        $status_fields = [];
-        if (!$mcp_installed) {
-            $status_fields[] = [
-                'label' => 'Install',
-                'html'  => '<p class="description">Download and activate the <a href="https://github.com/WordPress/mcp-adapter" target="_blank" rel="noopener">MCP Adapter plugin</a> to expose an MCP endpoint for this site.</p>',
-            ];
-        } elseif (!$mcp_active) {
-            $status_fields[] = [
-                'label' => 'Activate',
-                'html'  => '<a href="' . esc_url(admin_url('plugins.php')) . '" class="ddwpt-btn">Go to Plugins</a>'
-                         . '<p class="description" style="margin-top:8px;">MCP Adapter is installed but not active. Activate it to expose the MCP endpoint.</p>',
-            ];
-        }
+// AI setup card: connection status, a summary of what agents can do, and
+// the details an MCP client needs. Ability tweaks follow it as cards.
+function ai_mcp_render_setup(\DDWPTweaks\Plugin $plugin): void
+{
+    $state    = ai_mcp_adapter_state();
+    $summary  = $plugin->get_ability_summary();
+    $endpoint = site_url('/wp-json/mcp/mcp-adapter-default-server');
+    $profile  = admin_url('profile.php') . '#application-passwords-section';
+    $app_passwords = wp_is_application_passwords_available();
 
-        $plugin->render_info_card(
-            'MCP Adapter',
-            'The <a href="https://github.com/WordPress/mcp-adapter" target="_blank" rel="noopener">WordPress MCP Adapter</a> exposes a Model Context Protocol endpoint that AI clients (Claude Desktop, Cursor, etc.) can connect to.',
-            $status_fields,
-            $badge
-        );
+    $badge = [
+        'active'   => ['Connected', 'is-active'],
+        'inactive' => ['MCP Adapter inactive', 'is-inactive'],
+        'missing'  => ['MCP Adapter missing', 'is-missing'],
+    ][$state];
 
-        if (!$mcp_active) return;
-
-        $endpoint    = site_url('/wp-json/mcp/mcp-adapter-default-server');
-        $profile_url = admin_url('profile.php') . '#application-passwords-section';
-        $mcp_json    = wp_json_encode([
-            'mcpServers' => [
-                'wordpress' => [
-                    'command' => 'npx',
-                    'args'    => ['-y', '@automattic/mcp-wordpress-remote'],
-                    'env'     => [
-                        'WP_API_URL'      => $endpoint,
-                        'WP_API_USERNAME' => wp_get_current_user()->user_login,
-                        'WP_API_PASSWORD' => 'your-application-password',
-                    ],
+    $config = wp_json_encode([
+        'mcpServers' => [
+            'wordpress' => [
+                'command' => 'npx',
+                'args'    => ['-y', '@automattic/mcp-wordpress-remote'],
+                'env'     => [
+                    'WP_API_URL'      => $endpoint,
+                    'WP_API_USERNAME' => wp_get_current_user()->user_login,
+                    'WP_API_PASSWORD' => 'your-application-password',
                 ],
             ],
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        ],
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
-        $copy_url_html = '<div class="ddwpt-copy-field">'
-            . '<code class="ddwpt-copy-value">' . esc_html($endpoint) . '</code>'
-            . '<button type="button" class="ddwpt-btn ddwpt-copy-btn" data-copy="' . esc_attr($endpoint) . '">Copy</button>'
-            . '</div>'
-            . '<p class="description">Set this as the MCP server URL in your AI client configuration.</p>';
+    $steps = [
+        [$state === 'active', 'MCP Adapter plugin active'],
+        [$app_passwords, 'Application Passwords available'],
+        [$summary['live'] > 0, 'At least one ability tweak on'],
+    ];
+    ?>
+    <div class="ddwpt-card ddwpt-ai-setup">
+        <div class="ddwpt-card-header">
+            <div class="ddwpt-card-info">
+                <h3 class="ddwpt-card-title">
+                    AI setup
+                    <span class="ddwpt-status-badge <?php echo esc_attr($badge[1]); ?>"><?php echo esc_html($badge[0]); ?></span>
+                </h3>
+                <p class="ddwpt-card-desc">Connect an MCP client and choose what agents can do.</p>
+            </div>
+            <a href="#ai/registered-abilities" class="ddwpt-btn">Registered Abilities →</a>
+        </div>
 
-        $copy_json_html = '<div class="ddwpt-mcp-json-wrap">'
-            . '<pre class="ddwpt-mcp-json">' . esc_html($mcp_json) . '</pre>'
-            . '<button type="button" class="ddwpt-btn ddwpt-copy-btn" data-copy="' . esc_attr($mcp_json) . '">Copy</button>'
-            . '</div>'
-            . '<p class="description">Add this to your <code>claude_desktop_config.json</code> or equivalent MCP client config. Replace the password placeholder with your Application Password credentials.</p>';
+        <div class="ddwpt-card-body ddwpt-ai-stats">
+            <div class="ddwpt-ai-stat"><b><?php echo (int) $summary['live']; ?></b><span>of <?php echo (int) $summary['total']; ?> abilities live</span></div>
+            <div class="ddwpt-ai-stat"><b><?php echo (int) $summary['read']; ?></b><span>read</span></div>
+            <div class="ddwpt-ai-stat"><b><?php echo (int) $summary['write']; ?></b><span>write</span></div>
+            <div class="ddwpt-ai-stat"><b><?php echo (int) $summary['tweaks_on']; ?>/<?php echo (int) $summary['tweaks']; ?></b><span>ability tweaks on</span></div>
+        </div>
 
-        $plugin->render_info_card(
-            'Connection Details',
-            'Use these details to connect an MCP-compatible AI client to this site.',
-            [
-                ['label' => 'Endpoint URL',          'html' => $copy_url_html],
-                ['label' => 'Transport',              'html' => '<code>Streamable HTTP</code><p class="description">Implements the MCP 2025-03-26 Streamable HTTP specification.</p>'],
-                ['label' => 'Config (Claude / Cursor)', 'html' => $copy_json_html],
-            ]
-        );
+        <div class="ddwpt-card-body">
+            <div class="ddwpt-field-row">
+                <span class="ddwpt-field-label">Checklist</span>
+                <div class="ddwpt-field-input">
+                    <ul class="ddwpt-ai-checklist">
+                        <?php foreach ($steps as [$done, $text]): ?>
+                        <li class="<?php echo $done ? 'is-done' : ''; ?>"><?php echo $done ? '✓' : '○'; ?> <?php echo esc_html($text); ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <?php if ($state === 'missing'): ?>
+                    <p class="description">Install the <a href="https://github.com/WordPress/mcp-adapter" target="_blank" rel="noopener">MCP Adapter plugin</a> to expose an MCP endpoint for this site.</p>
+                    <?php elseif ($state === 'inactive'): ?>
+                    <p class="description">MCP Adapter is installed but not active. <a href="<?php echo esc_url(admin_url('plugins.php')); ?>">Go to Plugins</a> to activate it.</p>
+                    <?php endif; ?>
+                    <?php if (!$app_passwords): ?>
+                    <p class="description">WordPress turns Application Passwords off without HTTPS. Turn on <a href="#ddwpt-card-ddwpt_enable_application_passwords" data-goto-card="ddwpt-card-ddwpt_enable_application_passwords">Enable Application Passwords</a> to force them on.</p>
+                    <?php endif; ?>
+                </div>
+            </div>
 
-        $auth_fields = [];
-        if (!wp_is_application_passwords_available()) {
-            $auth_fields[] = [
-                'label' => 'Notice',
-                'html'  => '<p class="description">Application Passwords are not currently available on this site. WordPress disables them on non-HTTPS environments by default — enable the <strong>Enable Application Passwords</strong> tweak on the General tab to force them on.</p>',
-            ];
-        }
-        $auth_fields[] = [
-            'label' => 'Steps',
-            'html'  => '<ol class="ddwpt-ai-steps">'
-                . '<li>Go to <a href="' . esc_url($profile_url) . '">Users &rarr; Your Profile &rarr; Application Passwords</a>.</li>'
-                . '<li>Enter a name (e.g. <em>Claude Desktop</em>) and click <strong>Add New Application Password</strong>.</li>'
-                . '<li>Copy the generated password immediately — it will not be shown again.</li>'
-                . '<li>In your MCP client config, provide your WordPress username and the application password.</li>'
-                . '</ol>',
-        ];
+            <?php if ($state === 'active'): ?>
+            <div class="ddwpt-field-row">
+                <span class="ddwpt-field-label">Endpoint</span>
+                <div class="ddwpt-field-input">
+                    <?php echo ai_mcp_copy_field($endpoint); ?>
+                    <p class="description">Streamable HTTP transport (MCP 2025-03-26).</p>
+                </div>
+            </div>
+            <div class="ddwpt-field-row">
+                <span class="ddwpt-field-label">Client config</span>
+                <div class="ddwpt-field-input">
+                    <button type="button" class="ddwpt-btn ddwpt-copy-btn" data-copy="<?php echo esc_attr($config); ?>" data-copy-label="Copy JSON config">Copy JSON config</button>
+                    <p class="description">For <code>claude_desktop_config.json</code> or any MCP client. Replace the password placeholder with an Application Password.</p>
+                </div>
+            </div>
+            <details class="ddwpt-field-accordion">
+                <summary class="ddwpt-field-accordion-summary">How to create an Application Password</summary>
+                <div class="ddwpt-field-accordion-body">
+                    <ol class="ddwpt-ai-steps">
+                        <li>Go to <a href="<?php echo esc_url($profile); ?>">Users &rarr; Your Profile &rarr; Application Passwords</a>.</li>
+                        <li>Enter a name (e.g. <em>Claude Desktop</em>) and click <strong>Add New Application Password</strong>.</li>
+                        <li>Copy the generated password straight away. It is not shown again.</li>
+                        <li>In your MCP client config, provide your WordPress username and the application password.</li>
+                    </ol>
+                </div>
+            </details>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php
+}
 
-        $plugin->render_info_card(
-            'Authentication',
-            'MCP Adapter uses WordPress Application Passwords — not your login password.',
-            $auth_fields
-        );
+// Every ability registered on the site (not only WP Toolkit's), with a
+// namespace filter and text search handled by settings.js.
+function ai_mcp_render_registered_abilities(): void
+{
+    $abilities = function_exists('wp_get_abilities') ? wp_get_abilities() : [];
+    $count     = count($abilities);
 
-        if (!function_exists('wp_get_abilities')) return;
-        $abilities = wp_get_abilities();
-        if (empty($abilities)) return;
+    $namespaces = [];
+    foreach ($abilities as $ability) {
+        $namespace = strtok($ability->get_name(), '/');
+        $namespaces[$namespace] = ($namespaces[$namespace] ?? 0) + 1;
+    }
+    ksort($namespaces);
+    ?>
+    <div class="ddwpt-card ddwpt-registry" data-search="Registered Abilities">
+        <div class="ddwpt-card-header">
+            <div class="ddwpt-card-info">
+                <h3 class="ddwpt-card-title">Registered Abilities</h3>
+                <p class="ddwpt-card-desc">
+                    <?php if (!function_exists('wp_get_abilities')): ?>
+                    The Abilities API needs WordPress 6.9 or later.
+                    <?php else: ?>
+                    <?php echo esc_html($count . ' ' . ($count === 1 ? 'ability' : 'abilities') . ' currently registered via the WordPress Abilities API.'); ?>
+                    <?php endif; ?>
+                </p>
+            </div>
+            <?php if ($count): ?>
+            <input type="search" class="ddwpt-registry-search" placeholder="Filter abilities" aria-label="Filter abilities" />
+            <?php endif; ?>
+        </div>
+        <?php if ($count): ?>
+        <div class="ddwpt-card-body ddwpt-registry-filters">
+            <button type="button" class="ddwpt-chip is-active" data-registry-namespace="">All · <?php echo (int) $count; ?></button>
+            <?php foreach ($namespaces as $namespace => $total): ?>
+            <button type="button" class="ddwpt-chip" data-registry-namespace="<?php echo esc_attr($namespace); ?>"><?php echo esc_html($namespace); ?> · <?php echo (int) $total; ?></button>
+            <?php endforeach; ?>
+        </div>
+        <div class="ddwpt-card-body ddwpt-card-body-flush">
+            <table class="ddwpt-field-keys-table ddwpt-registry-table">
+                <thead><tr><th>Name</th><th>Category</th><th>Description</th></tr></thead>
+                <tbody>
+                    <?php foreach ($abilities as $ability): ?>
+                    <tr data-namespace="<?php echo esc_attr(strtok($ability->get_name(), '/')); ?>">
+                        <td><code><?php echo esc_html($ability->get_name()); ?></code></td>
+                        <td><?php echo esc_html($ability->get_category()); ?></td>
+                        <td><?php echo esc_html($ability->get_description()); ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
+    </div>
+    <?php
+}
 
-        $count      = count($abilities);
-        $table_html = '<table class="ddwpt-field-keys-table">'
-            . '<thead><tr><th>Name</th><th>Category</th><th>Description</th></tr></thead>'
-            . '<tbody>';
-        foreach ($abilities as $ability) {
-            $table_html .= '<tr>'
-                . '<td><code>' . esc_html($ability->get_name()) . '</code></td>'
-                . '<td>' . esc_html($ability->get_category()) . '</td>'
-                . '<td>' . esc_html($ability->get_description()) . '</td>'
-                . '</tr>';
-        }
-        $table_html .= '</tbody></table>';
-
-        $plugin->render_info_card(
-            'Registered Abilities',
-            $count . ' ' . ($count === 1 ? 'ability' : 'abilities') . ' currently registered via the WordPress Abilities API.',
-            [['full' => true, 'html' => $table_html]]
-        );
-    },
+return [
+    'id'          => 'ddwpt_ai_mcp_info',
+    'label'       => 'AI setup',
+    'tab'         => 'ai',
+    'description' => 'Connect an MCP client and choose what agents can do.',
+    'position'    => 'first',
+    'pages'       => [
+        [
+            'id'     => 'registered-abilities',
+            'label'  => 'Registered Abilities',
+            'render' => __NAMESPACE__ . '\\ai_mcp_render_registered_abilities',
+        ],
+    ],
+    'render' => __NAMESPACE__ . '\\ai_mcp_render_setup',
 ];

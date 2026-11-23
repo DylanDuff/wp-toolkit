@@ -5,8 +5,11 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_embla_slider_bricks',
     'label' => 'Embla Slider Bricks Element',
-    'tab'   => 'bricks',
+    'tab'   => 'builder',
     'group' => 'elements',
+    'description' => 'Nestable carousel element powered by a bundled Embla.',
+    'tags'  => ['Bundled', 'No external requests'],
+    'requires' => ['Bricks'],
 
     'settings' => [
         [

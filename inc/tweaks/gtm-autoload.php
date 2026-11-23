@@ -5,7 +5,11 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_gtm_autoload',
     'label' => 'GTM Autoload',
-    'tab'   => 'general',
+    'tab'   => 'integrations',
+    'group' => 'google-tag-manager',
+    'description' => 'Auto-inject the GTM4WP tag via wp_body_open.',
+    'tags'  => ['Frontend'],
+    'requires' => ['GTM4WP'],
 
     'settings' => [
         [

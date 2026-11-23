@@ -5,8 +5,11 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_rive_bricks',
     'label' => 'Rive Bricks Element',
-    'tab'   => 'bricks',
+    'tab'   => 'builder',
     'group' => 'elements',
+    'description' => 'Rive animation element, plus .riv uploads.',
+    'tags'  => ['CDN'],
+    'requires' => ['Bricks'],
 
     'settings' => [
         [

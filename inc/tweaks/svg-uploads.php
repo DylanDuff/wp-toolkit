@@ -5,8 +5,10 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_svg_uploads',
     'label' => 'Enable SVG Uploads',
-    'tab'   => 'general',
+    'tab'   => 'site',
     'group' => 'media',
+    'description' => 'Allow SVG uploads to the media library.',
+    'tags'  => ['Admins only'],
 
     'settings' => [
         [

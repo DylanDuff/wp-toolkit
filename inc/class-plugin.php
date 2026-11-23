@@ -170,7 +170,7 @@ class Plugin
 
         $data = [];
         foreach ($this->tweaks as $tweak) {
-            foreach ($tweak["settings"] as $setting) {
+            foreach ($tweak["settings"] ?? [] as $setting) {
                 $data[$setting["id"]] = get_option($setting["id"], $setting["default"] ?? "");
             }
         }
@@ -192,10 +192,13 @@ class Plugin
             wp_send_json_error("Invalid data");
         }
 
+        // Exports from older releases may still use renamed option keys.
+        $data = Migrations::translate_keys($data);
+
         $sanitize_map   = $this->get_sanitize_map();
         $valid_settings = [];
         foreach ($this->tweaks as $tweak) {
-            foreach ($tweak["settings"] as $setting) {
+            foreach ($tweak["settings"] ?? [] as $setting) {
                 $valid_settings[$setting["id"]] = $setting;
             }
         }
@@ -211,91 +214,36 @@ class Plugin
 
     public function render_settings_page()
     {
-        $tabs         = $this->get_all_tabs();
-        $version      = defined("DDWPT_VERSION") ? DDWPT_VERSION : "";
-        $active_count = $this->get_active_tweak_count();
-        $total_count  = count($this->tweaks);
-
-        $wl_enabled = get_option("ddwpt_plugin_settings_enabled");
-        $wrap_vars  = [];
-        $hero_icon  = DDWPT_URL . "assets/icons/wptk-logo.svg";
-
-        if ($wl_enabled) {
-            $map = [
-                "--ddwpt-hero-from"    => ["ddwpt_plugin_settings_gradient_from",  "sanitize_hex_color"],
-                "--ddwpt-hero-to"      => ["ddwpt_plugin_settings_gradient_to",    "sanitize_hex_color"],
-                "--ddwpt-hero-angle"   => ["ddwpt_plugin_settings_gradient_angle", "sanitize_text_field"],
-                "--ddwpt-accent"       => ["ddwpt_plugin_settings_accent",         "sanitize_hex_color"],
-                "--ddwpt-accent-hover" => ["ddwpt_plugin_settings_accent_hover",   "sanitize_hex_color"],
-                "--ddwpt-accent-light" => ["ddwpt_plugin_settings_accent_light",   "sanitize_hex_color"],
-            ];
-
-            foreach ($map as $var => [$option, $sanitize]) {
-                $val = get_option($option, "");
-                if ($val) $wrap_vars[] = $var . ":" . call_user_func($sanitize, $val);
-            }
-
-            $icon = get_option("ddwpt_plugin_settings_icon", "");
-            if ($icon) $hero_icon = esc_url($icon);
-        }
-
-        $wrap_style = $wrap_vars ? ' style="' . esc_attr(implode(";", $wrap_vars)) . '"' : "";
+        $areas      = Settings_Layout::areas($this->tweaks);
+        $labs_on    = (bool) get_option("ddwpt_experiments_enabled");
+        $wrap_class = "ddwpt-wrap" . ($labs_on ? " is-labs-on" : "");
+        $has_any_settings = (bool) array_filter($this->tweaks, fn($t) => !isset($t["render"]));
         ?>
         <form method="post" action="options.php">
             <?php settings_fields($this->settings_group); ?>
 
-            <div class="ddwpt-wrap"<?php echo $wrap_style; ?>>
-
-                <div class="ddwpt-header">
-                    <?php if ($version): ?>
-                    <span class="ddwpt-version-pill">v<?php echo esc_html($version); ?></span>
-                    <?php endif; ?>
-                    <div class="ddwpt-header-center">
-                        <img src="<?php echo esc_url($hero_icon); ?>"
-                             alt="WP Toolkit"
-                             class="ddwpt-logo" />
-                        <span class="ddwpt-active-count">
-                            <?php echo esc_html($active_count); ?> / <?php echo esc_html($total_count); ?> tweaks enabled
-                        </span>
-                    </div>
-                </div>
-
-                <?php
-                    // Computed once and shared by both the sidebar (nested sub-tab
-                    // links) and the content panels below, so a tab's groups are
-                    // only derived a single time.
-                    $tab_groups = [];
-                    foreach ($tabs as $tab_id => $tab_label) {
-                        $tab_groups[$tab_id] = $this->get_groups_for_tab($this->get_tweaks_for_tab($tab_id));
-                    }
-                    $has_any_settings = (bool) array_filter($this->tweaks, fn($t) => !isset($t['render']));
-                ?>
-
+            <div class="<?php echo esc_attr($wrap_class); ?>"<?php echo $this->white_label_style(); ?>>
                 <div class="ddwpt-body">
 
-                    <?php if (count($tabs) > 1): ?>
                     <nav class="ddwpt-tabs-nav">
                         <div class="ddwpt-tabs-nav-sticky">
                             <div class="ddwpt-tabs-nav-scroll">
-                                <?php foreach ($tabs as $tab_id => $tab_label): ?>
-                                <a href="#<?php echo esc_attr($tab_id); ?>"
-                                   class="ddwpt-tab"
-                                   data-tab="<?php echo esc_attr($tab_id); ?>">
-                                    <?php echo $this->get_tab_icon($tab_id); ?>
-                                    <?php echo esc_html($tab_label); ?>
+                                <button type="button" class="ddwpt-nav-search" data-palette-open>
+                                    <?php echo $this->inline_icon("Search-Lucide.svg"); ?>
+                                    <span><?php esc_html_e("Search", "wp-toolkit"); ?></span>
+                                    <kbd>/</kbd>
+                                </button>
+                                <a href="#overview" class="ddwpt-tab" data-area="overview">
+                                    <?php echo $this->inline_icon("House-Lucide.svg"); ?>
+                                    <?php esc_html_e("Overview", "wp-toolkit"); ?>
                                 </a>
-                                <?php if (!empty($tab_groups[$tab_id])): ?>
-                                <div class="ddwpt-subtabs-nested" data-tab="<?php echo esc_attr($tab_id); ?>">
-                                    <?php foreach ($tab_groups[$tab_id] as $group_id => $group_label): ?>
-                                    <a href="#"
-                                       class="ddwpt-subtab-nested"
-                                       data-tab="<?php echo esc_attr($tab_id); ?>"
-                                       data-subtab="<?php echo esc_attr($group_id); ?>">
-                                        <?php echo esc_html($group_label); ?>
-                                    </a>
-                                    <?php endforeach; ?>
-                                </div>
-                                <?php endif; ?>
+                                <?php foreach ($areas as $area_id => $area): ?>
+                                <?php if (!empty($area["utility"])): ?><div class="ddwpt-nav-utility"><?php endif; ?>
+                                <a href="#<?php echo esc_attr($area_id); ?>" class="ddwpt-tab" data-area="<?php echo esc_attr($area_id); ?>">
+                                    <?php echo $this->inline_icon($area["icon"]); ?>
+                                    <?php echo esc_html($area["label"]); ?>
+                                </a>
+                                <?php if (!empty($area["utility"])): ?></div><?php endif; ?>
                                 <?php endforeach; ?>
                             </div>
                             <?php if ($has_any_settings): ?>
@@ -305,120 +253,465 @@ class Plugin
                             <?php endif; ?>
                         </div>
                     </nav>
-                    <?php endif; ?>
 
                     <div class="ddwpt-content">
-                        <?php foreach ($tabs as $tab_id => $tab_label): ?>
-                        <?php
-                            $all_tweaks = $this->get_tweaks_for_tab($tab_id);
-                            $groups     = $tab_groups[$tab_id];
-                        ?>
-                        <div class="ddwpt-panel" data-tab="<?php echo esc_attr($tab_id); ?>" style="display:none;">
-                            <?php if (!empty($groups)): ?>
-                            <?php foreach ($groups as $group_id => $group_label): ?>
-                            <div class="ddwpt-subpanel" data-subtab="<?php echo esc_attr($group_id); ?>" style="display:none;">
-                                <?php $this->render_tweak_group($this->get_tweaks_for_group($all_tweaks, $group_id)); ?>
-                            </div>
-                            <?php endforeach; ?>
-                            <?php else: ?>
-                            <?php $this->render_tweak_group($all_tweaks); ?>
-                            <?php endif; ?>
-                        </div>
+                        <?php $this->render_overview($areas); ?>
+                        <?php foreach ($areas as $area_id => $area): ?>
+                        <?php $this->render_area($area_id, $area); ?>
                         <?php endforeach; ?>
                     </div>
 
                 </div>
 
+                <div class="ddwpt-palette-backdrop" data-palette hidden>
+                    <div class="ddwpt-palette" role="dialog" aria-label="<?php esc_attr_e("Search settings", "wp-toolkit"); ?>">
+                        <input type="text" class="ddwpt-palette-input" placeholder="<?php esc_attr_e("Search tweaks, areas or plugins…", "wp-toolkit"); ?>" autocomplete="off" aria-label="<?php esc_attr_e("Search", "wp-toolkit"); ?>" />
+                        <ul class="ddwpt-palette-results" role="listbox"></ul>
+                        <div class="ddwpt-palette-hint"><?php esc_html_e("↑↓ to move, Enter to open, Esc to close", "wp-toolkit"); ?></div>
+                    </div>
+                </div>
             </div>
         </form>
         <?php
     }
 
-    private function render_tweak_card($tweak)
+    /** Inline CSS variables from the White Label settings, if enabled. */
+    private function white_label_style(): string
     {
-        $enabled_setting = null;
-        $other_settings  = [];
+        if (!get_option("ddwpt_plugin_settings_enabled")) return "";
 
-        foreach ($tweak["settings"] as $setting) {
-            if (
-                !$enabled_setting
-                && $setting["type"] === "checkbox"
-                && str_ends_with($setting["id"], "_enabled")
-            ) {
-                $enabled_setting = $setting;
-            } else {
-                $other_settings[] = $setting;
+        $map = [
+            "--ddwpt-hero-from"    => ["ddwpt_plugin_settings_gradient_from",  "sanitize_hex_color"],
+            "--ddwpt-hero-to"      => ["ddwpt_plugin_settings_gradient_to",    "sanitize_hex_color"],
+            "--ddwpt-hero-angle"   => ["ddwpt_plugin_settings_gradient_angle", "sanitize_text_field"],
+            "--ddwpt-accent"       => ["ddwpt_plugin_settings_accent",         "sanitize_hex_color"],
+            "--ddwpt-accent-hover" => ["ddwpt_plugin_settings_accent_hover",   "sanitize_hex_color"],
+            "--ddwpt-accent-light" => ["ddwpt_plugin_settings_accent_light",   "sanitize_hex_color"],
+        ];
+
+        $vars = [];
+        foreach ($map as $var => [$option, $sanitize]) {
+            $value = get_option($option, "");
+            if ($value) $vars[] = $var . ":" . call_user_func($sanitize, $value);
+        }
+        return $vars ? ' style="' . esc_attr(implode(";", $vars)) . '"' : "";
+    }
+
+    private function hero_icon(): string
+    {
+        $icon = get_option("ddwpt_plugin_settings_enabled") ? get_option("ddwpt_plugin_settings_icon", "") : "";
+        return $icon ?: DDWPT_URL . "assets/icons/wptk-logo.svg";
+    }
+
+    private function render_overview(array $areas)
+    {
+        $version = defined("DDWPT_VERSION") ? DDWPT_VERSION : "";
+        ?>
+        <section class="ddwpt-area" data-area="overview" hidden>
+            <div class="ddwpt-header ddwpt-hero-card">
+                <?php if ($version): ?>
+                <span class="ddwpt-version-pill">v<?php echo esc_html($version); ?></span>
+                <?php endif; ?>
+                <div class="ddwpt-header-center">
+                    <img src="<?php echo esc_url($this->hero_icon()); ?>" alt="WP Toolkit" class="ddwpt-logo" />
+                    <span class="ddwpt-active-count" data-active-count></span>
+                </div>
+            </div>
+
+            <div class="ddwpt-hub-tiles">
+                <?php foreach ($areas as $area_id => $area): ?>
+                <?php if (!empty($area["utility"])) continue; ?>
+                <a href="#<?php echo esc_attr($area_id); ?>" class="ddwpt-card ddwpt-hub-tile">
+                    <span class="ddwpt-card-title"><?php echo $this->inline_icon($area["icon"]); ?> <?php echo esc_html($area["label"]); ?></span>
+                    <span class="ddwpt-card-desc" data-area-count-text="<?php echo esc_attr($area_id); ?>"></span>
+                    <span class="ddwpt-meter"><i data-area-meter="<?php echo esc_attr($area_id); ?>"></i></span>
+                </a>
+                <?php endforeach; ?>
+            </div>
+
+            <div class="ddwpt-card">
+                <div class="ddwpt-card-header">
+                    <div class="ddwpt-card-info">
+                        <h3 class="ddwpt-card-title"><?php esc_html_e("Running now", "wp-toolkit"); ?></h3>
+                        <p class="ddwpt-card-desc"><?php esc_html_e("Click a tweak to jump to its card.", "wp-toolkit"); ?></p>
+                    </div>
+                </div>
+                <div class="ddwpt-card-body">
+                    <?php
+                    $any = false;
+                    foreach ($areas as $area_id => $area):
+                        if (!empty($area["utility"])) continue;
+                        $running = array_filter($this->tweaks_in_area($area_id), [$this, "is_tweak_on"]);
+                        if (!$running) continue;
+                        $any = true;
+                    ?>
+                    <div class="ddwpt-field-row">
+                        <span class="ddwpt-field-label"><?php echo esc_html($area["label"]); ?></span>
+                        <div class="ddwpt-field-input ddwpt-chip-list">
+                            <?php foreach ($running as $tweak): ?>
+                            <a href="#<?php echo esc_attr($this->card_id($tweak)); ?>" class="ddwpt-chip" data-goto-card="<?php echo esc_attr($this->card_id($tweak)); ?>"><?php echo esc_html($tweak["label"]); ?></a>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                    <?php if (!$any): ?>
+                    <div class="ddwpt-field-row"><?php esc_html_e("Nothing enabled yet.", "wp-toolkit"); ?></div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </section>
+        <?php
+    }
+
+    private function render_area(string $area_id, array $area)
+    {
+        $tweaks   = $this->tweaks_in_area($area_id);
+        $sections = Settings_Layout::sections($area_id, $tweaks);
+        $pages    = $this->get_area_pages($tweaks);
+        // Single-section areas skip the switcher; their nested pages are
+        // reached through the buttons on their cards instead.
+        $switcher = count($sections) > 1;
+        ?>
+        <section class="ddwpt-area" data-area="<?php echo esc_attr($area_id); ?>" hidden>
+            <div class="ddwpt-crumbs">
+                <a href="#overview"><?php esc_html_e("Overview", "wp-toolkit"); ?></a>
+                / <a href="#<?php echo esc_attr($area_id); ?>" data-crumb-area><?php echo esc_html($area["label"]); ?></a>
+                <span data-crumb-page></span>
+            </div>
+            <h2 class="ddwpt-page-title"><?php echo esc_html($area["label"]); ?></h2>
+            <?php if (!empty($area["lede"])): ?>
+            <p class="ddwpt-page-lede"><?php echo esc_html($area["lede"]); ?></p>
+            <?php endif; ?>
+
+            <?php if ($switcher): ?>
+            <div class="ddwpt-segmented" role="tablist">
+                <?php foreach ($sections as $section_id => $section_label): ?>
+                <a href="#<?php echo esc_attr($area_id . "/" . $section_id); ?>" role="tab" data-pane="<?php echo esc_attr($section_id); ?>"><?php echo esc_html($section_label); ?></a>
+                <?php endforeach; ?>
+                <?php if ($pages): ?>
+                <span class="ddwpt-segmented-divider"></span>
+                <?php foreach ($pages as $page_id => $page): ?>
+                <a href="#<?php echo esc_attr($area_id . "/" . $page_id); ?>" role="tab" class="is-page" data-pane="<?php echo esc_attr($page_id); ?>" data-page-owner="<?php echo esc_attr($page["owner"] ?? ""); ?>"><?php echo esc_html($page["label"]); ?> ›</a>
+                <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+
+            <?php foreach ($sections as $section_id => $section_label): ?>
+            <div class="ddwpt-pane" data-pane="<?php echo esc_attr($section_id); ?>" data-pane-label="<?php echo esc_attr($section_label); ?>">
+                <?php $this->render_tweak_group(array_filter($tweaks, fn($t) => Settings_Layout::section_of($t) === $section_id)); ?>
+            </div>
+            <?php endforeach; ?>
+
+            <?php foreach ($pages as $page_id => $page): ?>
+            <div class="ddwpt-pane" data-pane="<?php echo esc_attr($page_id); ?>" data-pane-label="<?php echo esc_attr($page["label"]); ?>" data-page>
+                <?php call_user_func($page["render"], $this); ?>
+            </div>
+            <?php endforeach; ?>
+
+            <div class="ddwpt-empty" data-area-empty hidden><?php esc_html_e("Nothing here until the required plugins are active.", "wp-toolkit"); ?></div>
+            <div class="ddwpt-unavailable-note" data-unavailable-note hidden>
+                <span></span>
+                <button type="button" class="ddwpt-link-btn" data-show-unavailable><?php esc_html_e("Show anyway", "wp-toolkit"); ?></button>
+            </div>
+        </section>
+        <?php
+    }
+
+    private function tweaks_in_area(string $area_id): array
+    {
+        return array_values(array_filter($this->tweaks, fn($t) => Settings_Layout::area_of($t) === $area_id));
+    }
+
+    /**
+     * Nested pages in an area: a tweak's own `pages` (render callables) plus
+     * any setting with a `page` key, which renders there instead of in the card.
+     */
+    private function get_area_pages(array $tweaks): array
+    {
+        $pages = [];
+        foreach ($tweaks as $tweak) {
+            foreach ($tweak["pages"] ?? [] as $page) {
+                $pages[$page["id"]] = $page;
+            }
+            foreach ($tweak["settings"] ?? [] as $setting) {
+                if (empty($setting["page"])) continue;
+                $page = $setting["page"];
+                $pages[$page["id"]] = $page + [
+                    "owner"  => $this->card_id($tweak),
+                    "render" => fn() => $this->render_setting_page($tweak, $setting),
+                ];
             }
         }
+        return $pages;
+    }
 
-        $is_enabled  = $enabled_setting ? (bool) get_option($enabled_setting["id"]) : true;
-        $description = $enabled_setting["description"] ?? "";
-
-        $card_class = "ddwpt-card";
-        if ($enabled_setting && !$is_enabled) {
-            $card_class .= " is-disabled";
-        }
+    private function render_setting_page(array $tweak, array $setting)
+    {
+        $value = get_option($setting["id"], $setting["default"] ?? "");
         ?>
-        <div class="<?php echo esc_attr($card_class); ?>">
+        <div class="ddwpt-card" data-search="<?php echo esc_attr($setting["page"]["label"] . " " . $tweak["label"]); ?>">
             <div class="ddwpt-card-header">
                 <div class="ddwpt-card-info">
-                    <h3 class="ddwpt-card-title"><?php echo esc_html($tweak["label"]); ?></h3>
+                    <h3 class="ddwpt-card-title"><?php echo esc_html($setting["page"]["label"]); ?></h3>
+                    <?php if (!empty($setting["description"])): ?>
+                    <p class="ddwpt-card-desc"><?php echo $this->kses_desc($setting["description"]); ?></p>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="ddwpt-card-body ddwpt-card-body-flush">
+                <?php $this->render_field($setting, $value, $setting["id"]); ?>
+            </div>
+        </div>
+        <?php
+    }
+
+    private function card_id(array $tweak): string
+    {
+        return "ddwpt-card-" . sanitize_html_class($tweak["id"]);
+    }
+
+    private function is_tweak_on(array $tweak): bool
+    {
+        $toggle = $this->find_toggle_setting($tweak);
+        return $toggle && get_option($toggle["id"]);
+    }
+
+    /** The checkbox ending in _enabled that drives the card header switch. */
+    private function find_toggle_setting(array $tweak): ?array
+    {
+        foreach ($tweak["settings"] ?? [] as $setting) {
+            if ($setting["type"] === "checkbox" && str_ends_with($setting["id"], "_enabled")) {
+                return $setting;
+            }
+        }
+        return null;
+    }
+
+    /** Short description: the tweak's own, else its main switch's. */
+    private function tweak_description(array $tweak): string
+    {
+        if (!empty($tweak["description"])) return $tweak["description"];
+        $toggle = $this->find_toggle_setting($tweak);
+        return $toggle["description"] ?? "";
+    }
+
+    /**
+     * Wrapper attributes shared by settings cards and render-only panels:
+     * the id the palette jumps to, search text, and Labs / missing plugin
+     * state that settings.js uses to show or hide the card.
+     */
+    private function card_attributes(array $tweak, string $class): string
+    {
+        $area_id  = Settings_Layout::area_of($tweak);
+        $area     = Settings_Layout::AREAS[$area_id] ?? ["label" => Settings_Layout::label_from_id($area_id)];
+        $missing  = Settings_Layout::missing_requirements($tweak);
+
+        if (!empty($tweak["labs"])) $class .= " is-labs";
+        if ($missing) $class .= " is-unavailable";
+
+        $search = implode(" ", array_merge(
+            [$tweak["label"] ?? "", wp_strip_all_tags($this->tweak_description($tweak)), $area["label"]],
+            $tweak["tags"] ?? [],
+            $tweak["requires"] ?? []
+        ));
+
+        $attributes = [
+            "class"         => $class,
+            "id"            => $this->card_id($tweak),
+            "data-tweak"    => $tweak["id"],
+            "data-label"    => $tweak["label"] ?? "",
+            "data-search"   => $search,
+            "data-missing"  => implode(", ", $missing),
+        ];
+
+        $html = "";
+        foreach ($attributes as $name => $value) {
+            $html .= " " . $name . '="' . esc_attr($value) . '"';
+        }
+        // Cards start hidden when they would be hidden anyway, so nothing
+        // flashes before settings.js runs. Hidden cards still submit.
+        $labs_hidden = !empty($tweak["labs"]) && !get_option("ddwpt_experiments_enabled");
+        return $html . ($labs_hidden || $missing ? " hidden" : "");
+    }
+
+    private function render_badges(array $tweak)
+    {
+        if (!empty($tweak["labs"])) {
+            echo '<span class="ddwpt-badge is-labs">Labs</span>';
+        }
+        foreach ($tweak["tags"] ?? [] as $tag) {
+            echo '<span class="ddwpt-badge">' . esc_html($tag) . "</span>";
+        }
+        foreach ($tweak["requires"] ?? [] as $name) {
+            if (Settings_Layout::requirement_met($name) === false) {
+                echo '<span class="ddwpt-badge is-missing">' . esc_html(sprintf(__("Needs %s", "wp-toolkit"), $name)) . "</span>";
+            } else {
+                echo '<span class="ddwpt-badge is-plugin">' . esc_html($name) . "</span>";
+            }
+        }
+    }
+
+    private function render_tweak_card($tweak)
+    {
+        $enabled_setting = $this->find_toggle_setting($tweak);
+        $opt_in_ids      = array_filter(array_column($tweak["abilities"] ?? [], "setting"));
+        $other_settings  = [];
+        $page_links      = [];
+
+        foreach ($tweak["settings"] as $setting) {
+            if (($enabled_setting && $setting["id"] === $enabled_setting["id"]) || in_array($setting["id"], $opt_in_ids, true)) continue;
+            if (!empty($setting["page"])) {
+                $page_links[] = $setting["page"];
+                continue;
+            }
+            $other_settings[] = $setting;
+        }
+
+        $is_enabled = $enabled_setting ? (bool) get_option($enabled_setting["id"]) : true;
+        $card_class = "ddwpt-card" . ($enabled_setting && !$is_enabled ? " is-disabled" : "");
+        $area_id    = Settings_Layout::area_of($tweak);
+        ?>
+        <div<?php echo $this->card_attributes($tweak, $card_class); ?>>
+            <div class="ddwpt-card-header">
+                <div class="ddwpt-card-info">
+                    <h3 class="ddwpt-card-title"><?php echo esc_html($tweak["label"]); ?> <?php $this->render_badges($tweak); ?></h3>
+                    <?php $description = $this->tweak_description($tweak); ?>
                     <?php if ($description): ?>
                     <p class="ddwpt-card-desc"><?php echo $this->kses_desc($description); ?></p>
                     <?php endif; ?>
                 </div>
                 <?php if ($enabled_setting): ?>
-                <label class="ddwpt-toggle" title="<?php echo $is_enabled ? "Enabled" : "Disabled"; ?>">
-                    <input type="checkbox"
-                           id="<?php echo esc_attr($enabled_setting["id"]); ?>"
-                           name="<?php echo esc_attr($enabled_setting["id"]); ?>"
-                           value="1"
-                           <?php checked($is_enabled, true); ?> />
-                    <span class="ddwpt-toggle-track">
-                        <span class="ddwpt-toggle-thumb"></span>
-                    </span>
-                </label>
+                <?php $this->render_switch($enabled_setting["id"], $is_enabled); ?>
                 <?php endif; ?>
             </div>
 
-            <?php if (!empty($other_settings)): ?>
+            <?php if (!empty($tweak["abilities"]) || $other_settings): ?>
             <div class="ddwpt-card-body">
-                <?php foreach ($other_settings as $setting):
-                    $options = $setting["options"] ?? [];
-                    if (is_callable($options)) {
-                        $setting["options"] = call_user_func($options);
-                    }
-                    $value = get_option($setting["id"], $setting["default"] ?? "");
-                ?>
-                <?php if (!empty($setting["accordion"])): ?>
-                <details class="ddwpt-field-accordion"<?php echo $this->show_if_attribute($setting); ?>>
-                    <summary class="ddwpt-field-accordion-summary">
-                        <?php echo esc_html($setting["label"]); ?>
-                    </summary>
-                    <div class="ddwpt-field-accordion-body">
-                        <?php $this->render_field($setting, $value, $setting["id"]); ?>
-                        <?php if (!empty($setting["description"])): ?>
-                        <p class="description"><?php echo $this->kses_desc($setting["description"]); ?></p>
-                        <?php endif; ?>
-                    </div>
-                </details>
-                <?php else: ?>
-                <div class="ddwpt-field-row"<?php echo $this->show_if_attribute($setting); ?>>
-                    <label class="ddwpt-field-label" for="<?php echo esc_attr($setting["id"]); ?>">
-                        <?php echo esc_html($setting["label"]); ?>
-                    </label>
-                    <div class="ddwpt-field-input">
-                        <?php $this->render_field($setting, $value, $setting["id"]); ?>
-                        <?php if (!empty($setting["description"])): ?>
-                        <p class="description"><?php echo $this->kses_desc($setting["description"]); ?></p>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <?php endif; ?>
-                <?php endforeach; ?>
+                <?php $this->render_ability_rows($tweak); ?>
+                <?php foreach ($other_settings as $setting) $this->render_setting_row($setting); ?>
             </div>
             <?php endif; ?>
+
+            <?php foreach ($page_links as $page): ?>
+            <div class="ddwpt-card-body ddwpt-card-link-row">
+                <span><?php echo esc_html($page["summary"] ?? ""); ?></span>
+                <a href="#<?php echo esc_attr($area_id . "/" . $page["id"]); ?>" class="ddwpt-btn"><?php echo esc_html($page["link"] ?? $page["label"]); ?> →</a>
+            </div>
+            <?php endforeach; ?>
         </div>
+        <?php
+    }
+
+    /** The plugin's switch control, full size for card headers or small for opt-ins. */
+    private function render_switch(string $field_id, bool $checked, bool $small = false)
+    {
+        ?>
+        <label class="ddwpt-toggle<?php echo $small ? " ddwpt-toggle-sm" : ""; ?>">
+            <input type="checkbox"
+                   id="<?php echo esc_attr($field_id); ?>"
+                   name="<?php echo esc_attr($field_id); ?>"
+                   value="1"
+                   <?php checked($checked, true); ?> />
+            <span class="ddwpt-toggle-track">
+                <span class="ddwpt-toggle-thumb"></span>
+            </span>
+        </label>
+        <?php
+    }
+
+    /**
+     * Ability tweaks list what they register as chips. Read abilities come
+     * with the main switch; other rows carry their own opt-in switch, which
+     * is the tweak's existing checkbox setting (same option key).
+     */
+    private function render_ability_rows(array $tweak)
+    {
+        $settings = array_column($tweak["settings"], null, "id");
+
+        foreach ($tweak["abilities"] ?? [] as $row) {
+            $kind    = $row["kind"] ?? "";
+            $names   = is_callable($row["names"] ?? null) ? call_user_func($row["names"]) : ($row["names"] ?? []);
+            $setting = !empty($row["setting"]) ? ($settings[$row["setting"]] ?? null) : null;
+            $title   = $row["title"] ?? ucfirst($kind);
+            $is_on   = $setting ? (bool) get_option($setting["id"]) : true;
+
+            $class = "ddwpt-field-row ddwpt-ability-row";
+            if (!$is_on) $class .= " is-off";
+            if (!empty($row["independent"])) $class .= " is-independent";
+            ?>
+            <div class="<?php echo esc_attr($class); ?>">
+                <span class="ddwpt-field-label">
+                    <?php echo esc_html($title); ?>
+                    <?php if ($kind && $names): ?>
+                    <span class="ddwpt-badge is-<?php echo esc_attr($kind); ?>"><?php echo count($names); ?></span>
+                    <?php endif; ?>
+                </span>
+                <div class="ddwpt-field-input<?php echo $setting ? " ddwpt-ability-optin" : ""; ?>">
+                    <?php if ($setting): ?>
+                    <?php $this->render_switch($setting["id"], $is_on, true); ?>
+                    <div>
+                        <div class="ddwpt-ability-optin-label"<?php echo !empty($setting["description"]) ? ' title="' . esc_attr(wp_strip_all_tags($setting["description"])) . '"' : ""; ?>>
+                            <?php echo esc_html($setting["label"]); ?>
+                            <?php if ($kind === "write" && !preg_grep("/delete/", $names)): ?>
+                            <span class="ddwpt-badge"><?php esc_html_e("No delete", "wp-toolkit"); ?></span>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                    <?php $this->render_ability_chips($names); ?>
+                    <?php if ($setting): ?>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php
+        }
+    }
+
+    public function render_ability_chips(array $names)
+    {
+        if (!$names) return;
+        echo '<div class="ddwpt-ability-chips">';
+        foreach ($names as $name) {
+            $short = str_starts_with($name, "wp-toolkit/") ? substr($name, strlen("wp-toolkit/")) : $name;
+            echo '<code title="' . esc_attr($name) . '">' . esc_html($short) . "</code>";
+        }
+        echo "</div>";
+    }
+
+    private function render_setting_row(array $setting)
+    {
+        $options = $setting["options"] ?? [];
+        if (is_callable($options)) {
+            $setting["options"] = call_user_func($options);
+        }
+        $value = get_option($setting["id"], $setting["default"] ?? "");
+        ?>
+        <?php if (!empty($setting["accordion"])): ?>
+        <details class="ddwpt-field-accordion"<?php echo $this->show_if_attribute($setting); ?>>
+            <summary class="ddwpt-field-accordion-summary">
+                <?php echo esc_html($setting["label"]); ?>
+            </summary>
+            <div class="ddwpt-field-accordion-body">
+                <?php $this->render_field($setting, $value, $setting["id"]); ?>
+                <?php if (!empty($setting["description"])): ?>
+                <p class="description"><?php echo $this->kses_desc($setting["description"]); ?></p>
+                <?php endif; ?>
+            </div>
+        </details>
+        <?php else: ?>
+        <div class="ddwpt-field-row"<?php echo $this->show_if_attribute($setting); ?>>
+            <label class="ddwpt-field-label" for="<?php echo esc_attr($setting["id"]); ?>">
+                <?php echo esc_html($setting["label"]); ?>
+            </label>
+            <div class="ddwpt-field-input">
+                <?php $this->render_field($setting, $value, $setting["id"]); ?>
+                <?php if (!empty($setting["description"])): ?>
+                <p class="description"><?php echo $this->kses_desc($setting["description"]); ?></p>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endif; ?>
         <?php
     }
 
@@ -886,132 +1179,67 @@ class Plugin
         return $count;
     }
 
-    private function get_all_tabs()
-    {
-        $preferred = ["general", "acf", "wp-admin", "animations", "bricks", "seo", "experimental", "ai", "settings"];
-
-        $tabs        = [];
-        $has_general = false;
-
-        $show_experimental = get_option("ddwpt_experiments_enabled");
-
-        foreach ($this->tweaks as $tweak) {
-            $tab = !empty($tweak["tab"]) ? $tweak["tab"] : null;
-            if ($tab === "experimental" && !$show_experimental) continue;
-            if ($tab) {
-                $tabs[$tab] = ucfirst(str_replace("-", " ", $tab));
-            } else {
-                $has_general = true;
-            }
-        }
-
-        if ($has_general) {
-            $tabs["general"] = "General";
-        }
-
-        $tabs["ai"] = "AI";
-        if (isset($tabs["acf"])) {
-            $tabs["acf"] = "ACF";
-        }
-        if (isset($tabs["wp-admin"])) {
-            $tabs["wp-admin"] = "WP Admin";
-        }
-        if (isset($tabs["seo"])) {
-            $tabs["seo"] = "SEO";
-        }
-
-        $sorted = [];
-        foreach ($preferred as $key) {
-            if ($key === "settings") continue;
-            if (isset($tabs[$key])) $sorted[$key] = $tabs[$key];
-        }
-        foreach ($tabs as $key => $label) {
-            if (!isset($sorted[$key]) && $key !== "settings") $sorted[$key] = $label;
-        }
-        if (isset($tabs["settings"])) {
-            $sorted["settings"] = $tabs["settings"];
-        }
-
-        return $sorted;
-    }
-
-    private function get_tweaks_for_tab($tab_id)
-    {
-        return array_filter($this->tweaks, function ($tweak) use ($tab_id) {
-            return (!empty($tweak["tab"]) ? $tweak["tab"] : "general") === $tab_id;
-        });
-    }
-
+    /**
+     * Settings cards first, then render-only panels, except panels marked
+     * 'position' => 'first' (the AI setup card), which lead the group.
+     * Render panels are wrapped so search can find and reveal them.
+     */
     private function render_tweak_group(array $tweaks)
     {
-        $settings_tweaks = array_values(array_filter($tweaks, fn($t) => !isset($t['render'])));
-        $render_tweaks   = array_values(array_filter($tweaks, fn($t) => isset($t['render'])));
+        $is_render = fn($t) => isset($t["render"]);
+        $leading   = array_filter($tweaks, fn($t) => $is_render($t) && ($t["position"] ?? "") === "first");
+        $settings  = array_filter($tweaks, fn($t) => !$is_render($t));
+        $trailing  = array_filter($tweaks, fn($t) => $is_render($t) && ($t["position"] ?? "") !== "first");
 
-        foreach ($settings_tweaks as $tweak) {
-            $this->render_tweak_card($tweak);
-        }
-        foreach ($render_tweaks as $tweak) {
-            call_user_func($tweak['render'], $this);
-        }
+        foreach ($leading as $tweak) $this->render_panel($tweak);
+        foreach ($settings as $tweak) $this->render_tweak_card($tweak);
+        foreach ($trailing as $tweak) $this->render_panel($tweak);
     }
 
-    // Sub-tabs within a top-level tab. A tab opts in by giving at least one
-    // of its tweaks a 'group' key; tweaks in that tab without one fall back
-    // to a "Miscellaneous" group so nothing silently disappears. Tabs where
-    // no tweak declares a group return [] here, which skips sub-tab
-    // rendering entirely and keeps existing tabs unchanged.
-    private function get_groups_for_tab(array $tweaks): array
+    private function render_panel(array $tweak)
     {
-        $has_group = false;
-        foreach ($tweaks as $tweak) {
-            if (!empty($tweak['group'])) {
-                $has_group = true;
-                break;
+        $tweak += ["label" => ""];
+        echo "<div" . $this->card_attributes($tweak, "ddwpt-render-panel") . ">";
+        call_user_func($tweak["render"], $this);
+        echo "</div>";
+    }
+
+    public function get_tweaks(): array
+    {
+        return $this->tweaks;
+    }
+
+    /**
+     * Counts across every tweak that declares `abilities`, for the AI setup
+     * card. An ability is live when its tweak is on, its plugins are active
+     * and, for opt-in rows, the opt-in is on.
+     */
+    public function get_ability_summary(): array
+    {
+        $summary = ["total" => 0, "read" => 0, "write" => 0, "tweaks" => 0, "tweaks_on" => 0];
+
+        foreach ($this->tweaks as $tweak) {
+            if (empty($tweak["abilities"])) continue;
+            $summary["tweaks"]++;
+            $tweak_live = $this->is_tweak_on($tweak) && !Settings_Layout::missing_requirements($tweak);
+            if ($tweak_live) $summary["tweaks_on"]++;
+
+            foreach ($tweak["abilities"] as $row) {
+                $kind = $row["kind"] ?? "";
+                if (!in_array($kind, ["read", "write"], true)) continue;
+                $count = count($row["names"]);
+                $summary["total"] += $count;
+                if ($tweak_live && (empty($row["setting"]) || get_option($row["setting"]))) {
+                    $summary[$kind] += $count;
+                }
             }
         }
-        if (!$has_group) {
-            return [];
-        }
 
-        $groups = [];
-        foreach ($tweaks as $tweak) {
-            $group_id = !empty($tweak['group']) ? $tweak['group'] : 'miscellaneous';
-            if (!isset($groups[$group_id])) {
-                $groups[$group_id] = ucwords(str_replace('-', ' ', $group_id));
-            }
-        }
-
-        return $groups;
+        $summary["live"] = $summary["read"] + $summary["write"];
+        return $summary;
     }
 
-    private function get_tweaks_for_group(array $tweaks, string $group_id): array
-    {
-        return array_values(array_filter($tweaks, function ($tweak) use ($group_id) {
-            $tweak_group = !empty($tweak['group']) ? $tweak['group'] : 'miscellaneous';
-            return $tweak_group === $group_id;
-        }));
-    }
-
-    private function get_tab_icon($tab_id)
-    {
-        $icons = [
-            "general"      => "App-Window-Lucide.svg",
-            "acf"          => "Boxes-Lucide.svg",
-            "wp-admin"     => "Gauge-Lucide.svg",
-            "bricks"       => "Layout-Dashboard-Lucide.svg",
-            "animations"   => "Sparkles-Lucide.svg",
-            "themes"       => "Swatch-Book-Lucide.svg",
-            "debug"        => "Bug-Play-Lucide.svg",
-            "seo"          => "Search-Lucide.svg",
-            "experimental" => "Flask-Conical-Lucide.svg",
-            "ai"           => "Sparkles-Lucide.svg",
-            "settings"     => "Swatch-Book-Lucide.svg",
-        ];
-        $file = $icons[$tab_id] ?? "Boxes-Lucide.svg";
-        return $this->inline_icon($file);
-    }
-
-    private function inline_icon($filename)
+    public function inline_icon($filename)
     {
         $path = plugin_dir_path(__DIR__) . "assets/icons/" . $filename;
         if (!file_exists($path)) {

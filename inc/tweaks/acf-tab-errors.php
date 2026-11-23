@@ -5,8 +5,10 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_acf_tab_errors',
     'label' => 'Highlight Tabs With Errors',
-    'tab'   => 'acf',
-    'group' => 'general',
+    'tab'   => 'content',
+    'group' => 'editing-screens',
+    'description' => 'Highlight ACF tabs that contain a validation error.',
+    'requires' => ['ACF'],
 
     'settings' => [
         [

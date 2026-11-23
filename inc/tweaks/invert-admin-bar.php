@@ -32,8 +32,9 @@ function invert_admin()
 return [
     'id'    => 'ddwpt_invert_admin_bar',
     'label' => 'Invert Admin Bar',
-    'tab'   => 'wp-admin',
-    'group' => 'top-bar',
+    'tab'   => 'admin',
+    'group' => 'admin-bar',
+    'description' => 'Use a light admin bar instead of the default dark one.',
 
     'settings' => [
         [

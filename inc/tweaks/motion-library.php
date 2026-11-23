@@ -5,7 +5,11 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_motion_library',
     'label' => 'Motion Animations',
-    'tab'   => 'experimental',
+    'tab'   => 'builder',
+    'group' => 'elements',
+    'description' => 'Load Motion and its preset animations.',
+    'tags'  => ['Frontend'],
+    'labs'  => true,
 
     'settings' => [
         [

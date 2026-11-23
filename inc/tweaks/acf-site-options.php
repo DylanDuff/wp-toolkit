@@ -5,8 +5,10 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_acf_site_options',
     'label' => 'ACF Site Options',
-    'tab'   => 'acf',
-    'group' => 'general',
+    'tab'   => 'content',
+    'group' => 'site-options',
+    'description' => 'Options page for brand, contact, social and map details.',
+    'requires' => ['ACF'],
 
     'settings' => [
         [
@@ -19,7 +21,14 @@ return [
             'id'        => 'field_keys',
             'type'      => 'acf_keys',
             'label'     => 'Field Names',
-            'accordion' => true,
+            'description' => 'Field names the Site Options page registers, for use in templates and dynamic tags.',
+            // Long reference table: shown on its own page in the Content model area.
+            'page'      => [
+                'id'      => 'site-options-fields',
+                'label'   => 'Site Options Fields',
+                'link'    => 'View field names',
+                'summary' => 'Brand, contact, social, map and extras fields.',
+            ],
             'keys'      => [
                 ['name' => 'so_brand_logo',        'type' => 'image',    'label' => 'Brand logo'],
                 ['name' => 'so_phone_number',      'type' => 'text',     'label' => 'Phone number'],

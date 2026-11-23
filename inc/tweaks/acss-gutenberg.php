@@ -5,8 +5,11 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_acss_gutenberg',
     'label' => 'ACSS in Gutenberg',
-    'tab'   => 'bricks',
+    'tab'   => 'builder',
     'group' => 'gutenberg',
+    'description' => 'Load Automatic CSS in the block editor.',
+    'tags'  => ['Block editor'],
+    'requires' => ['Bricks', 'ACSS'],
 
     'settings' => [
         [

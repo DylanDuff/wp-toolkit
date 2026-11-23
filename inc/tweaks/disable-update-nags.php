@@ -5,8 +5,10 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_disable_update_nags',
     'label' => 'Disable Update Nags',
-    'tab'   => 'general',
-    'group' => 'notifications',
+    'tab'   => 'site',
+    'group' => 'notices',
+    'description' => 'Hide core, plugin and theme update notices.',
+    'tags'  => ['Non-admins'],
 
     'settings' => [
         [

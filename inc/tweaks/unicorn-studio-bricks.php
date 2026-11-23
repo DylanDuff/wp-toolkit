@@ -5,8 +5,11 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_unicorn_studio_bricks',
     'label' => 'Unicorn Studio Bricks Element',
-    'tab'   => 'bricks',
+    'tab'   => 'builder',
     'group' => 'elements',
+    'description' => 'Register a Unicorn Studio element in Bricks Builder.',
+    'tags'  => ['CDN'],
+    'requires' => ['Bricks'],
 
     'settings' => [
         [

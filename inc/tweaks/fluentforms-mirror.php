@@ -117,8 +117,11 @@ function fluentforms_mirror_queue_sync()
 return [
     'id'    => 'ddwpt_fluentforms_mirror',
     'label' => 'Fluent Forms Mirror',
-    'tab'   => 'bricks',
-    'group' => 'integrations',
+    'tab'   => 'integrations',
+    'group' => 'fluent-forms',
+    'description' => 'Mirror Fluent Forms as posts for Bricks loops and popups.',
+    'tags'  => ['Not public', 'Bricks loops'],
+    'requires' => ['Fluent Forms'],
 
     'settings' => [
         [

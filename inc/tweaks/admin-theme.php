@@ -38,7 +38,10 @@ foreach ($theme_files as $file) {
 return [
     'id'    => 'ddwpt_admin_theme',
     'label' => 'Admin Theme',
-    'tab'   => 'experimental',
+    'tab'   => 'admin',
+    'group' => 'look-and-feel',
+    'description' => 'Pick an admin colour theme from inc/themes/.',
+    'labs'  => true,
 
     'settings' => [
         [

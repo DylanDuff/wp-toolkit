@@ -19,8 +19,10 @@ if (get_option('ddwpt_acf_settings_enabled')) {
 return [
     'id'    => 'ddwpt_acf_settings',
     'label' => 'Group CPTs',
-    'tab'   => 'acf',
-    'group' => 'general',
+    'tab'   => 'content',
+    'group' => 'editing-screens',
+    'description' => 'Group content type presets under one "Collections" menu item.',
+    'requires' => ['ACF'],
 
     'settings' => [
         [

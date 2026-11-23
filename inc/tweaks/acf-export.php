@@ -5,8 +5,11 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_acf_export',
     'label' => 'Export ACF Presets',
-    'tab'   => 'acf',
-    'group' => 'general',
+    'tab'   => 'content',
+    'group' => 'tools',
+    'description' => 'Download enabled presets as JSON for ACF → Tools → Import.',
+    'tags'  => ['JSON'],
+    'requires' => ['ACF'],
 
     'settings' => [
         [

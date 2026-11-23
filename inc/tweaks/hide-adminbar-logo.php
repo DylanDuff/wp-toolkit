@@ -5,8 +5,9 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_hide_adminbar_logo',
     'label' => 'Hide Admin Bar Logo',
-    'tab'   => 'wp-admin',
-    'group' => 'top-bar',
+    'tab'   => 'admin',
+    'group' => 'admin-bar',
+    'description' => 'Remove the WordPress logo menu.',
 
     'settings' => [
         [

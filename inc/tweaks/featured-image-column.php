@@ -5,8 +5,9 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_featured_image_column',
     'label' => 'Show Featured Image Column',
-    'tab'   => 'wp-admin',
-    'group' => 'tables',
+    'tab'   => 'admin',
+    'group' => 'list-tables',
+    'description' => 'Thumbnail column in list tables.',
 
     'settings' => [
         [

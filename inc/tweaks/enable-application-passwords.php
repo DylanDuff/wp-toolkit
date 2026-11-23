@@ -5,7 +5,9 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_enable_application_passwords',
     'label' => 'Enable Application Passwords',
-    'tab'   => 'general',
+    'tab'   => 'site',
+    'group' => 'security',
+    'description' => 'Allow Application Passwords, even without HTTPS.',
 
     'settings' => [
         [

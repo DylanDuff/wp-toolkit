@@ -5,8 +5,10 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_disable_404_guessing',
     'label' => 'Disable 404 Guessing',
-    'tab'   => 'general',
-    'group' => 'seo',
+    'tab'   => 'seo',
+    'group' => 'urls',
+    'description' => 'Return a 404 instead of redirecting to a similar URL.',
+    'tags'  => ['Frontend'],
 
     'settings' => [
         [

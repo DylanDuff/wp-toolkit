@@ -253,6 +253,9 @@ return [
     'id'    => 'ddwpt_seo_schema',
     'label' => 'Structured Data (Schema)',
     'tab'   => 'seo',
+    'group' => 'schema',
+    'description' => 'Output JSON-LD for each post type from templates.',
+    'tags'  => ['Frontend', 'JSON-LD'],
 
     'settings' => [
         [

@@ -13,8 +13,10 @@ function strip_version_query($src, $handle)
 return [
     'id'    => 'ddwpt_hide_wp_version',
     'label' => 'Hide WP Version',
-    'tab'   => 'general',
+    'tab'   => 'site',
     'group' => 'security',
+    'description' => 'Strip the WordPress version from the frontend and assets.',
+    'tags'  => ['Frontend'],
 
     'settings' => [
         [

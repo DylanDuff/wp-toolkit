@@ -104,8 +104,11 @@ function dynamic_tags_page_type(): string
 return [
     'id'    => 'ddwpt_bricks_dynamic_tags',
     'label' => 'Extra Dynamic Tags',
-    'tab'   => 'bricks',
-    'group' => 'builder',
+    'tab'   => 'builder',
+    'group' => 'data',
+    'description' => 'Adds reading time, post count and page type dynamic tags.',
+    'tags'  => ['Dynamic tags'],
+    'requires' => ['Bricks'],
 
     'settings' => [
         [
