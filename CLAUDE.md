@@ -49,6 +49,7 @@ Only these paths are packaged: `plugin.php`, `assets/`, `inc/`, `plugin-update-c
 | `class-plugin.php` | `Plugin` | Admin menu, settings page render, asset enqueueing, AJAX export/import |
 | `class-tweak-loader.php` | `Tweak_Loader` | Loads + validates tweaks, auto-prefixes option IDs, fires callbacks on `init` |
 | `class-knowledge-base.php` | `Knowledge_Base` | Markdown-based KB; sidebar menu or dashboard panel mode |
+| `class-bricks-tags.php` | `Bricks_Tags` | Registers string-valued Bricks dynamic tags (list + all three render filters) for tweaks |
 
 ### Tweaks (`inc/tweaks/`)
 
@@ -210,6 +211,8 @@ Two builder behaviours are undocumented upstream and fail silently — see `docs
 
 Bricks builds `Setup::$control_options` on `init` before tweak callbacks run, so `bricks/setup/control_options` filters must be added at file-load time (same pattern as the ACF filters below). `bricks-term-order.php` is the example: it adds `term_order` to `termsOrderBy` for term query loops.
 
+Simple string-valued dynamic tags go through `\DDWPTweaks\Bricks_Tags::register()` rather than hand-wired filters (`bricks-dynamic-tags.php`, `linked-author.php`); see `docs/bricks-builder-tweaks.md`.
+
 Third-party runtimes are vendored or CDN-loaded per element, deliberately: vendor when nothing users author depends on the version (Embla), stay on a CDN when the runtime must track upstream export formats (Rive, Unicorn Studio, Mapbox). Always pin an exact version.
 
 ---
@@ -251,5 +254,8 @@ Markdown articles auto-discovered from the directory. `manifest.php` provides in
 | `ai-abilities.md` | Registered AI abilities, MCP visibility gotchas, whitelist mechanism |
 | `seo-schema.md` | Structured Data tweak: template tokens, transforms, directives, editor, SEO plugin conflicts |
 | `fluent-forms-mirror.md` | Fluent Forms → `ff_form` CPT mirror for Bricks query loops and popups, sync triggers |
+| `bricks-builder-tweaks.md` | `Bricks_Tags` helper, extra dynamic tags, component property groups in Gutenberg, extra HTML tags |
+| `linked-author.md` | Team member as post author: filters, `{linked_author:field}` tag |
+| `acf-admin-screens.md` | ACF tab error highlighting, tidier term edit screens and left tabs on term screens |
 
 Keep docs current when features change materially.
