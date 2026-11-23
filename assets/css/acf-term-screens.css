@@ -1,0 +1,291 @@
+/*
+ * Tidier term edit screens (inc/tweaks/acf-term-screens.php). Loaded on term.php only.
+ * See docs/acf-admin-screens.md.
+ */
+
+/* ---------- Core term fields as a card ---------- */
+form[name="edittag"]#edittag {
+   max-width: 100%; 
+}
+
+/* =========================================================
+   Core term fields only (Name, Slug, Description, Permalink)
+   ACF tables are never matched by these selectors
+   ========================================================= */
+
+.term-php #edittag > .form-table:has(.term-name-wrap),
+.term-php #edittag > .form-table:has(.term-name-wrap) > tbody {
+  display: block;
+  max-width: 860px;
+}
+
+.term-php #edittag > .form-table:has(.term-name-wrap) {
+  background: #fff;
+  border: 1px solid #dcdcde;
+  border-radius: 8px;
+  margin-top: 16px;
+}
+
+.term-php #edittag > .form-table:has(.term-name-wrap) > tbody > tr {
+  display: block;
+  padding: 20px 24px;
+  border-bottom: 1px solid #f0f0f1;
+}
+
+.term-php #edittag > .form-table:has(.term-name-wrap) > tbody > tr:last-child {
+  border-bottom: 0;
+}
+
+.term-php #edittag > .form-table:has(.term-name-wrap) > tbody > tr > th,
+.term-php #edittag > .form-table:has(.term-name-wrap) > tbody > tr > td {
+  display: block;
+  width: auto;
+  padding: 0;
+}
+
+.term-php #edittag > .form-table:has(.term-name-wrap) > tbody > tr > th {
+  margin-bottom: 8px;
+}
+
+.term-php #edittag > .form-table:has(.term-name-wrap) > tbody > tr > th > label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1d2327;
+}
+
+/* ---------- Inputs (direct children of the cell only) ---------- */
+.term-php #edittag .term-name-wrap > td > input[type="text"],
+.term-php #edittag .term-slug-wrap > td > input[type="text"] {
+  width: 100%;
+  max-width: 480px;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.term-php #edittag .term-slug-wrap > td > input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}
+
+/* ---------- Helper text ---------- */
+.term-php #edittag > .form-table:has(.term-name-wrap) > tbody > tr > td > p.description {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #757575;
+  margin-top: 6px;
+  max-width: 60ch;
+}
+
+/* ---------- Description editor ---------- */
+.term-php #edittag .term-description-wrap > td > .wp-editor-wrap {
+  max-width: 720px;
+}
+
+.term-php #edittag .term-description-wrap > td > .wp-editor-wrap .wp-editor-container {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.term-php #edittag .term-description-wrap > td > .wp-editor-wrap .mce-btn:has(
+  .mce-i-alignleft,
+  .mce-i-aligncenter,
+  .mce-i-alignright,
+  .mce-i-wp_more,
+  .mce-i-fullscreen,
+  .mce-i-wp_adv
+) {
+  display: none;
+}
+
+.term-php #edittag .term-description-wrap > td > .wp-editor-wrap .mce-edit-area iframe {
+  height: 160px !important;
+}
+
+/* ---------- Permalink Manager ---------- */
+.term-php #edittag > .form-table:has(.term-name-wrap) > tbody > tr.permalink-manager-edit-term {
+  background: #f9f9f9;
+  border-radius: 0 0 8px 8px;
+}
+
+.term-php #edittag tr.permalink-manager-edit-term > th > label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #50575e;
+}
+
+.term-php #edittag tr.permalink-manager-edit-term .permalink-manager-edit-uri-box {
+  margin-top: 12px;
+  max-width: 720px;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.term-php #edittag tr.permalink-manager-edit-term .permalink-manager-edit-uri-box .inside > div {
+  margin-bottom: 16px;
+}
+
+.term-php #edittag tr.permalink-manager-edit-term .default-permalink-row {
+  font-size: 12px;
+  color: #757575;
+}
+
+/* =========================================================
+   Section ordering (only sets `order` on top-level blocks)
+   ========================================================= */
+
+.term-php #edittag {
+  display: flex;
+  flex-direction: column;
+}
+
+.term-php #edittag > * {
+  order: 2;
+}
+
+.term-php #edittag > .form-table:has(.term-name-wrap) {
+  order: 0;
+}
+
+.term-php #edittag > :has(.acf-field):not(:has(.term-name-wrap)),
+.term-php #edittag > h2:has(+ :is(.form-table, div) .acf-field) {
+  order: 1;
+}
+
+.term-php #edittag > .edit-tag-actions,
+.term-php #edittag > .submit {
+  order: 3;
+}
+
+/* ---------- Sticky actions and ACF left tabs ---------- */
+/*
+ * Keep Update / Delete in view: the actions bar sticks to the bottom of the viewport
+ * while scrolling and settles back into place at the end of the form. Sticky rather
+ * than fixed, so it needs no admin-menu offsets and never covers the last field.
+ */
+#edittag .edit-tag-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    padding: .75rem 1rem;
+    border-top: 1px solid #dcdcde;
+    border-radius: .5rem .5rem 0 0;
+    background: #fff;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, .06);
+}
+
+/* Field group card: the group's <h2> and its table read as one white panel. */
+form#edittag > h2.ddwpt-acf-left-tabs-heading {
+    margin: 3rem 0 0;
+    padding: 1rem;
+    border-radius: .5rem .5rem 0 0;
+    background: #fff;
+}
+
+form#edittag > table.form-table.ddwpt-acf-left-tabs {
+    margin-top: 0;
+    background: #fff;
+    border-radius: 0 0 .5rem .5rem;
+    padding-bottom: 1rem;
+}
+
+/*
+ * Layout is a float, not CSS grid: a grid spanning hundreds of implicit rows made every
+ * tab switch (dozens of rows and TinyMCE iframes shown/hidden) re-lay out the whole
+ * grid, which was visibly laggy. A floated tab column plus a left margin on the field
+ * rows only touches the rows that change.
+ */
+@media (min-width: 783px) {
+    table.form-table.ddwpt-acf-left-tabs {
+        display: block;
+    }
+
+    /* flow-root contains the floated tab column so the card grows to fit it. */
+    table.form-table.ddwpt-acf-left-tabs > tbody {
+        display: flow-root;
+    }
+
+    /* Rows before the tab bar (any core term rows) keep a label | input layout. */
+    .ddwpt-acf-left-tabs > tbody > tr:not(.acf-hidden):not(.acf-field-tab) {
+        display: flex;
+    }
+
+    .ddwpt-acf-left-tabs > tbody > tr > td {
+        flex: 1;
+        min-width: 0;
+    }
+
+    /* The tab bar floats into a 200px left column beside every row that follows it. */
+    .ddwpt-acf-left-tabs > tbody > tr.acf-tab-wrap {
+        display: block;
+        float: left;
+        width: 200px;
+    }
+
+    .ddwpt-acf-left-tabs > tbody > tr.acf-tab-wrap > td {
+        display: block;
+        padding: 0;
+    }
+
+    /*
+     * ACF field rows sit beside the tab column. Targeted by .acf-field rather than
+     * `tr.acf-tab-wrap ~ tr`: a sibling combinator makes every acf-hidden toggle on a tab
+     * switch re-check all following rows, which multiplies across a tab's fields.
+     */
+    /*
+     * flow-root + clear: none. ACF gives .acf-field `clear: both`, both on these rows and
+     * on fields nested inside group fields. Without a new block formatting context, those
+     * clears also clear the floated tab column and push the fields below it.
+     */
+    .ddwpt-acf-left-tabs > tbody > tr.acf-field:not(.acf-hidden):not(.acf-field-tab) {
+        display: flow-root;
+        clear: none;
+        margin-left: 224px;
+    }
+
+    .ddwpt-acf-left-tabs > tbody > tr.acf-field > th,
+    .ddwpt-acf-left-tabs > tbody > tr.acf-field > td {
+        display: block;
+        width: auto;
+        padding: 12px 0 0;
+    }
+
+    /*
+     * Vertical tab list. Selectors start with table.form-table.ddwpt-acf-left-tabs > tbody > tr
+     * to outrank ACF's `.form-table > tbody > tr.acf-tab-wrap .acf-tab-group`, which adds
+     * 210px left padding and would push the tabs out of the 200px column.
+     */
+    table.form-table.ddwpt-acf-left-tabs > tbody > tr.acf-tab-wrap .acf-tab-group {
+        display: flex;
+        flex-direction: column;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-right: 1px solid #dcdcde;
+    }
+
+    table.form-table.ddwpt-acf-left-tabs > tbody > tr.acf-tab-wrap .acf-tab-group li {
+        float: none;
+        margin: 0;
+    }
+
+    table.form-table.ddwpt-acf-left-tabs > tbody > tr.acf-tab-wrap .acf-tab-group li a {
+        display: block;
+        margin: 0;
+        padding: 10px 12px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        text-align: left;
+    }
+
+    table.form-table.ddwpt-acf-left-tabs > tbody > tr.acf-tab-wrap .acf-tab-group li.active a {
+        margin-right: -1px;
+        border-right: 2px solid #2271b1;
+        background: #f0f6fc;
+        color: #1d2327;
+    }
+}
