@@ -100,6 +100,116 @@
     });
   }
 
+  /**
+   * Point features from the GeoJSON, in their own source so the clusterer
+   * (which drops non-point features) never touches the service area.
+   * With points.cluster set, nearby points merge into counted circles that
+   * zoom in on click; anything not in a cluster is drawn as a plain dot.
+   */
+  function addPoints(map, id, points) {
+    var sourceId = "points-" + id;
+    var cluster = points.cluster;
+
+    if (map.getSource(sourceId)) {
+      return;
+    }
+
+    var source = { type: "geojson", data: points.geojson };
+
+    if (cluster) {
+      source.cluster = true;
+      source.clusterRadius = cluster.radius;
+      source.clusterMaxZoom = cluster.maxZoom;
+    }
+
+    map.addSource(sourceId, source);
+
+    if (cluster) {
+      map.addLayer({
+        id: sourceId + "-clusters",
+        type: "circle",
+        source: sourceId,
+        filter: ["has", "point_count"],
+        paint: {
+          "circle-color": cluster.color,
+          "circle-radius": ["step", ["get", "point_count"], 16, 10, 22, 50, 28],
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#ffffff",
+        },
+      });
+
+      map.addLayer({
+        id: sourceId + "-count",
+        type: "symbol",
+        source: sourceId,
+        filter: ["has", "point_count"],
+        layout: {
+          "text-field": ["get", "point_count_abbreviated"],
+          "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
+          "text-size": 12,
+          "text-allow-overlap": true,
+        },
+        paint: { "text-color": "#ffffff" },
+      });
+
+      onLayerClick(map, sourceId + "-clusters", function (feature) {
+        map.getSource(sourceId).getClusterExpansionZoom(feature.properties.cluster_id, function (error, zoom) {
+          if (!error) {
+            map.easeTo({ center: feature.geometry.coordinates, zoom: zoom });
+          }
+        });
+      });
+    }
+
+    map.addLayer({
+      id: sourceId + "-point",
+      type: "circle",
+      source: sourceId,
+      filter: ["!", ["has", "point_count"]],
+      paint: {
+        "circle-color": points.color,
+        "circle-radius": 7,
+        "circle-stroke-width": 2,
+        "circle-stroke-color": "#ffffff",
+      },
+    });
+
+    onLayerClick(map, sourceId + "-point", function (feature) {
+      if (!feature.properties.popup) {
+        return;
+      }
+
+      new mapboxgl.Popup({ offset: 10 })
+        .setLngLat(feature.geometry.coordinates.slice())
+        .setHTML(feature.properties.popup)
+        .addTo(map);
+    });
+  }
+
+  /** Run handler with the clicked feature, and show a pointer over the layer. */
+  function onLayerClick(map, layerId, handler) {
+    map.on("click", layerId, function (event) {
+      handler(event.features[0]);
+    });
+
+    map.on("mouseenter", layerId, function () {
+      map.getCanvas().style.cursor = "pointer";
+    });
+
+    map.on("mouseleave", layerId, function () {
+      map.getCanvas().style.cursor = "";
+    });
+  }
+
+  /** addSource / addLayer throw until the style has loaded. */
+  function whenLoaded(map, callback) {
+    if (map.loaded()) {
+      callback();
+    } else {
+      map.on("load", callback);
+    }
+  }
+
   function buildMap(root) {
     var config = readConfig(root);
 
@@ -154,16 +264,17 @@
       marker.addTo(map);
     }
 
-    if (config.area) {
-      var add = function () {
-        addServiceArea(map, id, config.area);
-      };
+    if (config.area || config.points) {
+      whenLoaded(map, function () {
+        // Area first so points draw above it.
+        if (config.area) {
+          addServiceArea(map, id, config.area);
+        }
 
-      if (map.loaded()) {
-        add();
-      } else {
-        map.on("load", add);
-      }
+        if (config.points) {
+          addPoints(map, id, config.points);
+        }
+      });
     }
 
     // Mapbox only measures its container at init and on window resize. Neither
