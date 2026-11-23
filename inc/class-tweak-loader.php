@@ -18,6 +18,7 @@ class Tweak_Loader
         'acf-settings',
         'acf-tab-errors',
         'acf-term-screens',
+        'acf-shopify-products',
         'acf-site-options',
         'acf-export',
         'acf-faq',
