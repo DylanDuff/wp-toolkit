@@ -82,6 +82,30 @@ class Schema_Sources
         return false;
     }
 
+    /**
+     * True for a related post (WP_Post, ID or ACF post array) that isn't
+     * public: drafts, pending, private, scheduled or trashed. Attachments
+     * ("inherit") and anything that isn't a post count as published, so
+     * gallery IDs, terms and repeater rows pass through.
+     */
+    public static function is_unpublished($entry): bool
+    {
+        if (is_array($entry)) {
+            $entry = isset($entry['ID']) ? $entry['ID'] : null;
+        }
+        if (!$entry instanceof \WP_Post && !(is_int($entry) || ctype_digit((string) $entry))) {
+            return false;
+        }
+
+        $post = get_post($entry);
+        if (!$post || $post->post_type === 'attachment') {
+            return false;
+        }
+
+        $statuses = (array) apply_filters('ddwpt_schema_related_statuses', ['publish']);
+        return !in_array(get_post_status($post), $statuses, true);
+    }
+
     public static function resolve(string $source, Schema_Renderer $renderer)
     {
         $post_id = $renderer->post_id();
@@ -171,7 +195,7 @@ class Schema_Sources
         switch ($key) {
             case 'id':        return $post->ID;
             case 'type':      return $post->post_type;
-            case 'title':     return get_the_title($post);
+            case 'title':     return Schema_Transforms::post_title($post);
             case 'url':       return get_permalink($post);
             case 'excerpt':   return has_excerpt($post) ? Schema_Transforms::clean($post->post_excerpt) : null;
             case 'content':   return $post->post_content;

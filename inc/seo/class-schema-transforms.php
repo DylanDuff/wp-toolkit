@@ -39,7 +39,7 @@ class Schema_Transforms
     public static function catalogue(): array
     {
         $catalogue = [
-            'clean'   => ['arg' => '',              'label' => 'Strip HTML and collapse whitespace'],
+            'clean'   => ['arg' => '',              'label' => 'Strip HTML, decode entities and collapse whitespace'],
             'summary' => ['arg' => 'characters',    'label' => 'Opening sentences up to N characters (default 220)'],
             'minutes' => ['arg' => '',              'label' => '"1 hour 10 minutes" to 70'],
             'duration' => ['arg' => '',             'label' => 'Minutes to ISO 8601 duration (PT1H10M)'],
@@ -48,7 +48,7 @@ class Schema_Transforms
             'time'    => ['arg' => '',              'label' => '"7:30am" to "07:30"'],
             'address' => ['arg' => 'country',       'label' => 'One-line address to PostalAddress (AU, US, CA, NZ, GB)'],
             'geo'     => ['arg' => 'longitude source', 'label' => 'Latitude (or ACF map) to GeoCoordinates'],
-            'phone'   => ['arg' => 'country prefix', 'label' => 'Phone number to international format, e.g. +61'],
+            'phone'   => ['arg' => 'country prefix', 'label' => 'Phone number to tidy international format, e.g. +61'],
             'map'     => ['arg' => 'table',         'label' => 'Look up values in a lookup table, dropping misses'],
             'pairs'   => ['arg' => 'key,value',     'label' => 'Repeater rows to {key: value}, e.g. label,statistic'],
             'nutrition' => ['arg' => 'label,value', 'label' => 'Repeater rows (Calories, Fat, Protein...) to NutritionInformation'],
@@ -64,7 +64,7 @@ class Schema_Transforms
             'unique'  => ['arg' => '',              'label' => 'Remove duplicate list items'],
             'int'     => ['arg' => '',              'label' => 'Whole number'],
             'float'   => ['arg' => '',              'label' => 'Decimal number'],
-            'date'    => ['arg' => '',              'label' => 'Date to ISO 8601'],
+            'date'    => ['arg' => 'time source',   'label' => 'Date (Ymd, d/m/Y...) to ISO 8601, optionally with a time field'],
             'fallback' => ['arg' => 'text or tags',  'label' => 'Used when the value is empty; written as @fallback'],
             'prefix'  => ['arg' => 'text',          'label' => 'Text before the value, only when it is not empty'],
             'suffix'  => ['arg' => 'text',          'label' => 'Text after the value, only when it is not empty'],
@@ -125,7 +125,10 @@ class Schema_Transforms
             'unique'   => fn($value) => is_array($value) ? array_values(array_unique($value, SORT_REGULAR)) : $value,
             'int'      => fn($value) => self::map_scalars($value, fn($item) => is_numeric($item) ? (int) $item : null),
             'float'    => fn($value) => self::map_scalars($value, fn($item) => is_numeric($item) ? (float) $item : null),
-            'date'     => fn($value) => self::map_scalars($value, [self::class, 'date']),
+            'date'     => function ($value, $arg, $renderer) {
+                $time = $arg !== '' ? self::to_text($renderer->resolve_argument($arg)) : '';
+                return self::map_scalars($value, fn($item) => self::date($item, $time));
+            },
             'fallback' => fn($value, $arg, $renderer) => Schema_Renderer::is_empty($value) ? $renderer->resolve_argument($arg) : $value,
             'default'  => fn($value, $arg, $renderer) => Schema_Renderer::is_empty($value) ? $renderer->resolve_argument($arg) : $value,
             'prefix'   => fn($value, $arg) => Schema_Renderer::is_empty($value) ? null : $arg . self::to_text($value),
@@ -148,6 +151,12 @@ class Schema_Transforms
         return '';
     }
 
+    /** get_the_title() texturizes ("&#8217;"); JSON-LD wants the characters. */
+    public static function post_title($post): string
+    {
+        return html_entity_decode(get_the_title($post), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+
     private static function map_scalars($value, callable $callback)
     {
         if (is_array($value) && array_is_list($value)) {
@@ -157,9 +166,11 @@ class Schema_Transforms
         return is_scalar($value) ? $callback($value) : $value;
     }
 
+    /** Plain text: tags stripped, entities (&#8217; &nbsp; &amp;) decoded, whitespace collapsed. */
     public static function clean($text): string
     {
-        return trim(preg_replace('/\s+/u', ' ', wp_strip_all_tags((string) $text)));
+        $text = html_entity_decode(wp_strip_all_tags((string) $text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        return trim(preg_replace('/[\s\p{Zs}]+/u', ' ', $text));
     }
 
     private static function summary($text, int $limit): string
@@ -206,7 +217,7 @@ class Schema_Transforms
         return 'PT' . ($hours ? $hours . 'H' : '') . ($rest ? $rest . 'M' : '');
     }
 
-    /** "7:30am" → "07:30"; "17:30" stays "17:30" */
+    /** "7:30am" → "07:30"; "17:30" and ACF's stored "17:30:00" → "17:30" */
     public static function time($time): ?string
     {
         $time = (string) $time;
@@ -216,7 +227,7 @@ class Schema_Transforms
             return sprintf('%02d:%s', $hour, $match[2] ?: '00');
         }
 
-        if (preg_match('/^\s*(\d{1,2}):(\d{2})\s*$/', $time, $match)) {
+        if (preg_match('/^\s*(\d{1,2}):(\d{2})(?::\d{2})?\s*$/', $time, $match)) {
             return sprintf('%02d:%s', (int) $match[1], $match[2]);
         }
 
@@ -305,20 +316,39 @@ class Schema_Transforms
         return ['@type' => 'GeoCoordinates', 'latitude' => (float) $latitude, 'longitude' => (float) $longitude];
     }
 
-    /** ACF link fields use their title; "1300 123 674" + "+61" → "+61 1300 123 674"; "02 9999 0000" → "+61 2 9999 0000" */
+    /**
+     * ACF link fields use their title. Separators become single spaces and a
+     * trunk "0" is dropped after the country code, written or added:
+     * "+61 (02) 9809 4464", "+61 (0)2 9809 4464", "(02) 9809 4464" + "+61"
+     * and "02-9809-4464" + "+61" all give "+61 2 9809 4464".
+     */
     private static function phone($phone, string $prefix): ?string
     {
-        $phone = trim(is_array($phone) ? (string) ($phone['title'] ?? '') : self::to_text($phone));
+        $phone  = trim(is_array($phone) ? (string) ($phone['title'] ?? '') : self::to_text($phone));
+        $prefix = trim($prefix);
 
         if ($phone === '') {
             return null;
         }
 
-        if ($prefix === '' || str_starts_with($phone, '+')) {
+        $phone = preg_replace('/^tel:/i', '', $phone);
+        $phone = preg_replace('/\(\s*0\s*\)|\(\s*0(?=\d)/', '(', $phone); // "(0)2" and "(02)" lose the trunk 0
+        $phone = trim(preg_replace('/[\s\p{Zs}().\-–—\/]+/u', ' ', $phone));
+
+        if (str_starts_with($phone, '+')) {
+            $phone = '+' . ltrim(substr($phone, 1));
+            // "+61 02 9809 4464": a bare trunk 0 after the prefix we were given
+            if ($prefix !== '' && preg_match('/^' . preg_quote($prefix, '/') . ' 0(?=\d)/', $phone)) {
+                $phone = $prefix . ' ' . substr($phone, strlen($prefix) + 2);
+            }
             return $phone;
         }
 
-        return $prefix . ' ' . preg_replace('/^0(?=\d)/', '', $phone);
+        if ($prefix === '') {
+            return $phone;
+        }
+
+        return $prefix . ' ' . ltrim(preg_replace('/^0(?=\d)/', '', $phone));
     }
 
     private static function lookup($value, array $table)
@@ -438,7 +468,7 @@ class Schema_Transforms
             return match ($property) {
                 'url'   => get_permalink($post),
                 'slug'  => $post->post_name,
-                default => get_the_title($post),
+                default => self::post_title($post),
             };
         }
 
@@ -456,9 +486,9 @@ class Schema_Transforms
     private static function post_nodes($value, string $type)
     {
         $node = function ($item) use ($type) {
-            $post = get_post($item);
+            $post = Schema_Sources::is_unpublished($item) ? null : get_post($item);
             if (!$post) return null;
-            return ['@type' => $type, 'name' => get_the_title($post), 'url' => get_permalink($post)];
+            return ['@type' => $type, 'name' => self::post_title($post), 'url' => get_permalink($post)];
         };
 
         if (is_array($value) && array_is_list($value)) {
@@ -483,13 +513,55 @@ class Schema_Transforms
         return is_string($value) && $value !== '' ? $value : null;
     }
 
-    public static function date($value): ?string
+    /**
+     * Date to ISO 8601 in the site timezone. A date without a time stays a
+     * date ("2026-11-23"); one with a time, or given $time, becomes a
+     * datetime with the site's offset ("2026-11-23T19:30:00+11:00").
+     * Reads ACF's stored Ymd and "Y-m-d H:i:s", day-first slash dates such as
+     * ACF's d/m/Y return format, and anything strtotime understands.
+     */
+    public static function date($value, string $time = ''): ?string
     {
-        if ($value === '' || $value === null) return null;
-        if (preg_match('/^\d{8}$/', (string) $value)) { // ACF date picker storage format
-            $value = substr($value, 0, 4) . '-' . substr($value, 4, 2) . '-' . substr($value, 6, 2);
+        $value = trim((string) $value);
+        if ($value === '') return null;
+
+        $timezone = wp_timezone();
+        $date     = null;
+        $has_time = false;
+
+        if (preg_match('/^(\d{4})(\d{2})(\d{2})$/', $value, $match)) { // ACF date picker storage
+            $date = [(int) $match[1], (int) $match[2], (int) $match[3]];
+        } elseif (preg_match('#^(\d{1,2})/(\d{1,2})/(\d{4})(?:\s+(.+))?$#', $value, $match)) {
+            $order = apply_filters('ddwpt_schema_slash_date_order', 'dmy');
+            $date  = $order === 'mdy'
+                ? [(int) $match[3], (int) $match[1], (int) $match[2]]
+                : [(int) $match[3], (int) $match[2], (int) $match[1]];
+            if (!empty($match[4]) && $time === '') $time = $match[4];
         }
-        $timestamp = strtotime((string) $value);
-        return $timestamp ? wp_date('c', $timestamp) : null;
+
+        if ($date) {
+            [$year, $month, $day] = $date;
+            if (!checkdate($month, $day, $year)) return null;
+            $parsed = (new \DateTimeImmutable('now', $timezone))->setDate($year, $month, $day)->setTime(0, 0);
+        } else {
+            try {
+                $parsed = new \DateTimeImmutable($value, $timezone);
+            } catch (\Exception $error) {
+                return null;
+            }
+            $has_time = (bool) preg_match('/\d:\d{2}|T\d{2}/', $value);
+            $parsed   = $parsed->setTimezone($timezone);
+        }
+
+        if ($time !== '') {
+            $clock = self::time($time);
+            if ($clock !== null) {
+                [$hour, $minute] = array_map('intval', explode(':', $clock));
+                $parsed   = $parsed->setTime($hour, $minute);
+                $has_time = true;
+            }
+        }
+
+        return $has_time ? $parsed->format('c') : $parsed->format('Y-m-d');
     }
 }

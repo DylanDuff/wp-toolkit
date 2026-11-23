@@ -2,7 +2,7 @@
 
 Builds JSON-LD per post type from post fields, ACF, taxonomies and Site Options, and outputs it in `wp_head` as one `@graph`. Replaces hand-written per-site schema PHP and the SEO plugin's limited schema builders.
 
-**Status:** experimental. The tweak lives in the Experimental tab and only outputs anything while **Settings → Experiments** is enabled *and* the tweak's own toggle is on.
+**Status:** stable since 1.5.19. The tweak lives in the **SEO** tab and outputs while its own toggle is on. It used to sit in the Experimental tab behind **Settings → Experiments**; the option names (`ddwpt_seo_schema_*`) are unchanged, so saved templates and the enabled state carried over. A site that had the toggle on with Experiments off starts printing schema after the update.
 
 | File | Role |
 |---|---|
@@ -76,7 +76,7 @@ Tags we don't have yet (no Bricks equivalent needed for schema so far): `term_*`
 
 | Filter | Does |
 |---|---|
-| `clean` | Strip tags, collapse whitespace |
+| `clean` | Strip tags, decode HTML entities (`&#8217;`, `&amp;`, `&nbsp;`), collapse whitespace |
 | `summary\|220` | Opening sentences up to N characters |
 | `minutes` | `"1 hour 10 minutes"` / `"1h 10m"` to `70`; unparseable (`"Overnight"`) to null |
 | `duration` | Minutes to ISO 8601 (`PT1H10M`) |
@@ -85,7 +85,7 @@ Tags we don't have yet (no Bricks equivalent needed for schema so far): `term_*`
 | `time` | `7:30am` to `07:30` |
 | `address\|AU` | One-line address (or ACF Google Map) to `PostalAddress`. Patterns for AU, US, CA, NZ, GB; anything unmatched becomes `streetAddress` only |
 | `geo\|<lng tag>` | Latitude + longitude (or an ACF Google Map) to `GeoCoordinates`; dropped if either is not numeric |
-| `phone\|+61` | International format; ACF link fields use their title; a leading trunk `0` is dropped |
+| `phone\|+61` | International format with single spaces; ACF link fields use their title. A trunk `0` is dropped after the country code, written (`+61 (02) …`, `+61 (0)2 …`, `+61 02 …` with a matching prefix) or added (`(02) 9809 4464` with `+61`), so all give `+61 2 9809 4464`. Brackets, dashes, dots and `tel:` go; digit grouping is kept as typed |
 | `nutrition\|'label,value'` | Repeater rows (`Calories`, `Fat`, `Protein`, `Fibre`...) to `NutritionInformation`; bare calorie numbers get ` calories` |
 | `map\|<table>` | Look up values in an `@maps` table (case-insensitive), dropping misses; on an object, maps its keys |
 | `pairs\|'key,value'` | Repeater rows to `{key: value}` |
@@ -94,7 +94,8 @@ Tags we don't have yet (no Bricks equivalent needed for schema so far): `term_*`
 | `post\|<Type>` | Post IDs to `{@type, name, url}` (use `@from` when you need more properties) |
 | `image` | Attachment ID, ACF image array or URL to a URL |
 | `join\|<sep>` `first` `unique` | List handling (`join` defaults to `, `) |
-| `int` `float` `date` | Casts; `date` handles ACF's `Ymd` storage |
+| `int` `float` | Casts |
+| `date\|<time tag>` | Date to ISO 8601 in the **site timezone**. Reads ACF's stored `Ymd` and `Y-m-d H:i:s`, ACF's `d/m/Y` return format (with an optional time, e.g. `d/m/Y g:i a`) and anything `DateTimeImmutable` parses. A date without a time stays a date (`2026-11-23`), never midnight UTC. The optional argument is a time tag or literal (`{acf_event_date:date\|acf_event_start_time}`, `{acf_event_date:date\|'9:00am'}`) combined into a datetime with the site's offset (`2026-11-23T19:30:00+11:00`); an empty time leaves the date alone. Slash dates are day first; the `ddwpt_schema_slash_date_order` filter returns `mdy` for month-first sites |
 | `fallback\|<text or tag>` | Fallback when empty (`default` is the earlier name) |
 | `prefix\|<text>` `suffix\|<text>` | Only applied when the value is not empty |
 | `plural\|<word>` | `4` to `4 serves`, `1` to `1 serve` |
@@ -116,13 +117,17 @@ Keys the renderer consumes and never outputs:
 
 | Directive | On | Meaning |
 |---|---|---|
-| `@each` | object | Repeat the object per row of a source: `"@each": "acf_recipe_method"`. Long form `{"rows": "...", "if": "...", "else": {"key": "source"}}`: `if` gates the rows, `else` builds one synthetic row when there are none |
+| `@each` | object | Repeat the object per row of a source: `"@each": "acf_recipe_method"`. Long form `{"rows": "...", "if": "...", "else": {"key": "source"}}`: `if` gates the rows, `else` builds one synthetic row when there are none. Rows that are unpublished posts are skipped (see below) |
 | `@value` | object in a loop | Yield this value per row instead of an object (plain string lists like `recipeIngredient`) |
 | `@if` / `@unless` | object | Include only when a source is truthy / falsy |
-| `@from` | object | Switch `post_*` tags to a related post (relationship / post object field); several posts give a list |
+| `@from` | object | Switch `post_*` tags to a related post (relationship / post object field); several posts give a list. Unpublished posts are skipped |
 | `@merge` | object | Spread a resolved object (e.g. from `pairs`) into this node |
 | `@else` | object | Used when the object resolves empty, or `@from` finds no post, or `@each` has no rows |
 | `@maps` | root node | Named lookup tables for `map|<table>` |
+
+**Unpublished related posts.** ACF relationship and post object fields return linked drafts, pending, private, scheduled and trashed posts too. `@each`, `@from` and the `post` filter drop them (`Schema_Sources::is_unpublished()`), so a draft FAQ never reaches a `FAQPage`. Rows that aren't posts (repeater rows, terms) and attachments (status `inherit`, e.g. gallery IDs) pass through. `query_loop_index` counts the kept rows. The `ddwpt_schema_related_statuses` filter changes the allowed statuses (default `['publish']`).
+
+**Titles.** `post_title`, and the names from `name` and `post`, are entity-decoded: `get_the_title()` texturizes apostrophes to `&#8217;`, which JSON-LD would print literally.
 
 ### Example: recipe
 
@@ -191,7 +196,7 @@ The editor's source picker comes from `Schema_Sources::catalogue()`: core post f
 
 ## AI abilities
 
-`ai-schema-abilities.php` (Experimental tab, needs Experiments on) lets MCP agents read and write templates as JSON: `get-schema-guide` (format primer plus this site's tags, filters, types and presets), `preview-schema` (dry run against a real post), and, with "Allow template changes", `set-schema-template`, `save-schema-node` and `delete-schema-node`. Writes reuse `seo_schema_save_template()` and the settings sanitizer; previews reuse `seo_schema_preview()`, the same function behind the editor's Preview mode. Agents find ACF field names with the existing ACF and content abilities. See `docs/ai-abilities.md`.
+`ai-schema-abilities.php` (SEO tab) lets MCP agents read and write templates as JSON: `get-schema-guide` (format primer plus this site's tags, filters, types and presets), `preview-schema` (dry run against a real post), and, with "Allow template changes", `set-schema-template`, `save-schema-node` and `delete-schema-node`. Writes reuse `seo_schema_save_template()` and the settings sanitizer; previews reuse `seo_schema_preview()`, the same function behind the editor's Preview mode. Agents find ACF field names with the existing ACF and content abilities. See `docs/ai-abilities.md`.
 
 ---
 
