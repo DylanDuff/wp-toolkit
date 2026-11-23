@@ -36,7 +36,7 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_my_tweak',       // Unique ID, used as option prefix
     'label' => 'My Tweak',             // Shown in settings UI
-    'tab'   => 'general',              // Settings tab (optional)
+    'tab'   => 'site',                 // Settings area (optional)
 
     'settings' => [
         [
@@ -73,13 +73,9 @@ The loader auto-prefixes all setting IDs with the tweak ID, registers them with 
 | `sortable` | Drag-to-reorder list; stored as JSON `{order, hidden}` |
 | `wysiwyg` | TinyMCE editor |
 
-### Tabs
+### Areas
 
-Tweaks are grouped into tabs by their `tab` key. Tabs are auto-created from whatever values are used. The preferred display order is:
-
-`general` → `dashboard` → `admin-bar` → `admin-tables` → `sidebar` → `bricks`
-
-Omit `tab` to place a tweak under **General**.
+The settings page groups tweaks into areas (`tab`) and sections (`group`): Site, Admin, Content model, Builder, Integrations, SEO, AI & MCP and Settings, with an Overview hub and search (`/` or Cmd/Ctrl+K). Omit `tab` to place a tweak under **Site**. See [`docs/settings-layout.md`](docs/settings-layout.md).
 
 ---
 
@@ -95,7 +91,8 @@ The knowledge base can be displayed as a **sidebar page** (its own admin menu en
 
 Detailed documentation is in [`docs/`](docs/):
 
-- [`tweak-system.md`](docs/tweak-system.md) — tweak definition format, all field types, tab system, settings ID prefixing, callback timing
+- [`tweak-system.md`](docs/tweak-system.md) — tweak definition format, all field types, areas and sections, settings ID prefixing, callback timing
+- [`settings-layout.md`](docs/settings-layout.md): settings page layout (Overview, areas, search, nested pages), tweak layout keys, ability rows, option key migrations
 - [`bricks-elements.md`](docs/bricks-elements.md) — custom element architecture, builder re-render rules, vendored vs CDN policy, Embla Slider reference
 - [`knowledge-base.md`](docs/knowledge-base.md) — adding articles, display modes, manifest structure
 - [`settings-export-import.md`](docs/settings-export-import.md) — export/import behaviour, security model, portability notes

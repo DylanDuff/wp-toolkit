@@ -15,7 +15,12 @@ Files not in `ALLOWED_TWEAKS` are silently ignored at load time.
 return [
     'id'       => 'ddwpt_my_tweak',   // unique, used as option key prefix
     'label'    => 'My Tweak',         // shown in settings UI card header
-    'tab'      => 'general',          // optional; omit to place under General
+    'tab'      => 'site',             // area; optional, defaults to site
+    'group'    => 'security',         // section within the area
+    'description' => 'One short line.', // card subtitle; falls back to the enabled field's description
+    'tags'     => ['Frontend'],       // badges
+    'requires' => ['ACF'],            // plugin badges; hides the card while missing
+    // 'labs' => true,                // only shown while Experiments is on
 
     'settings' => [
         [
@@ -85,13 +90,9 @@ A setting can show only while sibling fields hold given values. Keys are field I
 
 The row gets `data-show-if` and `settings.js` toggles its `hidden` attribute on change. Hidden fields still submit and keep their saved values; the callback should not assume they are empty.
 
-## Tabs
+## Areas and sections
 
-Tabs are created automatically from the `tab` values used across tweaks. Preferred display order (defined in `class-plugin.php::get_all_tabs()`):
-
-`general` → `acf` → `dashboard` → `admin-bar` → `admin-tables` → `sidebar` → `animations` → `bricks`
-
-Tabs outside this list appear after in definition order.
+`tab` names the tweak's area and `group` its section. Both are presentation only and never affect option keys. The known areas, their sections and order live in `Settings_Layout::AREAS`; unknown ids still render, labelled from the id. Ability rows (`abilities`), nested pages (`pages`, or a setting's `page` key) and `position` are covered in [`settings-layout.md`](settings-layout.md).
 
 ## Settings ID prefixing
 

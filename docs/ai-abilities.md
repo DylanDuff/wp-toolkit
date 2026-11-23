@@ -12,7 +12,7 @@ Registering via `wp_register_ability()` is not enough on its own. `mcp-adapter`'
 ],
 ```
 
-Without this, the ability exists in `wp_get_abilities()` and shows up in the AI tab's "Registered Abilities" table, but is silently excluded from the MCP tool list. ACF's abilities get this key "for free" because `ACF\AI\Abilities\AbstractAbilityGroup::register_ability()` injects the default — it's not visible in ACF's own registration calls, which made this non-obvious the first time around. Every ability registered by this plugin must set it explicitly.
+Without this, the ability exists in `wp_get_abilities()` and shows up in the AI & MCP area's "Registered Abilities" page, but is silently excluded from the MCP tool list. ACF's abilities get this key "for free" because `ACF\AI\Abilities\AbstractAbilityGroup::register_ability()` injects the default — it's not visible in ACF's own registration calls, which made this non-obvious the first time around. Every ability registered by this plugin must set it explicitly.
 
 ## input_schema is required, even for no-arg abilities
 
@@ -113,7 +113,7 @@ Guarded by `defined('REDIRECTION_VERSION')` rather than `class_exists()` — Red
 
 ## ACF field group abilities (`ai-acf-field-abilities.php`)
 
-Fills a gap in ACF PRO's own `acf/settings/enable_acf_ai` ability set (toggled by `acf-abilities-api.php`), which only covers registering new field groups and reading existing ones — no update path for a field group or field that already exists.
+Fills a gap in ACF PRO's own `acf/settings/enable_acf_ai` ability set (toggled by this tweak's "Also enable ACF's own AI abilities" opt-in, `ddwpt_ai_acf_field_abilities_acf_native`, which works without the main switch; it replaced the separate Enable ACF Abilities tweak in 1.6.0 and its old option is migrated), which only covers registering new field groups and reading existing ones — no update path for a field group or field that already exists.
 
 - **DB-stored groups only, explicitly guarded.** `acf_get_field_groups()` (used by `list-acf-field-groups`) is DB-only by construction, but the *singular* lookups `acf_get_field_group($id)`/`acf_get_field($id)` (used everywhere else, including by key) prefer a local/PHP-registered record over a DB post when one exists for that key — and this plugin's own `acf-faq.php`/`acf-locations.php`/`acf-projects.php`/etc. tweaks register exactly such local groups. A local record resolves with `ID === 0`; passing it straight to `acf_update_field_group()`/`acf_update_field()` would take the insert branch and silently create a duplicate DB post with the same key instead of erroring or touching the original. `ai_acf_is_local_record()` checks for `ID === 0` and every read/write ability rejects it with a `WP_Error` before doing anything else.
 - **`acf_update_field_group()` and `acf_update_field()` are full replaces, not diffs** — same footgun as `Red_Item::update()` (see below). Their `validate_post()`/`acf_validate_field()` calls apply ACF's hardcoded defaults (`wp_parse_args($post, get_settings_array())`) to any key not present in the array you pass in, not the field/group's *existing* stored values. Passing a partial patch straight through would silently reset `location`, `hide_on_screen`, choices, conditional logic, etc. back to ACF's defaults. Both `update-acf-field-group` and `update-acf-field` work around this the same way `update-redirect` does: fetch the current record first (`acf_get_field_group()` / `acf_get_field()`), `array_merge()` the caller's patch over it, and save the merged array.
@@ -126,7 +126,7 @@ Fills a gap in ACF PRO's own `acf/settings/enable_acf_ai` ability set (toggled b
 
 ## Structured Data abilities (`ai-schema-abilities.php`)
 
-SEO tab, alongside the Structured Data tweak: registration needs `ddwpt_ai_schema_abilities_enabled` (Experiments is no longer required since 1.5.19). Category `wp-toolkit-schema`.
+AI & MCP area (moved from the SEO tab in 1.6.0): registration needs `ddwpt_ai_schema_abilities_enabled` (Experiments is no longer required since 1.5.19). Category `wp-toolkit-schema`.
 
 - **Agents only write template JSON.** Every write goes through `seo_schema_save_template()` (in `seo-schema.php`), which runs the same `seo_schema_sanitize_templates()` the settings form uses, so an ability can never store something the editor couldn't.
 - **`get-schema-guide` is the entry point.** It returns `AI_SCHEMA_GUIDE` (a markdown primer on the template format, tokens, tags, directives and examples) plus live site data: post types with their template status, the output switches (`status`), filters, known schema.org types with required/recommended properties and preset names. With `post_type` it adds that type's `sources` (the same `Schema_Sources::catalogue()` the editor's tag picker uses) and its current template; with `preset` it returns a starting template.
