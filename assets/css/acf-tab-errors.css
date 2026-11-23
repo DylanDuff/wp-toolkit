@@ -1,0 +1,29 @@
+/* ACF tabs with validation errors (inc/tweaks/acf-tab-errors.php). */
+.acf-tab-group li.has-field-error > .acf-tab-button {
+    color: #d63638;
+    padding-right: 1.6em;
+    position: relative;
+}
+
+.acf-tab-group li.has-field-error > .acf-tab-button::after {
+    content: "!";
+    position: absolute;
+    right: 0.4em;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1.1em;
+    height: 1.1em;
+    line-height: 1.1em;
+    text-align: center;
+    background: #d63638;
+    color: #fff;
+    border-radius: 50%;
+    font-size: 0.75em;
+    font-weight: 700;
+}
+
+.acf-tab-group li.active.has-field-error > .acf-tab-button {
+    box-shadow: inset 0 -2px 0 #d63638;
+}
+
+
