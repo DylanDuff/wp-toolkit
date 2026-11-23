@@ -125,6 +125,17 @@ The Map group sets the initial camera: **Zoom** (0 to 22, step 0.1), **Pitch** (
 
 Zoom was an int cast before 1.5.12. It is a float now so a fractional zoom read off a live map survives as entered.
 
+### Points and clustering
+
+Point features in the Service Area **GeoJSON** are drawn as dots, and the **Points & Clustering** group (shown whenever the mode includes the service area) can cluster them.
+
+- **Two sources, not one.** `split_geojson()` separates the decoded GeoJSON server-side: polygons and lines go to `service-area-{id}` as before, `Point` features go to `points-{id}`. A GeoJSON source with `cluster: true` keeps only point features, so sharing one source would make the service area disappear the moment clustering was switched on. `MultiPoint` is exploded into `Point`s because the clusterer only counts those. Points inside a `GeometryCollection` are not extracted.
+- **Popups come from feature properties.** Each point keeps only a `popup` property, built server-side: `properties.description` through `wp_kses_post()`, else `properties.name` escaped as text. Every other property is dropped so arbitrary GeoJSON never reaches `setHTML()` unsanitised.
+- **Controls.** `cluster` (checkbox, off by default) sets the source's `cluster` flag; `cluster_radius` (1 to 200 px, default 50) and `cluster_max_zoom` (0 to 17, default 14) map to `clusterRadius` / `clusterMaxZoom`; `point_color` and `cluster_color` colour the dots and cluster circles. The zoom ceiling is 17 because a GeoJSON source's `maxzoom` defaults to 18 and `clusterMaxZoom` has to sit below it for the deepest zoom to show single points. Values go through `resolve_clamped_number()`, the same clamp as zoom/pitch/bearing.
+- **Layers.** Clustered: `points-{id}-clusters` (circle, sized by `point_count` in three steps), `points-{id}-count` (symbol, `point_count_abbreviated`) and `points-{id}-point` (unclustered dots). Clicking a cluster eases to `getClusterExpansionZoom()`; clicking a dot opens its popup. The count layer uses `DIN Offc Pro Medium` / `Arial Unicode MS Bold` from the style's glyphs. If a custom style has no `glyphs` URL the label fails, and with it GL JS can drop the whole points source, so custom styles need glyphs for clustering.
+- **The main marker is never clustered.** It is a DOM `mapboxgl.Marker` at the map centre, not a source feature.
+- None of these controls carries a `css` key, so each change re-renders and `$scripts` rebuilds the map.
+
 ### Tuning the view from the console: `wpToolkitMapbox.logView()`
 
 Finding the right pitch and bearing by typing numbers is slow, so the JS exposes a helper. Move the map by hand (drag to pan, scroll or pinch to zoom if enabled, **ctrl-drag or right-drag** to tilt and rotate), then in the browser console:

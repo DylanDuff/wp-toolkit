@@ -16,6 +16,11 @@ class Element_Mapbox extends \Bricks\Element
     const DEFAULT_LAT = -33.767719570242015;
     const DEFAULT_LNG = 150.6844585269858;
     const MAX_PITCH = 85;
+    const DEFAULT_CLUSTER_RADIUS = 50;
+    const DEFAULT_CLUSTER_MAX_ZOOM = 14;
+    // A GeoJSON source's maxzoom defaults to 18, and GL JS needs clusterMaxZoom
+    // below it or the deepest zoom never shows unclustered points.
+    const MAX_CLUSTER_ZOOM = 17;
     const GEOCODE_ENDPOINT = "https://api.mapbox.com/search/geocode/v6/forward";
     const GEOCODE_CACHE_TTL = 30 * DAY_IN_SECONDS;
     const GEOCODE_FAILURE_TTL = HOUR_IN_SECONDS;
@@ -193,11 +198,12 @@ class Element_Mapbox extends \Bricks\Element
     }
 
     /**
-     * Read a numeric view setting (zoom, pitch, bearing) as a float clamped
-     * to the range GL JS accepts. Floats rather than ints so values copied
-     * from wpToolkitMapbox.logView() in the console survive as entered.
+     * Read a numeric setting (zoom, pitch, bearing, cluster options) as a
+     * float clamped to the range GL JS accepts. Floats rather than ints so
+     * values copied from wpToolkitMapbox.logView() in the console survive
+     * as entered.
      */
-    private function resolve_view_number($key, $default, $min, $max)
+    private function resolve_clamped_number($key, $default, $min, $max)
     {
         $raw = $this->settings[$key] ?? "";
 
@@ -321,6 +327,102 @@ class Element_Mapbox extends \Bricks\Element
         return $data;
     }
 
+    /**
+     * Normalise any accepted GeoJSON shape to a flat list of Features.
+     * A bare geometry (Polygon, Point, …) is wrapped as a Feature.
+     */
+    private function geojson_features($data)
+    {
+        if ($data["type"] === "FeatureCollection") {
+            return array_values(
+                array_filter($data["features"] ?? [], "is_array"),
+            );
+        }
+
+        if ($data["type"] === "Feature") {
+            return [$data];
+        }
+
+        return [["type" => "Feature", "geometry" => $data, "properties" => []]];
+    }
+
+    /**
+     * Build a Point feature for the points source, or null when the
+     * coordinates aren't a usable [lng, lat]. Only a server-sanitised
+     * `popup` property is kept: `description` as HTML, else `name` as text.
+     */
+    private function point_feature($coordinates, $properties)
+    {
+        if (
+            !is_array($coordinates) ||
+            !isset($coordinates[0], $coordinates[1]) ||
+            !is_numeric($coordinates[0]) ||
+            !is_numeric($coordinates[1])
+        ) {
+            return null;
+        }
+
+        $properties = is_array($properties) ? $properties : [];
+        $popup = "";
+
+        if (!empty($properties["description"]) && is_string($properties["description"])) {
+            $popup = wp_kses_post($properties["description"]);
+        } elseif (!empty($properties["name"]) && is_string($properties["name"])) {
+            $popup = esc_html($properties["name"]);
+        }
+
+        return [
+            "type" => "Feature",
+            "geometry" => [
+                "type" => "Point",
+                "coordinates" => [(float) $coordinates[0], (float) $coordinates[1]],
+            ],
+            "properties" => ["popup" => $popup],
+        ];
+    }
+
+    /**
+     * Split decoded GeoJSON into the service-area shapes and the points.
+     *
+     * They need separate sources: a clustered GeoJSON source only keeps
+     * point features, so polygons sharing it would vanish when clustering
+     * is on. MultiPoints are exploded into Points, which is the only shape
+     * the clusterer counts. Each half is a FeatureCollection, or null when
+     * the GeoJSON has none of that kind.
+     */
+    private function split_geojson($data)
+    {
+        $area = [];
+        $points = [];
+
+        foreach ($this->geojson_features($data) as $feature) {
+            $geometry = is_array($feature["geometry"] ?? null)
+                ? $feature["geometry"]
+                : [];
+            $type = $geometry["type"] ?? "";
+            $properties = $feature["properties"] ?? [];
+
+            if ($type === "Point") {
+                $points[] = $this->point_feature($geometry["coordinates"] ?? null, $properties);
+            } elseif ($type === "MultiPoint") {
+                foreach ((array) ($geometry["coordinates"] ?? []) as $coordinates) {
+                    $points[] = $this->point_feature($coordinates, $properties);
+                }
+            } elseif ($type !== "") {
+                $area[] = $feature;
+            }
+        }
+
+        $points = array_values(array_filter($points));
+
+        return [
+            "area" => $area ? ["type" => "FeatureCollection", "features" => $area] : null,
+            "points" => $points
+                ? ["type" => "FeatureCollection", "features" => $points]
+                : null,
+        ];
+    }
+
     public function set_control_groups()
     {
         $this->control_groups["general"] = [
@@ -341,6 +443,12 @@ class Element_Mapbox extends \Bricks\Element
 
         $this->control_groups["service_area"] = [
             "title" => esc_html__("Service Area", "bricks"),
+            "tab" => "content",
+            "required" => ["mode", "!=", "marker"],
+        ];
+
+        $this->control_groups["points"] = [
+            "title" => esc_html__("Points & Clustering", "bricks"),
             "tab" => "content",
             "required" => ["mode", "!=", "marker"],
         ];
@@ -552,7 +660,7 @@ class Element_Mapbox extends \Bricks\Element
             "type" => "textarea",
             "placeholder" => '{"type":"FeatureCollection","features":[...]}',
             "description" => esc_html__(
-                "Paste GeoJSON directly from geojson.io. Supports FeatureCollection, Feature, Polygon, and MultiPolygon.",
+                "Paste GeoJSON directly from geojson.io. Supports FeatureCollection, Feature, Polygon, and MultiPolygon. Point features are drawn as dots (see Points & Clustering) with their description or name property as the popup.",
                 "bricks",
             ),
         ];
@@ -595,6 +703,66 @@ class Element_Mapbox extends \Bricks\Element
             "min" => 0,
             "default" => 2,
         ];
+
+        // ── Points & Clustering ──────────────────────────────────────────────
+        // No control here carries a `css` key: each one changes a GL JS source
+        // or layer option, so it must re-render for $scripts to rebuild the map.
+
+        $this->controls["point_color"] = [
+            "group" => "points",
+            "label" => esc_html__("Point Colour", "bricks"),
+            "type" => "color",
+            "default" => ["hex" => "#1d4ed8"],
+        ];
+
+        $this->controls["cluster"] = [
+            "group" => "points",
+            "label" => esc_html__("Cluster Points", "bricks"),
+            "type" => "checkbox",
+            "default" => false,
+            "description" => esc_html__(
+                "Group nearby Point features from the GeoJSON into numbered clusters. Click a cluster to zoom in on it. The main marker is never clustered.",
+                "bricks",
+            ),
+        ];
+
+        $this->controls["cluster_radius"] = [
+            "group" => "points",
+            "label" => esc_html__("Cluster Radius (px)", "bricks"),
+            "type" => "number",
+            "min" => 1,
+            "max" => 200,
+            "step" => 1,
+            "default" => self::DEFAULT_CLUSTER_RADIUS,
+            "required" => ["cluster", "=", true],
+            "description" => esc_html__(
+                "How close points must be on screen to merge.",
+                "bricks",
+            ),
+        ];
+
+        $this->controls["cluster_max_zoom"] = [
+            "group" => "points",
+            "label" => esc_html__("Cluster Max Zoom", "bricks"),
+            "type" => "number",
+            "min" => 0,
+            "max" => self::MAX_CLUSTER_ZOOM,
+            "step" => 1,
+            "default" => self::DEFAULT_CLUSTER_MAX_ZOOM,
+            "required" => ["cluster", "=", true],
+            "description" => esc_html__(
+                "Above this zoom every point shows on its own.",
+                "bricks",
+            ),
+        ];
+
+        $this->controls["cluster_color"] = [
+            "group" => "points",
+            "label" => esc_html__("Cluster Colour", "bricks"),
+            "type" => "color",
+            "default" => ["hex" => "#3b82f6"],
+            "required" => ["cluster", "=", true],
+        ];
     }
 
     public function render()
@@ -623,9 +791,9 @@ class Element_Mapbox extends \Bricks\Element
             "apiKey" => $api_key,
             "style" => $this->resolve_map_style(),
             "center" => $this->resolve_center(),
-            "zoom" => $this->resolve_view_number("zoom", 11, 0, 22),
-            "pitch" => $this->resolve_view_number("pitch", 0, 0, self::MAX_PITCH),
-            "bearing" => $this->resolve_view_number("bearing", 0, -180, 180),
+            "zoom" => $this->resolve_clamped_number("zoom", 11, 0, 22),
+            "pitch" => $this->resolve_clamped_number("pitch", 0, 0, self::MAX_PITCH),
+            "bearing" => $this->resolve_clamped_number("bearing", 0, -180, 180),
             "scrollZoom" => !empty($s["scroll_zoom"]),
         ];
 
@@ -642,10 +810,14 @@ class Element_Mapbox extends \Bricks\Element
         }
 
         $geojson = $this->parse_geojson($s["area_coords"] ?? "");
+        $layers =
+            $show_area && $geojson !== null
+                ? $this->split_geojson($geojson)
+                : ["area" => null, "points" => null];
 
-        if ($show_area && $geojson !== null) {
+        if ($layers["area"] !== null) {
             $config["area"] = [
-                "geojson" => $geojson,
+                "geojson" => $layers["area"],
                 "fillColor" => $this->resolve_color("fill_color", "#3b82f6"),
                 "fillOpacity" => isset($s["fill_opacity"])
                     ? (float) $s["fill_opacity"]
@@ -657,6 +829,30 @@ class Element_Mapbox extends \Bricks\Element
                 "outlineWidth" => isset($s["outline_width"])
                     ? (int) $s["outline_width"]
                     : 2,
+            ];
+        }
+
+        if ($layers["points"] !== null) {
+            $config["points"] = [
+                "geojson" => $layers["points"],
+                "color" => $this->resolve_color("point_color", "#1d4ed8"),
+                "cluster" => !empty($s["cluster"])
+                    ? [
+                        "radius" => $this->resolve_clamped_number(
+                            "cluster_radius",
+                            self::DEFAULT_CLUSTER_RADIUS,
+                            1,
+                            200,
+                        ),
+                        "maxZoom" => $this->resolve_clamped_number(
+                            "cluster_max_zoom",
+                            self::DEFAULT_CLUSTER_MAX_ZOOM,
+                            0,
+                            self::MAX_CLUSTER_ZOOM,
+                        ),
+                        "color" => $this->resolve_color("cluster_color", "#3b82f6"),
+                    ]
+                    : null,
             ];
         }
 
