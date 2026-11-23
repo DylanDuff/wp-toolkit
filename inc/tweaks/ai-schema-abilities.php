@@ -8,7 +8,7 @@ use DDWPTweaks\SEO\Schema_Transforms;
 use DDWPTweaks\SEO\Schema_Types;
 
 /**
- * Abilities for the experimental Structured Data tweak: a guide to the
+ * Abilities for the Structured Data tweak: a guide to the
  * template format and what this site offers, reading and writing templates
  * and their nodes, and a dry-run preview. Agents only ever write template
  * JSON; field discovery is left to the ACF and content abilities.
@@ -71,7 +71,7 @@ Keys the renderer reads and never outputs. Their values are bare expressions wit
 |---|---|
 | `@each` | Output this object once per row of a list tag. Long form: `{"rows": "<tag>", "if": "<tag>", "else": {"<item name>": "<tag>"}}`; `if` gates the rows, `else` builds one row from other tags when there are none |
 | `@value` | Inside `@each`: output this value per row instead of an object (plain string lists such as `recipeIngredient`) |
-| `@from` | Switch `post_*` tags to a related post (relationship / post object field) |
+| `@from` | Switch `post_*` tags to a related post (relationship / post object field). `@each` and `@from` skip unpublished linked posts |
 | `@if` / `@unless` | Keep the object only when a tag has a value / is empty |
 | `@else` | Used when the object comes out empty, `@from` finds no post or `@each` has no rows |
 | `@merge` | Spread a resolved object (for example from the `pairs` filter) into this node |
@@ -113,7 +113,7 @@ FAQ from a repeater:
 
 ## Output
 
-Templates only print when the Structured Data tweak is enabled, Experiments is enabled and the template's own `enabled` flag is on. The response's `status` says which of these are set. Keep the required properties of each type filled; `preview-schema` warns about missing ones.
+Templates only print when the Structured Data tweak is enabled and the template's own `enabled` flag is on. The response's `status` says which of these are set. Keep the required properties of each type filled; `preview-schema` warns about missing ones.
 GUIDE;
 
 /** The post types the editor offers (public, not attachments). */
@@ -262,7 +262,6 @@ function ai_schema_status(): array
 {
     return [
         'tweak_enabled'       => (bool) get_option('ddwpt_seo_schema_enabled'),
-        'experiments_enabled' => (bool) get_option('ddwpt_experiments_enabled'),
         'organization_output' => get_option('ddwpt_seo_schema_organization_output', '') ?: 'none',
         'organization_type'   => get_option('ddwpt_seo_schema_organization_type', '') ?: 'Organization',
         'conflict_mode'       => get_option('ddwpt_seo_schema_conflict_mode', '') ?: 'replace',
@@ -276,11 +275,11 @@ function ai_schema_decode($value)
 }
 
 // Runs at plugins_loaded when the file is required, before wp_abilities_api_init fires.
-if (get_option('ddwpt_ai_schema_abilities_enabled') && get_option('ddwpt_experiments_enabled')) {
+if (get_option('ddwpt_ai_schema_abilities_enabled')) {
     add_action('wp_abilities_api_categories_init', static function () {
         wp_register_ability_category('wp-toolkit-schema', [
             'label'       => 'WP Toolkit: Structured Data',
-            'description' => 'Read and write the per-post-type JSON-LD templates of the experimental Structured Data tweak.',
+            'description' => 'Read and write the per-post-type JSON-LD templates of the Structured Data tweak.',
         ]);
     });
 
@@ -499,14 +498,14 @@ if (get_option('ddwpt_ai_schema_abilities_enabled') && get_option('ddwpt_experim
 return [
     'id'    => 'ddwpt_ai_schema_abilities',
     'label' => 'AI Structured Data Abilities',
-    'tab'   => 'experimental',
+    'tab'   => 'seo',
 
     'settings' => [
         [
             'id'          => 'enabled',
             'type'        => 'checkbox',
             'label'       => 'Enable tweak',
-            'description' => 'Registers <code>get-schema-guide</code> and <code>preview-schema</code> so agents can learn the template format and dry-run templates against real posts. Only while Experiments is enabled.',
+            'description' => 'Registers <code>get-schema-guide</code> and <code>preview-schema</code> so agents can learn the template format and dry-run templates against real posts.',
         ],
         [
             'id'          => 'allow_write',

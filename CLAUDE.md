@@ -121,7 +121,7 @@ A setting with `'show_if' => ['other_field' => ['a', 'b']]` only shows while tha
 ### Tabs
 Tabs are ad-hoc — any tweak can declare any `tab` string and it will appear automatically. The `ai` tab is the exception: it is always present regardless of whether any tweak declares it.
 
-Preferred order: `general → acf → dashboard → admin-bar → admin-tables → sidebar → animations → bricks → ai → settings`.
+Preferred order: `general → acf → dashboard → admin-bar → admin-tables → sidebar → animations → bricks → seo → ai → settings`.
 
 ---
 
@@ -219,7 +219,7 @@ Third-party runtimes are vendored or CDN-loaded per element, deliberately: vendo
 
 ## Structured Data (`inc/seo/`, `inc/tweaks/seo-schema.php`)
 
-Experimental (Experimental tab; output also requires `ddwpt_experiments_enabled`). Per-post-type JSON-LD templates with Bricks-style `{tag:filter|arg @fallback:'x'}` tokens (`Schema_Syntax`; the earlier `{{source|transform:arg}}` form still renders and the editor migrates it on load), edited in one editor with Visual, JSON and Preview modes plus presets. The template JSON is the only stored format; Visual mode is a view onto it. MCP agents read and write templates through `ai-schema-abilities.php` (also experimental), which reuses `seo_schema_save_template()` and `seo_schema_preview()`. See `docs/seo-schema.md` before touching the renderer or editor.
+SEO tab (moved out of Experimental in 1.5.19; option names unchanged). Per-post-type JSON-LD templates with Bricks-style `{tag:filter|arg @fallback:'x'}` tokens (`Schema_Syntax`; the earlier `{{source|transform:arg}}` form still renders and the editor migrates it on load), edited in one editor with Visual, JSON and Preview modes plus presets. The template JSON is the only stored format; Visual mode is a view onto it. MCP agents read and write templates through `ai-schema-abilities.php` (also in the SEO tab), which reuses `seo_schema_save_template()` and `seo_schema_preview()`. See `docs/seo-schema.md` before touching the renderer or editor. Renderer tests run without WordPress: `php tests/schema/run.php` (stubs in `tests/schema/bootstrap.php`; add a `test-*.php` file per area).
 
 ---
 

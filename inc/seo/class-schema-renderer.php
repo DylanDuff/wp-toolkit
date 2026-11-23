@@ -176,7 +176,16 @@ class Schema_Renderer
             return isset($node['@else']) ? (array) $this->value($node['@else']) : [];
         }
 
-        $rows   = is_array($rows) && array_is_list($rows) ? $rows : [$rows];
+        $rows = is_array($rows) && array_is_list($rows) ? $rows : [$rows];
+
+        if (empty($single)) {
+            // Linked drafts and trashed posts don't belong in the graph.
+            $rows = array_values(array_filter($rows, fn($row) => !Schema_Sources::is_unpublished($row)));
+            if (!$rows) {
+                return isset($node['@else']) ? (array) $this->value($node['@else']) : [];
+            }
+        }
+
         $output = [];
 
         foreach ($rows as $index => $row) {
@@ -198,7 +207,8 @@ class Schema_Renderer
 
         $ids = [];
         foreach (is_array($related) && array_is_list($related) ? $related : [$related] as $entry) {
-            $post = self::is_empty($entry) ? null : get_post(is_array($entry) ? ($entry['ID'] ?? 0) : $entry);
+            if (self::is_empty($entry) || Schema_Sources::is_unpublished($entry)) continue;
+            $post = get_post(is_array($entry) ? ($entry['ID'] ?? 0) : $entry);
             if ($post) $ids[] = $post->ID;
         }
 

@@ -96,7 +96,7 @@ Detailed documentation is in [`docs/`](docs/):
 - [`knowledge-base.md`](docs/knowledge-base.md) — adding articles, display modes, manifest structure
 - [`settings-export-import.md`](docs/settings-export-import.md) — export/import behaviour, security model, portability notes
 - [`ai-abilities.md`](docs/ai-abilities.md) — registered AI abilities, MCP visibility gotchas, whitelist mechanism
-- [`seo-schema.md`](docs/seo-schema.md) — Structured Data (JSON-LD) templates: sources, transforms, directives, editor, SEO plugin conflicts (experimental)
+- [`seo-schema.md`](docs/seo-schema.md) — Structured Data (JSON-LD) templates: sources, transforms, directives, editor, SEO plugin conflicts
 - [`fluent-forms-mirror.md`](docs/fluent-forms-mirror.md): Fluent Forms Mirror, `ff_form` CPT for Bricks query loops and popup context, sync triggers
 - [`bricks-builder-tweaks.md`](docs/bricks-builder-tweaks.md): `Bricks_Tags` helper for dynamic tags, extra dynamic tags (reading time, post count, page type), component property groups in Gutenberg, extra HTML tags
 - [`linked-author.md`](docs/linked-author.md): team member as post author, `{linked_author:field}` tag

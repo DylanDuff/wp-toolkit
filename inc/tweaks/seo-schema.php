@@ -17,7 +17,8 @@ require_once __DIR__ . '/../seo/class-schema-conflicts.php';
 
 /**
  * Structured data (JSON-LD) built per post type from schema templates.
- * Experimental for now: it only runs while Settings → Experiments is on.
+ * Lives in the SEO tab. Option names are unchanged from its time in the
+ * Experimental tab, so saved templates and the enabled state carry over.
  * See docs/seo-schema.md.
  */
 
@@ -251,14 +252,14 @@ if (is_admin()) {
 return [
     'id'    => 'ddwpt_seo_schema',
     'label' => 'Structured Data (Schema)',
-    'tab'   => 'experimental',
+    'tab'   => 'seo',
 
     'settings' => [
         [
             'id'          => 'enabled',
             'type'        => 'checkbox',
             'label'       => 'Enable tweak',
-            'description' => 'Build JSON-LD per post type from post fields, ACF, taxonomies and Site Options, and output it in <code>wp_head</code>. Experimental: only runs while Experiments is enabled.',
+            'description' => 'Build JSON-LD per post type from post fields, ACF, taxonomies and Site Options, and output it in <code>wp_head</code>.',
         ],
         [
             'id'      => 'organization_output',
@@ -327,7 +328,7 @@ return [
     ],
 
     'callback' => function ($settings) {
-        if (empty($settings['enabled']) || !get_option('ddwpt_experiments_enabled') || is_admin()) {
+        if (empty($settings['enabled']) || is_admin()) {
             return;
         }
 
