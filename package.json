@@ -1,0 +1,26 @@
+{
+  "name": "wp-toolkit",
+  "private": true,
+  "description": "Build tooling for the parts of WP Toolkit that ship a bundled frontend (currently Zag Filters)",
+  "scripts": {
+    "build": "node scripts/build-zag-filters.mjs",
+    "watch": "node scripts/build-zag-filters.mjs --watch",
+    "test": "php tests/zag-filters/impersonation-test.php && node --test tests/zag-filters/link-core.test.mjs && php tests/schema/run.php",
+    "lint": "npx oxlint src/",
+    "check": "npx oxlint src/ && node scripts/build-zag-filters.mjs && pnpm test"
+  },
+  "dependencies": {
+    "@internationalized/date": "^3.12.2",
+    "@zag-js/date-picker": "^1.42.0",
+    "@zag-js/select": "^1.42.0",
+    "@zag-js/vanilla": "^1.42.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

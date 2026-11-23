@@ -66,6 +66,24 @@ if [[ "$(git rev-parse --abbrev-ref HEAD)" != "main" ]]; then
     exit 1
 fi
 
+# The Zag Filters bundle is committed and shipped as-is, so a stale build would
+# ship old JS under a new version number. Rebuild and refuse if that changes
+# anything, and run the module's tests while the toolchain is here.
+if command -v pnpm &> /dev/null && [[ -d node_modules ]]; then
+    pnpm build > /dev/null
+    if ! git diff --quiet -- inc/zag-filters/assets; then
+        echo -e "${RED}Error: inc/zag-filters/assets is stale. Commit the rebuilt bundle first.${NC}"
+        git status --short inc/zag-filters/assets
+        exit 1
+    fi
+    php tests/zag-filters/impersonation-test.php > /dev/null || {
+        echo -e "${RED}Error: tests/zag-filters/impersonation-test.php failed.${NC}"
+        exit 1
+    }
+else
+    echo -e "${YELLOW}Warning: pnpm or node_modules missing, skipping the Zag Filters bundle freshness check.${NC}"
+fi
+
 # ── Argument parsing ─────────────────────────────────────────────────────────
 
 CURRENT_VERSION=$(get_current_version)
