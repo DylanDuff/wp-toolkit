@@ -208,6 +208,8 @@ Site `Organization` and `WebSite` nodes are **opt-in** (`organization_output`): 
 
 JSON is encoded with `JSON_HEX_TAG`, so template text can't close the script tag.
 
+Each root node renders inside a `try`/`catch (Throwable)`. A node that throws (a bad template, an unexpected field value, a bug) is left out of the graph, logged with `error_log()` as `[wp-toolkit schema]`, and reported as a warning in Preview; the other nodes and the page still render.
+
 | `conflict_mode` | Behaviour |
 |---|---|
 | `replace` (default) | On pages we handle: Yoast `wpseo_json_ld_output` → false; Rank Math `rank_math/json_ld` → `[]`; SEOPress: `wp_head` callbacks whose name contains `seopress` plus `schema`/`jsonld`/`rich_snippet`/`knowledge_graph` (not breadcrumbs) are unhooked. Adjust with the `ddwpt_schema_unhook_callback` filter |

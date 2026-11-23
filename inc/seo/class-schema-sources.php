@@ -93,7 +93,8 @@ class Schema_Sources
         if (is_array($entry)) {
             $entry = isset($entry['ID']) ? $entry['ID'] : null;
         }
-        if (!$entry instanceof \WP_Post && !(is_int($entry) || ctype_digit((string) $entry))) {
+        $is_id = is_int($entry) || (is_string($entry) && ctype_digit($entry));
+        if (!$entry instanceof \WP_Post && !$is_id) {
             return false;
         }
 

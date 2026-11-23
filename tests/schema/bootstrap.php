@@ -81,6 +81,9 @@ function get_field($name, $id)
 
 function get_fields($id)
 {
+    if (!empty(schema_test_post($id)['throws'])) {
+        throw new RuntimeException('get_fields failed');
+    }
     return $id === 'option' ? [] : (schema_test_post($id)['acf'] ?? false);
 }
 
@@ -89,7 +92,7 @@ function get_the_modified_date($format, $post) { return ''; }
 function get_the_post_thumbnail_url($post) { return false; }
 function get_the_author_meta() { return ''; }
 function get_post_meta($id, $key, $single) { return schema_test_post($id)['meta'][$key] ?? ''; }
-function get_the_terms($id, $taxonomy) { return false; }
+function get_the_terms($id, $taxonomy) { return schema_test_post($id)['terms'][$taxonomy] ?? false; }
 function get_term($id) { return null; }
 function get_term_by() { return false; }
 function get_term_link($term) { return ''; }

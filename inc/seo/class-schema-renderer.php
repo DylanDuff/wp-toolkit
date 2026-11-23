@@ -42,11 +42,22 @@ class Schema_Renderer
         $roots = array_is_list($template) ? $template : [$template];
         $nodes = [];
 
-        foreach ($roots as $root) {
+        foreach ($roots as $position => $root) {
             if (!is_array($root)) continue;
 
-            $this->maps = array_merge($this->maps, (array) ($root['@maps'] ?? []));
-            $result     = $this->value($root);
+            // A node that throws drops out of the graph instead of taking
+            // the page down with it; the rest of the template still renders.
+            $posts = $this->posts;
+            try {
+                $this->maps = array_merge($this->maps, (array) ($root['@maps'] ?? []));
+                $result     = $this->value($root);
+            } catch (\Throwable $error) {
+                [$this->posts, $this->items] = [$posts, []];
+                $label = is_string($root['@type'] ?? null) ? $root['@type'] : 'node ' . ($position + 1);
+                $this->warn("{$label} failed to render and was left out: " . $error->getMessage());
+                error_log('[wp-toolkit schema] ' . $label . ' on post ' . end($posts) . ': ' . $error->getMessage());
+                continue;
+            }
 
             foreach (is_array($result) && array_is_list($result) ? $result : [$result] as $node) {
                 if (is_array($node) && !self::is_empty($node)) $nodes[] = $node;
