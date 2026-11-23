@@ -49,6 +49,7 @@ class Tweak_Loader
         'bricks-html-tags',
         'bricks-menu-images',
         'bricks-term-order',
+        'bricks-zag-filters',
         'bricks-toolbar-logo',
         'acss-gutenberg',
         'bricks-post-editor',
