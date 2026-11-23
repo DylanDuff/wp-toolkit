@@ -14,7 +14,6 @@ class Tweak_Loader
         'ai-site-instructions',
         'ai-field-architecture',
         'ai-acf-field-abilities',
-        'acf-abilities-api',
         'acf-settings',
         'acf-tab-errors',
         'acf-term-screens',
@@ -125,6 +124,13 @@ class Tweak_Loader
                 }
             }
             unset($setting);
+
+            // Ability rows name their opt-in setting by its short id too.
+            foreach ($def['abilities'] ?? [] as $index => $row) {
+                if (!empty($row['setting'])) {
+                    $def['abilities'][$index]['setting'] = self::prefix_id($row['setting'], $def['id']);
+                }
+            }
 
             $tweaks[] = $def;
 

@@ -14,9 +14,11 @@ defined('ABSPATH') || exit;
 define('DDWPT_VERSION', get_file_data(__FILE__, ['Version' => 'Version'])['Version'] ?? '1.0.0');
 define('DDWPT_URL', plugin_dir_url(__FILE__));
 
+require_once __DIR__ . '/inc/class-migrations.php';
 require_once __DIR__ . '/inc/class-bricks-tags.php';
 require_once __DIR__ . '/inc/class-tweak-loader.php';
 require_once __DIR__ . '/inc/class-knowledge-base.php';
+require_once __DIR__ . '/inc/class-settings-layout.php';
 require_once __DIR__ . '/inc/class-plugin.php';
 require_once __DIR__ . '/plugin-update-checker/plugin-update-checker.php';
 
@@ -32,6 +34,9 @@ $myUpdateChecker->setBranch('main');
 $myUpdateChecker->getVcsApi()->enableReleaseAssets();
 
 add_action('plugins_loaded', function () {
+    // Renamed option keys must be in place before tweak files read them.
+    DDWPTweaks\Migrations::run();
+
     // Tweak runner always boots — CPTs, ACF, GTM etc. must register on every request.
     $tweaks = (new DDWPTweaks\Tweak_Loader())->load_all();
 

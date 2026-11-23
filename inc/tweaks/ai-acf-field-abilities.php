@@ -2,6 +2,14 @@
 
 namespace DDWPTweaks\Tweaks;
 
+// ACF's own AI abilities (formerly the separate "Enable ACF Abilities" tweak,
+// whose option is migrated to this key by Migrations). The filter must be
+// added before acf/init, so it runs at file load. It works on its own and
+// does not need this tweak's main switch.
+if (get_option('ddwpt_ai_acf_field_abilities_acf_native')) {
+    add_filter('acf/settings/enable_acf_ai', '__return_true');
+}
+
 // Strips internal/noisy keys and recursively cleans sub_fields (repeater/group/
 // flexible_content) so the payload matches what acf_update_field() actually accepts back.
 function ai_acf_clean_field(array $field): array
@@ -332,7 +340,23 @@ return [
     'id'    => 'ddwpt_ai_acf_field_abilities',
     'label' => 'AI ACF Field Group Abilities',
     'tab'   => 'ai',
-    'group' => 'abilities',
+    'description' => 'Let agents read and edit ACF field groups stored in the database.',
+    'requires' => ['ACF'],
+    // Listed for the settings card; registration happens at file load above.
+    'abilities' => [
+        ['kind' => 'read', 'names' => ['wp-toolkit/list-acf-field-groups', 'wp-toolkit/get-acf-field-group']],
+        ['kind' => 'write', 'setting' => 'allow_write', 'names' => ['wp-toolkit/update-acf-field-group', 'wp-toolkit/update-acf-field']],
+        [
+            'title'       => 'ACF built-in',
+            'setting'     => 'acf_native',
+            'independent' => true,
+            'names'       => static function () {
+                if (!function_exists('wp_get_abilities')) return [];
+                $names = array_map(static fn($ability) => $ability->get_name(), wp_get_abilities());
+                return array_values(array_filter($names, static fn($name) => str_starts_with($name, 'acf/')));
+            },
+        ],
+    ],
 
     'settings' => [
         [
@@ -346,6 +370,12 @@ return [
             'type'        => 'checkbox',
             'label'       => 'Allow field group updates',
             'description' => 'Also registers write abilities: <code>update-acf-field-group</code> (settings, location rules, active status) and <code>update-acf-field</code> (add a new field, or edit an existing one, in an existing group). No field or field-group deletion ability is provided — deactivate a group instead via <code>update-acf-field-group</code>\'s <code>active</code> flag, or remove fields via the ACF admin UI.',
+        ],
+        [
+            'id'          => 'acf_native',
+            'type'        => 'checkbox',
+            'label'       => 'Also enable ACF\'s own AI abilities',
+            'description' => 'Turns on ACF\'s built-in abilities via the <code>acf/settings/enable_acf_ai</code> filter. Works even when this tweak\'s main switch is off.',
         ],
     ],
 
