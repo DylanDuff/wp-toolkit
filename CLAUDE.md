@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Modular WordPress admin plugin. Core concept: self-contained **tweaks** (PHP files in `inc/tweaks/`) that each define a settings form and a callback. The tweak loader wires everything together — no tweak touches the loader or UI code.
 
-Admin-only apart from the custom Bricks elements in `inc/elements/`, which enqueue frontend JS/CSS (and vendored runtimes) on pages that render them.
+Admin-only apart from the custom Bricks elements in `inc/elements/` and the Zag Filters module in `inc/zag-filters/`, which enqueue frontend JS/CSS (and vendored runtimes) on pages that render them.
 
 **Slug:** `wp-toolkit` | **Namespace:** `DDWPTweaks` | **Admin URL:** `Tools → WP Toolkit`
 
@@ -213,6 +213,10 @@ Bricks builds `Setup::$control_options` on `init` before tweak callbacks run, so
 
 Simple string-valued dynamic tags go through `\DDWPTweaks\Bricks_Tags::register()` rather than hand-wired filters (`bricks-dynamic-tags.php`, `linked-author.php`); see `docs/bricks-builder-tweaks.md`.
 
+### Zag Filters (`inc/zag-filters/`, `inc/tweaks/bricks-zag-filters.php`)
+
+Seven Zag.js query filter elements folded in from the standalone "Zag Filters for Bricks" plugin. **Drop-in replacement:** element names (`zag-*`), element setting keys, the `Zag` PHP namespace, hooks, handles and CSS/data attributes are deliberately unchanged, so never rename them. The tweak loads `bootstrap.php` at file-load time only when `ZAG_FILE` is undefined (standalone plugin inactive), and deactivating the standalone plugin switches the tweak on. Frontend source is `src/zag-filters/`, built to the committed `inc/zag-filters/assets/zag-filters.js` with `pnpm build`; `release.sh` refuses a stale bundle. Tests: `pnpm test`. Read `docs/zag-filters/README.md` before touching the query bridge: it impersonates native Bricks filter elements and is the most fragile code in the plugin.
+
 Third-party runtimes are vendored or CDN-loaded per element, deliberately: vendor when nothing users author depends on the version (Embla), stay on a CDN when the runtime must track upstream export formats (Rive, Unicorn Studio, Mapbox). Always pin an exact version.
 
 ---
@@ -257,5 +261,6 @@ Markdown articles auto-discovered from the directory. `manifest.php` provides in
 | `bricks-builder-tweaks.md` | `Bricks_Tags` helper, extra dynamic tags, component property groups in Gutenberg, extra HTML tags |
 | `linked-author.md` | Team member as post author: filters, `{linked_author:field}` tag |
 | `acf-admin-screens.md` | ACF tab error highlighting, tidier term edit screens and left tabs on term screens |
+| `zag-filters/` | Zag Filters elements: drop-in compatibility, filter impersonation, frontend, build; one file per element |
 
 Keep docs current when features change materially.

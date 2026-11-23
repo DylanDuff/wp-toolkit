@@ -14,7 +14,11 @@ wp-toolkit/
 │   ├── class-tweak-loader.php  # Loads and validates tweak definitions
 │   ├── class-knowledge-base.php
 │   ├── knowledge/              # Markdown articles for the knowledge base
-│   └── tweaks/                 # Individual tweak files
+│   ├── tweaks/                 # Individual tweak files
+│   └── zag-filters/            # Zag Filters Bricks module (PHP + built bundle)
+├── src/zag-filters/            # Zag Filters frontend source (built with pnpm)
+├── scripts/                    # Build scripts
+├── tests/                      # Schema and Zag Filters test suites
 └── release.sh                  # Release automation script
 ```
 
@@ -101,6 +105,7 @@ Detailed documentation is in [`docs/`](docs/):
 - [`bricks-builder-tweaks.md`](docs/bricks-builder-tweaks.md): `Bricks_Tags` helper for dynamic tags, extra dynamic tags (reading time, post count, page type), component property groups in Gutenberg, extra HTML tags
 - [`linked-author.md`](docs/linked-author.md): team member as post author, `{linked_author:field}` tag
 - [`acf-admin-screens.md`](docs/acf-admin-screens.md): ACF tab error highlighting, tidier term edit screens
+- [`zag-filters/`](docs/zag-filters/README.md): Zag Filters, the Zag.js query filter elements for Bricks folded in from the standalone plugin (drop-in replacement, filter impersonation, frontend, build). Per element: [select](docs/zag-filters/select.md), [sorting](docs/zag-filters/sorting.md), [smart search](docs/zag-filters/smart-search.md), [active filters](docs/zag-filters/active-filters.md), [group](docs/zag-filters/group.md)
 
 ---
 
@@ -112,4 +117,14 @@ The release script handles version bumping, zip packaging, git tagging, and GitH
 bash release.sh
 ```
 
-Requires the `gh` CLI authenticated and `zip` installed. The script will prompt for the version bump type and a changelog entry.
+Requires the `gh` CLI authenticated and `zip` installed. The script will prompt for the version bump type and a changelog entry. With `pnpm install` done, it also rebuilds the Zag Filters bundle and refuses to release a stale one.
+
+## Building
+
+Only Zag Filters has a build step; its bundle is committed so a plain checkout works.
+
+```bash
+pnpm install
+pnpm build   # src/zag-filters/ -> inc/zag-filters/assets/zag-filters.js
+pnpm test    # Zag Filters and schema test suites
+```
