@@ -14,6 +14,7 @@ defined('ABSPATH') || exit;
 define('DDWPT_VERSION', get_file_data(__FILE__, ['Version' => 'Version'])['Version'] ?? '1.0.0');
 define('DDWPT_URL', plugin_dir_url(__FILE__));
 
+require_once __DIR__ . '/inc/class-bricks-tags.php';
 require_once __DIR__ . '/inc/class-tweak-loader.php';
 require_once __DIR__ . '/inc/class-knowledge-base.php';
 require_once __DIR__ . '/inc/class-plugin.php';
