@@ -57,8 +57,9 @@ function handle_duplicate_post()
 return [
     'id'    => 'ddwpt_duplicate_post',
     'label' => 'Duplicate Post',
-    'tab'   => 'wp-admin',
-    'group' => 'tables',
+    'tab'   => 'admin',
+    'group' => 'list-tables',
+    'description' => 'Add a Duplicate row action.',
 
     'settings' => [
         [

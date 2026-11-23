@@ -5,7 +5,9 @@ namespace DDWPTweaks\Tweaks;
 return [
   "id" => "ddwpt_profile_overhaul",
   "label" => "Profile Page Overhaul",
-  "tab" => "general",
+  "tab" => "admin",
+  "group" => "look-and-feel",
+  "description" => "Single-card accordion layout for user profile screens.",
 
   "settings" => [
     [

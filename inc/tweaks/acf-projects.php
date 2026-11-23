@@ -5,8 +5,11 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_acf_projects',
     'label' => 'Projects',
-    'tab'   => 'acf',
-    'group' => 'presets',
+    'tab'   => 'content',
+    'group' => 'post-type-presets',
+    'description' => 'Projects post type with a type taxonomy and fields.',
+    'tags'  => ['Post type', 'Taxonomy'],
+    'requires' => ['ACF'],
 
     'settings' => [
         [

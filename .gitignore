@@ -5,3 +5,6 @@
 .claude/
 .conductor/
 .codex/
+
+# Build tooling
+node_modules/

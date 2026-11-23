@@ -5,6 +5,9 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_knowledge_base',
     'label' => 'Knowledge Base',
+    'tab'   => 'admin',
+    'group' => 'dashboard',
+    'description' => 'Render articles from inc/knowledge/ in the admin.',
 
     'settings' => [
         [

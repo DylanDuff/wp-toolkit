@@ -5,8 +5,11 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_acf_team_members',
     'label' => 'Team Members',
-    'tab'   => 'acf',
-    'group' => 'presets',
+    'tab'   => 'content',
+    'group' => 'post-type-presets',
+    'description' => 'Team Members post type with a job title taxonomy and fields.',
+    'tags'  => ['Post type', 'Taxonomy'],
+    'requires' => ['ACF'],
 
     'settings' => [
         [

@@ -5,8 +5,11 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_acf_faq',
     'label' => 'FAQs',
-    'tab'   => 'acf',
-    'group' => 'presets',
+    'tab'   => 'content',
+    'group' => 'post-type-presets',
+    'description' => 'FAQs post type with a relationship field.',
+    'tags'  => ['Post type'],
+    'requires' => ['ACF'],
 
     'settings' => [
         [

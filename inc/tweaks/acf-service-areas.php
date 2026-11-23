@@ -5,8 +5,11 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_acf_service_areas',
     'label' => 'Service Areas',
-    'tab'   => 'acf',
-    'group' => 'presets',
+    'tab'   => 'content',
+    'group' => 'post-type-presets',
+    'description' => 'Service Areas post type with a region taxonomy.',
+    'tags'  => ['Post type', 'Taxonomy'],
+    'requires' => ['ACF'],
 
     'settings' => [
         [

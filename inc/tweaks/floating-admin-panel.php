@@ -516,8 +516,10 @@ function floating_panel_render(array $data, array $chips, array $new_items): voi
 return [
     'id'    => 'ddwpt_floating_admin_panel',
     'label' => 'Floating Admin Panel',
-    'tab'   => 'wp-admin',
-    'group' => 'top-bar',
+    'tab'   => 'admin',
+    'group' => 'admin-bar',
+    'description' => 'Floating frontend panel instead of the admin bar.',
+    'tags'  => ['Frontend'],
 
     'settings' => [
         [

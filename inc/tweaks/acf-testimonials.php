@@ -5,8 +5,11 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_acf_testimonials',
     'label' => 'Testimonials',
-    'tab'   => 'acf',
-    'group' => 'presets',
+    'tab'   => 'content',
+    'group' => 'post-type-presets',
+    'description' => 'Testimonials post type with a category taxonomy and fields.',
+    'tags'  => ['Post type', 'Taxonomy'],
+    'requires' => ['ACF'],
 
     'settings' => [
         [

@@ -175,7 +175,11 @@ return [
     'id'    => 'ddwpt_ai_site_instructions',
     'label' => 'Site Instructions',
     'tab'   => 'ai',
-    'group' => 'instructions',
+    'description' => 'Give agents your site setup instructions.',
+    // Listed for the settings card; registration happens at file load above.
+    'abilities' => [
+        ['kind' => 'read', 'names' => ['wp-toolkit/get-site-instructions']],
+    ],
 
     'settings' => [
         [

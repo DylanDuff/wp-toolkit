@@ -14,7 +14,11 @@ wp-toolkit/
 │   ├── class-tweak-loader.php  # Loads and validates tweak definitions
 │   ├── class-knowledge-base.php
 │   ├── knowledge/              # Markdown articles for the knowledge base
-│   └── tweaks/                 # Individual tweak files
+│   ├── tweaks/                 # Individual tweak files
+│   └── zag-filters/            # Zag Filters Bricks module (PHP + built bundle)
+├── src/zag-filters/            # Zag Filters frontend source (built with pnpm)
+├── scripts/                    # Build scripts
+├── tests/                      # Schema and Zag Filters test suites
 └── release.sh                  # Release automation script
 ```
 
@@ -32,7 +36,7 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_my_tweak',       // Unique ID, used as option prefix
     'label' => 'My Tweak',             // Shown in settings UI
-    'tab'   => 'general',              // Settings tab (optional)
+    'tab'   => 'site',                 // Settings area (optional)
 
     'settings' => [
         [
@@ -69,13 +73,9 @@ The loader auto-prefixes all setting IDs with the tweak ID, registers them with 
 | `sortable` | Drag-to-reorder list; stored as JSON `{order, hidden}` |
 | `wysiwyg` | TinyMCE editor |
 
-### Tabs
+### Areas
 
-Tweaks are grouped into tabs by their `tab` key. Tabs are auto-created from whatever values are used. The preferred display order is:
-
-`general` → `dashboard` → `admin-bar` → `admin-tables` → `sidebar` → `bricks`
-
-Omit `tab` to place a tweak under **General**.
+The settings page groups tweaks into areas (`tab`) and sections (`group`): Site, Admin, Content model, Builder, Integrations, SEO, AI & MCP and Settings, with an Overview hub and search (`/` or Cmd/Ctrl+K). Omit `tab` to place a tweak under **Site**. See [`docs/settings-layout.md`](docs/settings-layout.md).
 
 ---
 
@@ -91,7 +91,8 @@ The knowledge base can be displayed as a **sidebar page** (its own admin menu en
 
 Detailed documentation is in [`docs/`](docs/):
 
-- [`tweak-system.md`](docs/tweak-system.md) — tweak definition format, all field types, tab system, settings ID prefixing, callback timing
+- [`tweak-system.md`](docs/tweak-system.md) — tweak definition format, all field types, areas and sections, settings ID prefixing, callback timing
+- [`settings-layout.md`](docs/settings-layout.md): settings page layout (Overview, areas, search, nested pages), tweak layout keys, ability rows, option key migrations
 - [`bricks-elements.md`](docs/bricks-elements.md) — custom element architecture, builder re-render rules, vendored vs CDN policy, Embla Slider reference
 - [`knowledge-base.md`](docs/knowledge-base.md) — adding articles, display modes, manifest structure
 - [`settings-export-import.md`](docs/settings-export-import.md) — export/import behaviour, security model, portability notes
@@ -101,6 +102,8 @@ Detailed documentation is in [`docs/`](docs/):
 - [`bricks-builder-tweaks.md`](docs/bricks-builder-tweaks.md): `Bricks_Tags` helper for dynamic tags, extra dynamic tags (reading time, post count, page type), component property groups in Gutenberg, extra HTML tags
 - [`linked-author.md`](docs/linked-author.md): team member as post author, `{linked_author:field}` tag
 - [`acf-admin-screens.md`](docs/acf-admin-screens.md): ACF tab error highlighting, tidier term edit screens
+- [`zag-filters/`](docs/zag-filters/README.md): Zag Filters, the Zag.js query filter elements for Bricks folded in from the standalone plugin (drop-in replacement, filter impersonation, frontend, build). Per element: [select](docs/zag-filters/select.md), [sorting](docs/zag-filters/sorting.md), [smart search](docs/zag-filters/smart-search.md), [active filters](docs/zag-filters/active-filters.md), [group](docs/zag-filters/group.md)
+- [`acf-shopify-products.md`](docs/acf-shopify-products.md): Shopify Product(s) ACF field types, Bricks loop tags, replacing the standalone plugin
 
 ---
 
@@ -112,4 +115,14 @@ The release script handles version bumping, zip packaging, git tagging, and GitH
 bash release.sh
 ```
 
-Requires the `gh` CLI authenticated and `zip` installed. The script will prompt for the version bump type and a changelog entry.
+Requires the `gh` CLI authenticated and `zip` installed. The script will prompt for the version bump type and a changelog entry. With `pnpm install` done, it also rebuilds the Zag Filters bundle and refuses to release a stale one.
+
+## Building
+
+Only Zag Filters has a build step; its bundle is committed so a plain checkout works.
+
+```bash
+pnpm install
+pnpm build   # src/zag-filters/ -> inc/zag-filters/assets/zag-filters.js
+pnpm test    # Zag Filters and schema test suites
+```

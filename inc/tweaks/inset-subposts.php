@@ -20,8 +20,9 @@ function inset_subposts()
 return [
     'id'    => 'ddwpt_inset_subposts',
     'label' => 'Inset Sub-Posts',
-    'tab'   => 'wp-admin',
-    'group' => 'tables',
+    'tab'   => 'admin',
+    'group' => 'list-tables',
+    'description' => 'Indent child posts under their parent.',
 
     'settings' => [
         [

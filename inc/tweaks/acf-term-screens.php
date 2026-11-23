@@ -5,8 +5,10 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_acf_term_screens',
     'label' => 'Tidier Term Edit Screens',
-    'tab'   => 'acf',
-    'group' => 'general',
+    'tab'   => 'content',
+    'group' => 'editing-screens',
+    'description' => 'Card layout for term edit screens.',
+    'requires' => ['ACF'],
 
     'settings' => [
         [

@@ -5,8 +5,9 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_posts_per_page',
     'label' => 'Posts Per Page',
-    'tab'   => 'wp-admin',
-    'group' => 'tables',
+    'tab'   => 'admin',
+    'group' => 'list-tables',
+    'description' => 'Override the default number of items shown in admin list tables.',
 
     'settings' => [
         [

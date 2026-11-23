@@ -5,8 +5,9 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_hide_footer_version',
     'label' => 'Hide Footer Version',
-    'tab'   => 'wp-admin',
+    'tab'   => 'admin',
     'group' => 'footer',
+    'description' => 'Remove the WordPress version number from the admin footer.',
 
     'settings' => [
         [

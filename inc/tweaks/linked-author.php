@@ -163,8 +163,11 @@ function linked_author_register_field(array $post_types): void
 return [
     'id'    => 'ddwpt_linked_author',
     'label' => 'Team Member Authors',
-    'tab'   => 'acf',
-    'group' => 'presets',
+    'tab'   => 'content',
+    'group' => 'post-type-presets',
+    'description' => 'Credit a team member as the post author.',
+    'tags'  => ['Needs Team Members'],
+    'requires' => ['ACF'],
 
     'settings' => [
         [

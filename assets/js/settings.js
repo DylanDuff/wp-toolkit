@@ -1,19 +1,32 @@
 (function () {
     'use strict';
 
-    // ── Tab switching ─────────────────────────────────────────────────
-    var tabs         = document.querySelectorAll('.ddwpt-tab');
-    var panels       = document.querySelectorAll('.ddwpt-panel');
-    var nestedGroups = document.querySelectorAll('.ddwpt-subtabs-nested');
-    var nestedLinks  = document.querySelectorAll('.ddwpt-subtab-nested');
-    var initialized  = {};
+    var wrap = document.querySelector('.ddwpt-wrap');
+    if (!wrap) return;
 
-    function initEditors(panel) {
-        if (initialized[panel.dataset.tab]) return;
-        initialized[panel.dataset.tab] = true;
+    // ── Navigation ────────────────────────────────────────────────────
+    // Routes live in the hash: #area, #area/pane (a section or nested page)
+    // or #ddwpt-card-<tweak> to jump straight to a card. Everything is one
+    // form, so switching is client-side and Save submits every field.
+    var areas       = wrap.querySelectorAll('.ddwpt-area');
+    var tabs        = wrap.querySelectorAll('.ddwpt-tab');
+    var labsInput   = document.getElementById('ddwpt_experiments_enabled');
+    var initialized = {};
+    var current     = { area: 'overview', pane: '' };
 
-        panel.querySelectorAll('.wp-editor-wrap').forEach(function (wrap) {
-            var id = wrap.id.replace(/^wp-/, '').replace(/-wrap$/, '');
+    // Hashes from releases before the areas layout.
+    var legacyAreas = { general: 'site', acf: 'content', 'wp-admin': 'admin', bricks: 'builder', animations: 'builder', experimental: 'overview' };
+
+    function areaEl(id) {
+        return wrap.querySelector('.ddwpt-area[data-area="' + id + '"]');
+    }
+
+    function initEditors(area) {
+        if (initialized[area.dataset.area]) return;
+        initialized[area.dataset.area] = true;
+
+        area.querySelectorAll('.wp-editor-wrap').forEach(function (editor) {
+            var id = editor.id.replace(/^wp-/, '').replace(/-wrap$/, '');
             if (typeof tinymce !== 'undefined' && tinymce.get(id)) return;
             if (typeof tinyMCEPreInit !== 'undefined' && tinyMCEPreInit.mceInit && tinyMCEPreInit.mceInit[id] && typeof tinymce !== 'undefined') {
                 tinymce.init(tinyMCEPreInit.mceInit[id]);
@@ -25,86 +38,382 @@
         });
     }
 
-    // Sub-panel switching within a single top-level tab. Falls back to the
-    // first sub-panel when no specific one is requested (e.g. switching
-    // tabs via the top-level nav rather than a nested sub-tab link).
-    function activateSubtab(tabId, subtabId) {
-        var panel     = document.querySelector('.ddwpt-panel[data-tab="' + tabId + '"]');
-        var subpanels = panel ? panel.querySelectorAll('.ddwpt-subpanel') : [];
-        if (!subpanels.length) return;
+    // A card is shown unless it is a Labs tweak with Experiments off, or
+    // needs a missing plugin and its area has not asked to show those.
+    // Hidden cards keep their inputs, so saving never drops their values.
+    function isLabsOn() {
+        return labsInput ? labsInput.checked : wrap.classList.contains('is-labs-on');
+    }
 
-        var target = subtabId || subpanels[0].dataset.subtab;
-        subpanels.forEach(function (p) {
-            p.style.display = p.dataset.subtab === target ? '' : 'none';
-        });
-        nestedLinks.forEach(function (link) {
-            if (link.dataset.tab === tabId) {
-                link.classList.toggle('is-active', link.dataset.subtab === target);
+    function cardVisible(card) {
+        if (card.classList.contains('is-labs') && !isLabsOn()) return false;
+        if (card.classList.contains('is-unavailable')) {
+            var area = card.closest('.ddwpt-area');
+            return !!(area && area.classList.contains('is-showing-unavailable'));
+        }
+        return true;
+    }
+
+    function tweakCards(scope) {
+        return Array.prototype.slice.call(scope.querySelectorAll('[data-tweak]'));
+    }
+
+    function refreshVisibility() {
+        wrap.classList.toggle('is-labs-on', isLabsOn());
+
+        areas.forEach(function (area) {
+            if (area.dataset.area === 'overview') return;
+            var cards = tweakCards(area);
+            cards.forEach(function (card) { card.hidden = !cardVisible(card); });
+
+            // Section buttons for sections with nothing visible are hidden,
+            // as are pages whose tweak is hidden. With no section left, the
+            // switcher goes too.
+            var switcher = area.querySelector('.ddwpt-segmented');
+            if (switcher) {
+                var sectionsShown = 0;
+                switcher.querySelectorAll('[data-pane]').forEach(function (button) {
+                    var pane = area.querySelector('.ddwpt-pane[data-pane="' + button.dataset.pane + '"]');
+                    if (pane && pane.hasAttribute('data-page')) {
+                        var owner = button.dataset.pageOwner ? document.getElementById(button.dataset.pageOwner) : null;
+                        button.hidden = !!(owner && owner.hidden);
+                    } else {
+                        button.hidden = !pane || !pane.querySelector('[data-tweak]:not([hidden])');
+                        if (!button.hidden) sectionsShown++;
+                    }
+                });
+                switcher.hidden = sectionsShown === 0;
+                var divider = switcher.querySelector('.ddwpt-segmented-divider');
+                if (divider) divider.hidden = !switcher.querySelector('.is-page:not([hidden])');
             }
+
+            var missing = cards.filter(function (card) {
+                return card.classList.contains('is-unavailable') && !(card.classList.contains('is-labs') && !isLabsOn());
+            });
+            var note = area.querySelector('[data-unavailable-note]');
+            if (note) {
+                var plugins = {};
+                missing.forEach(function (card) {
+                    card.dataset.missing.split(', ').forEach(function (name) { plugins[name] = true; });
+                });
+                var names = Object.keys(plugins).join(', ');
+                note.hidden = !missing.length || area.classList.contains('is-showing-unavailable');
+                note.querySelector('span').textContent = missing.length + ' tweak' + (missing.length === 1 ? '' : 's') +
+                    ' hidden because ' + names + (Object.keys(plugins).length === 1 ? ' is' : ' are') + ' not active.';
+            }
+            var empty = area.querySelector('[data-area-empty]');
+            if (empty) empty.hidden = cards.length === 0 || cards.some(function (card) { return !card.hidden; });
         });
+
+        refreshCounts();
     }
 
-    function activateTab(tabId, subtabId) {
-        tabs.forEach(function (t) {
-            t.classList.toggle('is-active', t.dataset.tab === tabId);
+    // "X of Y on" for each area, from header switches of visible tweaks.
+    function refreshCounts() {
+        var totalOn = 0;
+        var total = 0;
+
+        areas.forEach(function (area) {
+            var id = area.dataset.area;
+            if (id === 'overview') return;
+            var switches = tweakCards(area)
+                .filter(function (card) { return !(card.classList.contains('is-labs') && !isLabsOn()); })
+                .map(function (card) { return card.querySelector('.ddwpt-card-header .ddwpt-toggle input'); })
+                .filter(Boolean);
+            var on = switches.filter(function (input) { return input.checked; }).length;
+            totalOn += on;
+            total += switches.length;
+
+            wrap.querySelectorAll('[data-area-count-text="' + id + '"]').forEach(function (el) { el.textContent = on + ' of ' + switches.length + ' on'; });
+            wrap.querySelectorAll('[data-area-meter="' + id + '"]').forEach(function (el) {
+                el.style.width = (switches.length ? Math.round(on / switches.length * 100) : 0) + '%';
+            });
         });
-        panels.forEach(function (p) {
-            var active = p.dataset.tab === tabId;
-            p.style.display = active ? '' : 'none';
-            if (active) initEditors(p);
-        });
-        nestedGroups.forEach(function (wrap) {
-            wrap.classList.toggle('is-open', wrap.dataset.tab === tabId);
-        });
-        activateSubtab(tabId, subtabId);
+
+        var activeCount = wrap.querySelector('[data-active-count]');
+        if (activeCount) activeCount.textContent = totalOn + ' / ' + total + ' tweaks enabled';
     }
 
-    tabs.forEach(function (tab) {
-        tab.addEventListener('click', function (e) {
+    function firstVisiblePane(area) {
+        var buttons = area.querySelectorAll('.ddwpt-segmented [data-pane]');
+        for (var i = 0; i < buttons.length; i++) {
+            if (!buttons[i].hidden) return buttons[i].dataset.pane;
+        }
+        var pane = area.querySelector('.ddwpt-pane:not([data-page])');
+        return pane ? pane.dataset.pane : '';
+    }
+
+    function show(areaId, paneId) {
+        var area = areaEl(areaId) || areaEl('overview');
+        areaId = area.dataset.area;
+
+        var panes = area.querySelectorAll('.ddwpt-pane');
+        if (panes.length) {
+            if (!paneId || !area.querySelector('.ddwpt-pane[data-pane="' + paneId + '"]')) paneId = firstVisiblePane(area);
+            var active = null;
+            panes.forEach(function (pane) {
+                var isActive = pane.dataset.pane === paneId;
+                pane.hidden = !isActive;
+                if (isActive) active = pane;
+            });
+            area.querySelectorAll('.ddwpt-segmented [data-pane]').forEach(function (button) {
+                button.classList.toggle('is-active', button.dataset.pane === paneId);
+                button.setAttribute('aria-selected', button.dataset.pane === paneId ? 'true' : 'false');
+            });
+            // Nested pages extend the breadcrumb: Overview / Area / Page.
+            var crumb = area.querySelector('[data-crumb-page]');
+            if (crumb) crumb.textContent = active && active.hasAttribute('data-page') ? '/ ' + active.dataset.paneLabel : '';
+        }
+
+        areas.forEach(function (el) { el.hidden = el !== area; });
+        tabs.forEach(function (tab) { tab.classList.toggle('is-active', tab.dataset.area === areaId); });
+        initEditors(area);
+
+        current = { area: areaId, pane: paneId || '' };
+    }
+
+    function route(hash, scroll) {
+        hash = (hash || '').replace(/^#/, '');
+
+        if (hash.indexOf('ddwpt-card-') === 0) {
+            goToCard(hash);
+            return;
+        }
+
+        var parts = hash.split('/');
+        var areaId = legacyAreas[parts[0]] || parts[0] || 'overview';
+        show(areaId, parts[1] || '');
+        if (scroll !== false) window.scrollTo(0, 0);
+    }
+
+    function goToCard(cardId) {
+        var card = document.getElementById(cardId);
+        if (!card) return;
+        var area = card.closest('.ddwpt-area');
+        var pane = card.closest('.ddwpt-pane');
+        if (card.classList.contains('is-unavailable')) area.classList.add('is-showing-unavailable');
+        if (card.classList.contains('is-labs') && !isLabsOn()) return;
+        refreshVisibility();
+        show(area.dataset.area, pane ? pane.dataset.pane : '');
+        history.replaceState(null, '', '#' + area.dataset.area + (pane ? '/' + pane.dataset.pane : ''));
+        card.scrollIntoView({ block: 'center' });
+        card.classList.remove('is-flashing');
+        void card.offsetWidth;
+        card.classList.add('is-flashing');
+    }
+
+    window.addEventListener('hashchange', function () { route(location.hash); });
+
+    wrap.addEventListener('click', function (e) {
+        var goto = e.target.closest('[data-goto-card]');
+        if (goto) {
             e.preventDefault();
-            var id = this.dataset.tab;
-            history.replaceState(null, '', '#' + id);
-            activateTab(id);
-        });
+            goToCard(goto.dataset.gotoCard);
+            return;
+        }
+        var showMissing = e.target.closest('[data-show-unavailable]');
+        if (showMissing) {
+            showMissing.closest('.ddwpt-area').classList.add('is-showing-unavailable');
+            refreshVisibility();
+        }
     });
 
-    nestedLinks.forEach(function (link) {
-        link.addEventListener('click', function (e) {
-            e.preventDefault();
-            var tabId = this.dataset.tab;
-            history.replaceState(null, '', '#' + tabId);
-            activateTab(tabId, this.dataset.subtab);
-        });
-    });
-
-    // Preserve active tab + flag save through form submission
-    var form = document.querySelector('form[action="options.php"]');
+    // Keep the current view through the save round trip.
+    var form = wrap.closest('form');
     if (form) {
         form.addEventListener('submit', function () {
             var referer = form.querySelector('input[name="_wp_http_referer"]');
             if (referer) {
-                referer.value = referer.value.replace(/#.*$/, '') + location.hash;
+                referer.value = referer.value.replace(/#.*$/, '') + '#' + current.area + (current.pane ? '/' + current.pane : '');
             }
             sessionStorage.setItem('ddwpt_saved', '1');
         });
     }
 
-    // Activate from URL hash or first tab
-    var hash = location.hash.replace('#', '');
-    var firstTab = tabs[0] ? tabs[0].dataset.tab : '';
-    activateTab(hash && document.querySelector('.ddwpt-panel[data-tab="' + hash + '"]') ? hash : firstTab);
+    // ── Card switches ─────────────────────────────────────────────────
+    // Header switches fade their card; ability opt-in switches fade their row.
+    wrap.addEventListener('change', function (e) {
+        var input = e.target;
+        if (!input.closest || !input.closest('.ddwpt-toggle')) return;
 
-    // ── Card toggle — disabled state ──────────────────────────────────
-    document.querySelectorAll('.ddwpt-card .ddwpt-toggle input[type="checkbox"]').forEach(function (toggle) {
-        var card = toggle.closest('.ddwpt-card');
-        if (!card) return;
+        if (input.closest('.ddwpt-card-header')) {
+            input.closest('.ddwpt-card').classList.toggle('is-disabled', !input.checked);
+        } else if (input.closest('.ddwpt-ability-row')) {
+            input.closest('.ddwpt-ability-row').classList.toggle('is-off', !input.checked);
+        }
+        if (input === labsInput) {
+            refreshVisibility();
+        } else {
+            refreshCounts();
+        }
+    });
 
-        function sync() {
-            card.classList.toggle('is-disabled', !toggle.checked);
+    // ── Search palette ────────────────────────────────────────────────
+    // Indexes every tweak card and nested page already on the page.
+    var palette   = wrap.querySelector('[data-palette]');
+    var input     = palette ? palette.querySelector('.ddwpt-palette-input') : null;
+    var list      = palette ? palette.querySelector('.ddwpt-palette-results') : null;
+    var results   = [];
+    var selected  = 0;
+
+    function areaLabel(area) {
+        var tab = wrap.querySelector('.ddwpt-tab[data-area="' + area.dataset.area + '"]');
+        return tab ? tab.textContent.trim() : '';
+    }
+
+    function paletteIndex() {
+        var entries = [];
+        wrap.querySelectorAll('.ddwpt-pane[data-page]').forEach(function (pane) {
+            var area = pane.closest('.ddwpt-area');
+            entries.push({
+                label: pane.dataset.paneLabel,
+                where: areaLabel(area),
+                text: (pane.dataset.paneLabel + ' ' + areaLabel(area)).toLowerCase(),
+                page: true,
+                open: function () { location.hash = area.dataset.area + '/' + pane.dataset.pane; }
+            });
+        });
+        wrap.querySelectorAll('.ddwpt-area [data-tweak]').forEach(function (card) {
+            if (card.classList.contains('is-labs') && !isLabsOn()) return;
+            var area = card.closest('.ddwpt-area');
+            var pane = card.closest('.ddwpt-pane');
+            var section = pane && !pane.hasAttribute('data-page') && area.querySelector('.ddwpt-segmented') ? ' › ' + pane.dataset.paneLabel : '';
+            entries.push({
+                label: card.dataset.label,
+                where: areaLabel(area) + section,
+                text: (card.dataset.search + ' ' + (pane ? pane.dataset.paneLabel : '')).toLowerCase(),
+                open: function () { goToCard(card.id); }
+            });
+        });
+        return entries;
+    }
+
+    function renderResults() {
+        var query = input.value.trim().toLowerCase();
+        var terms = query.split(/\s+/).filter(Boolean);
+        results = paletteIndex().filter(function (entry) {
+            return terms.every(function (term) { return entry.text.indexOf(term) !== -1; });
+        }).slice(0, 12);
+        selected = Math.min(selected, Math.max(results.length - 1, 0));
+
+        list.innerHTML = '';
+        if (!results.length) {
+            var empty = document.createElement('li');
+            empty.className = 'is-empty';
+            empty.textContent = 'No matches';
+            list.appendChild(empty);
+            return;
+        }
+        results.forEach(function (entry, index) {
+            var item = document.createElement('li');
+            item.setAttribute('role', 'option');
+            item.className = index === selected ? 'is-current' : '';
+            var label = document.createElement('span');
+            label.textContent = entry.label;
+            item.appendChild(label);
+            if (entry.page) {
+                var badge = document.createElement('span');
+                badge.className = 'ddwpt-badge';
+                badge.textContent = 'Page';
+                item.appendChild(badge);
+            }
+            var where = document.createElement('span');
+            where.className = 'ddwpt-palette-where';
+            where.textContent = entry.where;
+            item.appendChild(where);
+            item.addEventListener('click', function () { choose(index); });
+            list.appendChild(item);
+        });
+    }
+
+    function openPalette() {
+        if (!palette) return;
+        palette.hidden = false;
+        input.value = '';
+        selected = 0;
+        renderResults();
+        input.focus();
+    }
+
+    function closePalette() {
+        if (palette) palette.hidden = true;
+    }
+
+    function choose(index) {
+        var entry = results[index];
+        if (!entry) return;
+        closePalette();
+        entry.open();
+    }
+
+    if (palette) {
+        wrap.querySelectorAll('[data-palette-open]').forEach(function (button) {
+            button.addEventListener('click', openPalette);
+        });
+        palette.addEventListener('click', function (e) {
+            if (e.target === palette) closePalette();
+        });
+        input.addEventListener('input', function () {
+            selected = 0;
+            renderResults();
+        });
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                selected = Math.max(0, Math.min(results.length - 1, selected + (e.key === 'ArrowDown' ? 1 : -1)));
+                renderResults();
+                var currentItem = list.querySelector('.is-current');
+                if (currentItem) currentItem.scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                choose(selected);
+            }
+        });
+        document.addEventListener('keydown', function (e) {
+            var typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) || document.activeElement.isContentEditable;
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                openPalette();
+            } else if (e.key === '/' && !typing && palette.hidden) {
+                e.preventDefault();
+                openPalette();
+            } else if (e.key === 'Escape' && !palette.hidden) {
+                closePalette();
+            }
+        });
+    }
+
+    // ── Registered abilities filter ───────────────────────────────────
+    wrap.querySelectorAll('.ddwpt-registry').forEach(function (registry) {
+        var search = registry.querySelector('.ddwpt-registry-search');
+        var namespace = '';
+
+        function filter() {
+            var query = search ? search.value.trim().toLowerCase() : '';
+            registry.querySelectorAll('tbody tr').forEach(function (row) {
+                row.hidden = (namespace && row.dataset.namespace !== namespace) ||
+                    (query && row.textContent.toLowerCase().indexOf(query) === -1);
+            });
         }
 
-        toggle.addEventListener('change', sync);
+        registry.querySelectorAll('[data-registry-namespace]').forEach(function (chip) {
+            chip.addEventListener('click', function () {
+                namespace = chip.dataset.registryNamespace;
+                registry.querySelectorAll('[data-registry-namespace]').forEach(function (other) {
+                    other.classList.toggle('is-active', other === chip);
+                });
+                filter();
+            });
+        });
+        if (search) {
+            search.addEventListener('input', filter);
+            // Enter in the filter must not submit the settings form.
+            search.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
+        }
     });
+
+    refreshVisibility();
+    route(location.hash, false);
 
     // ── Conditional fields (show_if) ──────────────────────────────────
     // Hidden fields keep their saved values; only their rows are hidden.
@@ -509,7 +818,7 @@
                 btn.textContent = 'Copied!';
                 btn.classList.add('is-copied');
                 setTimeout(function () {
-                    btn.textContent = 'Copy';
+                    btn.textContent = btn.dataset.copyLabel || 'Copy';
                     btn.classList.remove('is-copied');
                 }, 2000);
             });

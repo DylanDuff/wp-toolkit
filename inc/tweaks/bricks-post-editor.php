@@ -5,8 +5,11 @@ namespace DDWPTweaks\Tweaks;
 return [
   "id" => "ddwpt_bricks_post_editor",
   "label" => "Bricks Post Editor",
-  "tab" => "bricks",
+  "tab" => "builder",
   "group" => "gutenberg",
+  "description" => "Replace the block editor with an \"Edit with Bricks\" button.",
+  "tags" => ["Block editor"],
+  "requires" => ["Bricks"],
 
   "settings" => [
     [

@@ -402,7 +402,13 @@ return [
     'id'    => 'ddwpt_ai_redirection_abilities',
     'label' => 'AI Redirection Abilities',
     'tab'   => 'ai',
-    'group' => 'abilities',
+    'description' => 'Let agents list, create and update Redirection redirects.',
+    'requires' => ['Redirection'],
+    // Listed for the settings card; registration happens at file load above.
+    'abilities' => [
+        ['kind' => 'read', 'names' => ['wp-toolkit/list-redirects', 'wp-toolkit/get-redirect', 'wp-toolkit/list-redirect-groups']],
+        ['kind' => 'write', 'setting' => 'allow_write', 'names' => ['wp-toolkit/create-redirect', 'wp-toolkit/update-redirect', 'wp-toolkit/create-redirect-group']],
+    ],
 
     'settings' => [
         [

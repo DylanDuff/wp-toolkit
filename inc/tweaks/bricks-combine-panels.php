@@ -5,8 +5,11 @@ namespace DDWPTweaks\Tweaks;
 return [
   "id" => "ddwpt_bricks_combine_panels",
   "label" => "Compact Editor Experience",
-  "tab" => "bricks",
-  "group" => "builder",
+  "tab" => "builder",
+  "group" => "editor",
+  "description" => "One combined elements and structure sidebar.",
+  "tags" => ["Editor role only"],
+  "requires" => ["Bricks"],
 
   "settings" => [
     [

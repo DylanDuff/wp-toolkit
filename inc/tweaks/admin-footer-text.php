@@ -5,8 +5,9 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_admin_footer_text',
     'label' => 'Admin Footer Text',
-    'tab'   => 'wp-admin',
+    'tab'   => 'admin',
     'group' => 'footer',
+    'description' => 'Replace the "Thank you for creating" footer text.',
 
     'settings' => [
         [

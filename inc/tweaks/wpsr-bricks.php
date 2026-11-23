@@ -91,8 +91,11 @@ function wpsr_render_tags_in_content( $content, $post, $context = 'text' ) {
 return [
     'id'    => 'ddwpt_wpsr_bricks',
     'label' => 'WP Social Ninja — Bricks',
-    'tab'   => 'bricks',
-    'group' => 'elements',
+    'tab'   => 'integrations',
+    'group' => 'wp-social-ninja',
+    'description' => 'Use WP Social Ninja reviews in Bricks loops and dynamic tags.',
+    'tags'  => ['Dynamic tags', 'Loop source'],
+    'requires' => ['WP Social Ninja', 'Bricks'],
 
     'settings' => [
         [

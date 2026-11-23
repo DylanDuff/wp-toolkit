@@ -4,6 +4,8 @@ return [
     'id'       => 'ddwpt_experiments',
     'label'    => 'Experiments',
     'tab'      => 'settings',
+    'description' => 'Show Labs tweaks alongside the rest.',
+
     'settings' => [
         [
             'id'          => 'enabled',

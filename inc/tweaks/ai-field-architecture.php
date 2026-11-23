@@ -179,7 +179,12 @@ return [
     'id'    => 'ddwpt_ai_field_architecture',
     'label' => 'ACF Field Architecture Guide',
     'tab'   => 'ai',
-    'group' => 'instructions',
+    'description' => 'Give agents this site\'s conventions for new ACF field groups.',
+    'requires' => ['ACF'],
+    // Listed for the settings card; registration happens at file load above.
+    'abilities' => [
+        ['kind' => 'read', 'names' => ['wp-toolkit/get-acf-architecture-guide']],
+    ],
 
     'settings' => [
         [

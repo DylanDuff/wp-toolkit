@@ -1,0 +1,1212 @@
+/**
+ * Zag filter elements.
+ *
+ * Every value that differs between designs is a custom property whose default
+ * lives in the var() fallback — deliberately NOT declared on the root.
+ *
+ * Bricks emits style control values as `.brxe-zag-filter-select { --x: … }`,
+ * which targets the same element and the same single class as our `.zag-select`
+ * rule. Equal specificity means source order decides, and our stylesheet loads
+ * last, so declaring defaults here silently overrode every control. Fallbacks
+ * lose to any real declaration regardless of order, which is the behaviour we
+ * want: untouched renders as the ref, set values win.
+ *
+ * Discrepancies tracked in docs/zag-filters/ref-parity.md.
+ */
+
+.zag-select,
+.zag-datepicker,
+.zag-search {
+	position: relative;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.zag-select *,
+.zag-datepicker *,
+.zag-search *,
+.zag-active-filters * {
+	box-sizing: border-box;
+}
+
+/* ==========================================================================
+   Select
+   ========================================================================== */
+
+/**
+ * Until the bundle mounts, the native <select> is the filter and styles itself.
+ * select.js sets [hidden] on it once the Zag UI is live.
+ */
+.zag-select__native[hidden] {
+	display: none !important;
+}
+
+/* ==========================================================================
+   Pre-mount
+   ========================================================================== */
+
+/**
+ * `zag-js` is set on <html> by an inline script in the head, before the body
+ * paints, so everything in this section is scoped to browsers that will run the
+ * bundle. Without JS the class never appears and the native controls stay
+ * exactly as the server rendered them — the progressive-enhancement baseline is
+ * untouched.
+ *
+ * `[data-zag-ready]` is set by register() at the end of each mount.
+ *
+ * The caveat: if the class is set but the bundle then fails to load, these
+ * elements stay blank. That is the standard trade of the js-class pattern, and
+ * the bundle is enqueued by the same element that renders them.
+ *
+ * `.zag-builder` (the Bricks builder canvas) is excluded per element unless
+ * that element's own `[data-zag-preview]` is also set: the bundle
+ * deliberately never mounts an element in canvas without that opt-in (see
+ * src/zag-filters.js), so hiding its native control there would hide it
+ * forever rather than briefly. `data-zag-preview` comes from each element's
+ * "Preview in builder" checkbox (inc/zag-filters/builder-preview.php); `.zag-builder`
+ * comes from inc/zag-filters/bootstrap.php's wp_head callback.
+ */
+
+/**
+ * The native control is invisible but still occupies the field's box.
+ *
+ * `visibility: hidden` rather than `display: none`, because hiding it outright
+ * collapses the box, pulling everything below it up and then pushing it back
+ * down when the real control mounts — which is the layout jump. Nothing is
+ * painted, so nothing needs styling to match: no border, no background, and
+ * crucially no scrollbar, which a multi-select's list box draws and which
+ * dressing the element to look like the field cannot suppress.
+ *
+ * `height`, not `min-height`: a `<select multiple>` sizes itself to its options
+ * and would otherwise reserve several rows' worth of space.
+ */
+.zag-js:not(.zag-builder) .zag-select:not([data-zag-ready]) .zag-select__native,
+.zag-js.zag-builder .zag-select[data-zag-preview]:not([data-zag-ready]) .zag-select__native,
+.zag-js:not(.zag-builder) .zag-datepicker:not([data-zag-ready]) .zag-datepicker__native,
+.zag-js.zag-builder .zag-datepicker[data-zag-preview]:not([data-zag-ready]) .zag-datepicker__native {
+	visibility: hidden;
+	appearance: none;
+	-webkit-appearance: none;
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	height: var(--zag-field-height, 48px);
+	margin: 0;
+	padding: 0;
+	border: 0;
+	overflow: hidden;
+}
+
+/**
+ * The select's icon is server-rendered ahead of the native control and only
+ * moves into the trigger on mount, so it would otherwise sit above the field.
+ */
+.zag-js:not(.zag-builder) .zag-select:not([data-zag-ready]) .zag-select__icon,
+.zag-js.zag-builder .zag-select[data-zag-preview]:not([data-zag-ready]) .zag-select__icon {
+	display: none;
+}
+
+/* Nothing to report yet — the caption's text is written on mount. */
+.zag-js:not(.zag-builder) .zag-select:not([data-zag-ready]) .zag-select__caption,
+.zag-js.zag-builder .zag-select[data-zag-preview]:not([data-zag-ready]) .zag-select__caption,
+.zag-js:not(.zag-builder) .zag-datepicker:not([data-zag-ready]) .zag-datepicker__caption,
+.zag-js.zag-builder .zag-datepicker[data-zag-preview]:not([data-zag-ready]) .zag-datepicker__caption {
+	visibility: hidden;
+}
+
+/* ==========================================================================
+   The field box, shared by every element
+   ========================================================================== */
+
+/**
+ * The visual field is the control, never the focusable thing inside it.
+ *
+ * Bricks ships `body.bricks-is-frontend.bricks-is-frontend :focus { box-shadow:
+ * none }` at (0,3,1), which strips any focus shadow from the focused element
+ * itself — the select and date picker triggers, and the search input. Each is
+ * wrapped in a div that is only ever :focus-within, never :focus, so the rule
+ * cannot reach it.
+ *
+ * One rule for all three: same box, same states. Single-class selectors, so the
+ * specificity that lets Bricks' `.brxe-… { --x: … }` control values through is
+ * unchanged.
+ */
+.zag-select__control,
+.zag-datepicker__control,
+.zag-search__control {
+	display: flex;
+	align-items: center;
+	min-height: var(--zag-field-height, 48px);
+	border-radius: var(--zag-field-radius, 8px);
+	background: var(--zag-field, rgb(247, 249, 250));
+	box-shadow: inset 0 0 0 1px var(--zag-border, rgba(197, 208, 219, 0.5));
+	transition:
+		box-shadow 0.18s ease,
+		background 0.18s ease;
+}
+
+.zag-select__control:hover,
+.zag-datepicker__control:hover,
+.zag-search__control:hover {
+	box-shadow: inset 0 0 0 1px var(--zag-border-hover, rgba(147, 163, 181, 0.75));
+}
+
+.zag-select__control:focus-within,
+.zag-datepicker__control:focus-within,
+.zag-search__control:focus-within {
+	box-shadow:
+		inset 0 0 0 1px var(--zag-accent, #5eb4e1),
+		0 0 0 4px color-mix(in srgb, var(--zag-accent, #5eb4e1) 22%, transparent);
+}
+
+/* Held open, the popover elements keep the accent border without the ring. */
+.zag-select[data-open='true'] .zag-select__control,
+.zag-datepicker[data-open='true'] .zag-datepicker__control {
+	box-shadow: inset 0 0 0 1px var(--zag-accent, #5eb4e1);
+}
+
+/* Transparent hit area filling the control; all visuals live above. */
+.zag-select__trigger {
+	appearance: none;
+	-webkit-appearance: none;
+	margin: 0;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+	width: 100%;
+	min-height: var(--zag-field-height, 48px);
+	border: 0;
+	border-radius: inherit;
+	background: transparent;
+	box-shadow: none;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 0 12px 0 16px;
+	color: var(--zag-fg, #0b1f3a);
+}
+
+.zag-select__trigger[disabled],
+.zag-select__trigger[data-disabled] {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
+/**
+ * Leading icon slot.
+ *
+ * The ref pairs a 40px white circle with its pill variant. Here it's
+ * independent of the field radius, so a pill is just a large Field radius and
+ * the icon works with any shape.
+ */
+.zag-select__icon {
+	width: var(--zag-icon-size, 40px);
+	height: var(--zag-icon-size, 40px);
+	flex-shrink: 0;
+	border-radius: var(--zag-icon-radius, 9999px);
+	background: var(--zag-icon-bg, #fff);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--zag-fg, #0b1f3a);
+	overflow: hidden;
+}
+
+.zag-select__icon svg,
+.zag-select__icon img {
+	width: 50%;
+	height: 50%;
+	object-fit: contain;
+}
+
+/* Tuck the field's leading padding in so the icon sits flush, as in the ref. */
+.zag-select__trigger.has-icon {
+	padding-left: 4px;
+}
+
+.zag-select__value {
+	flex: 1 1 auto;
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	/* Room for descenders; the span is flex-centred so this doesn't shift it. */
+	line-height: 1.4;
+	letter-spacing: 0.02em;
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 55%, transparent);
+	transition: color 0.15s ease;
+}
+
+.zag-select__value.is-selected {
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 95%, transparent);
+}
+
+.zag-select__indicator {
+	display: inline-flex;
+	flex-shrink: 0;
+	opacity: 0.7;
+	transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.zag-select__trigger[data-state='open'] .zag-select__indicator {
+	transform: rotate(180deg);
+}
+
+.zag-select__counter {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 16px;
+	height: 16px;
+	padding: 0 4px;
+	margin-right: 7px;
+	border-radius: 9999px;
+	background: var(--zag-accent, #5eb4e1);
+	color: #fff;
+	font-size: 10px;
+	font-weight: 500;
+	line-height: 1;
+	flex-shrink: 0;
+}
+
+/* ---- menu ---- */
+
+/**
+ * The positioner stays mounted while closed so the menu's close transition can
+ * play, and the menu is hidden with visibility rather than display so it keeps
+ * its layout box. That leaves a full-size, absolutely positioned, invisible box
+ * over whatever follows — it must never take pointer events, or it silently
+ * swallows clicks on anything beneath it. The open menu opts back in below.
+ *
+ * z-index sits on the positioner rather than the root, matching the ref: it
+ * keeps the stacking change scoped to the thing that actually overlaps.
+ */
+.zag-select__positioner {
+	pointer-events: none;
+	z-index: 1;
+}
+
+.zag-select[data-open='true'] .zag-select__positioner {
+	z-index: 1000;
+}
+
+.zag-select__menu {
+	list-style: none;
+	margin: 0;
+	padding: var(--zag-menu-padding, 4px);
+	max-height: var(--zag-menu-max-height, 320px);
+	overflow-y: auto;
+	/* Don't chain to the page once the menu hits its end. */
+	overscroll-behavior: contain;
+	scrollbar-width: thin;
+	scrollbar-color: var(--zag-scrollbar, color-mix(in srgb, var(--zag-fg, #0b1f3a) 18%, transparent))
+		transparent;
+	background: var(--zag-surface, #fff);
+	border-radius: var(--zag-popover-radius, 12px);
+	box-shadow: var(--zag-popover-shadow, 0 0 10px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.1));
+	display: flex;
+	flex-direction: column;
+	gap: var(--zag-option-gap, 2px);
+	transform-origin: top center;
+	opacity: 0;
+	transform: translateY(-6px) scale(0.98);
+	visibility: hidden;
+	pointer-events: none;
+	transition:
+		opacity 0.16s ease,
+		transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+		visibility 0s linear 0.2s;
+}
+
+/**
+ * Scrollbar.
+ *
+ * Not from the ref — its menu has no max-height and never scrolls, having only
+ * seven fixed options. A taxonomy filter can have many more, so the scroll
+ * container is ours and so is the job of styling it.
+ *
+ * The thumb is inset with a transparent border plus background-clip rather than
+ * a narrower track, so it keeps a comfortable hit area while reading as thin.
+ */
+.zag-select__menu::-webkit-scrollbar {
+	width: var(--zag-scrollbar-size, 10px);
+}
+
+.zag-select__menu::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.zag-select__menu::-webkit-scrollbar-thumb {
+	background-color: var(--zag-scrollbar, color-mix(in srgb, var(--zag-fg, #0b1f3a) 18%, transparent));
+	border-radius: 9999px;
+	border: 3px solid transparent;
+	background-clip: content-box;
+}
+
+.zag-select__menu::-webkit-scrollbar-thumb:hover {
+	background-color: var(--zag-scrollbar-hover, color-mix(in srgb, var(--zag-fg, #0b1f3a) 32%, transparent));
+}
+
+/**
+ * Uncapped menu.
+ *
+ * With Limit menu height off, the menu grows to fit every option. overflow
+ * must go back to visible as well as the cap being lifted, or the shadow and
+ * rounded corners still get clipped by the scroll container.
+ */
+.zag-select[data-zag-menu-uncapped] .zag-select__menu {
+	max-height: none;
+	overflow-y: visible;
+}
+
+.zag-select__positioner[data-placement^='top'] .zag-select__menu {
+	transform-origin: bottom center;
+	transform: translateY(6px) scale(0.98);
+}
+
+.zag-select__menu[data-state='open'] {
+	opacity: 1;
+	transform: none;
+	visibility: visible;
+	pointer-events: auto;
+	transition:
+		opacity 0.16s ease,
+		transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+		visibility 0s;
+}
+
+.zag-select__option {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	flex-shrink: 0;
+	height: var(--zag-option-height, 48px);
+	/**
+	 * No vertical padding: the option is a centred flex container, so padding
+	 * only shrinks the content box. The ref's 16px top/bottom left just 16px of
+	 * height inside a 48px option, which clipped descenders against the label's
+	 * overflow: hidden.
+	 */
+	padding: 0 12px;
+	border-radius: var(--zag-option-radius, 8px);
+	cursor: pointer;
+	user-select: none;
+	line-height: 1.4;
+	letter-spacing: 0.01em;
+	white-space: nowrap;
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 80%, transparent);
+	transition: background 0.12s ease;
+}
+
+.zag-select__option[data-highlighted]:not([data-disabled]) {
+	background: var(--zag-field, rgb(247, 249, 250));
+}
+
+.zag-select__option[data-state='checked'] {
+	color: var(--zag-fg, #0b1f3a);
+	font-weight: 500;
+}
+
+.zag-select__option[data-disabled] {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+/* Ruled out by a linked sibling (src/zag-filters/link.js). display: flex above beats the UA's [hidden]. */
+.zag-select__option[hidden] {
+	display: none;
+}
+
+.zag-select__option-label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.zag-select__check {
+	width: 16px;
+	height: 16px;
+	flex-shrink: 0;
+	display: inline-flex;
+	color: var(--zag-accent, #5eb4e1);
+	opacity: 0;
+	transition: opacity 0.1s ease;
+}
+
+.zag-select__option[data-state='checked'] .zag-select__check {
+	opacity: 1;
+}
+
+/* Hierarchical taxonomy indentation, matching Bricks' depth-n classes. */
+.zag-select__option.depth-1 { padding-left: 28px; }
+.zag-select__option.depth-2 { padding-left: 44px; }
+.zag-select__option.depth-3 { padding-left: 60px; }
+
+/* ---- multi-select: checkbox affordance instead of a tick ---- */
+
+.zag-select[data-zag-multiple] .zag-select__option[data-state='checked'] {
+	font-weight: 400;
+}
+
+.zag-select[data-zag-multiple] .zag-select__check {
+	opacity: 1;
+	border-radius: 2px;
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--zag-fg, #0b1f3a) 15%, transparent);
+	color: #fff;
+	align-items: center;
+	justify-content: center;
+	transition:
+		background 0.12s ease,
+		box-shadow 0.12s ease;
+}
+
+.zag-select[data-zag-multiple] .zag-select__check svg {
+	opacity: 0;
+	transition: opacity 0.1s ease;
+}
+
+.zag-select[data-zag-multiple] .zag-select__option[data-highlighted] .zag-select__check {
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--zag-fg, #0b1f3a) 30%, transparent);
+}
+
+.zag-select[data-zag-multiple] .zag-select__option[data-state='checked'] .zag-select__check {
+	background: var(--zag-accent, #5eb4e1);
+	box-shadow: none;
+}
+
+.zag-select[data-zag-multiple] .zag-select__option[data-state='checked'] .zag-select__check svg {
+	opacity: 1;
+}
+
+/* ==========================================================================
+   Date picker
+   ========================================================================== */
+
+.zag-datepicker__native[hidden] {
+	display: none !important;
+}
+
+/* The field box itself is shared — see the top of this file. */
+
+/* Transparent hit area filling the control; all visuals live above. */
+.zag-datepicker__trigger {
+	appearance: none;
+	-webkit-appearance: none;
+	margin: 0;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+	width: 100%;
+	min-height: var(--zag-field-height, 48px);
+	border: 0;
+	border-radius: inherit;
+	background: transparent;
+	box-shadow: none;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 0 12px 0 16px;
+	color: var(--zag-fg, #0b1f3a);
+}
+
+.zag-datepicker__value {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	/* Inherited line-height can be tight enough to clip against overflow. */
+	line-height: 1.4;
+	letter-spacing: 0.02em;
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 55%, transparent);
+}
+
+.zag-datepicker__value.is-selected {
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 90%, transparent);
+}
+
+.zag-datepicker__icon {
+	display: inline-flex;
+	flex-shrink: 0;
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 80%, transparent);
+	transition: color 0.12s ease;
+}
+
+/**
+ * Size the glyph, whether it's the built-in calendar or a custom icon.
+ *
+ * The default SVG carries its own 16px attributes, but a Bricks icon does not —
+ * an <img> would render at intrinsic size and an icon font at inherited
+ * font-size. Both hosts are covered because the two modes build different ones.
+ *
+ * The Icon control's own width/height land here too, at ID specificity, so
+ * setting a size in the builder still wins.
+ */
+.zag-datepicker__icon > *,
+.zag-datepicker__iconbtn > * {
+	width: var(--zag-datepicker-icon-size, 16px);
+	height: var(--zag-datepicker-icon-size, 16px);
+	font-size: var(--zag-datepicker-icon-size, 16px);
+	line-height: 1;
+	object-fit: contain;
+}
+
+.zag-datepicker__trigger:hover .zag-datepicker__icon {
+	color: var(--zag-accent, #5eb4e1);
+}
+
+/* Same trap as the select — see the note above .zag-select__positioner. */
+.zag-datepicker__positioner {
+	pointer-events: none;
+	z-index: 1;
+}
+
+.zag-datepicker[data-open='true'] .zag-datepicker__positioner {
+	z-index: 1000;
+}
+
+.zag-datepicker__content {
+	width: max-content;
+	padding: var(--zag-content-padding, 20px);
+	background: var(--zag-surface, #fff);
+	border-radius: var(--zag-content-radius, 16px);
+	box-shadow: var(--zag-popover-shadow, 0 0 10px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.1));
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	transform-origin: top center;
+	opacity: 0;
+	transform: translateY(-6px) scale(0.98);
+	visibility: hidden;
+	pointer-events: none;
+	transition:
+		opacity 0.16s ease,
+		transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+		visibility 0s linear 0.2s;
+}
+
+.zag-datepicker__positioner[data-placement^='top'] .zag-datepicker__content {
+	transform-origin: bottom center;
+	transform: translateY(6px) scale(0.98);
+}
+
+.zag-datepicker__content[data-state='open'] {
+	opacity: 1;
+	transform: none;
+	visibility: visible;
+	pointer-events: auto;
+	transition:
+		opacity 0.16s ease,
+		transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+		visibility 0s;
+}
+
+.zag-datepicker__viewcontrol {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.zag-datepicker__nav {
+	appearance: none;
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+	width: var(--zag-nav-size, 34px);
+	height: var(--zag-nav-size, 34px);
+	flex-shrink: 0;
+	border-radius: 9999px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--zag-fg, #0b1f3a);
+	transition: background 0.12s ease;
+}
+
+.zag-datepicker__nav:hover {
+	background: var(--zag-field, rgb(247, 249, 250));
+}
+
+.zag-datepicker__nav[disabled],
+.zag-datepicker__nav[data-disabled] {
+	opacity: 0.3;
+	cursor: default;
+	background: transparent;
+}
+
+.zag-datepicker__title {
+	appearance: none;
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+	font: inherit;
+	letter-spacing: 0.02em;
+	color: var(--zag-fg, #0b1f3a);
+	padding: 6px 12px;
+	border-radius: var(--zag-field-radius, 8px);
+	transition: background 0.12s ease;
+}
+
+.zag-datepicker__title:hover {
+	background: var(--zag-field, rgb(247, 249, 250));
+}
+
+.zag-datepicker__table {
+	border-collapse: collapse;
+}
+
+.zag-datepicker__table td {
+	padding: 1px;
+	text-align: center;
+}
+
+.zag-datepicker__table--grid td {
+	padding: 3px;
+}
+
+.zag-datepicker__weekday {
+	width: var(--zag-day-size, 40px);
+	height: 30px;
+	font-weight: 400;
+	font-size: 12px;
+	letter-spacing: 0.02em;
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 45%, transparent);
+	text-align: center;
+}
+
+.zag-datepicker__day {
+	width: var(--zag-day-size, 40px);
+	height: var(--zag-day-size, 40px);
+	margin: 0 auto;
+	border-radius: var(--zag-day-radius, 9999px);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: 300;
+	font-size: 15px;
+	letter-spacing: 0.02em;
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 85%, transparent);
+	cursor: pointer;
+	user-select: none;
+	transition:
+		background 0.12s ease,
+		color 0.12s ease,
+		box-shadow 0.12s ease;
+}
+
+.zag-datepicker__day[data-outside-range] {
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 28%, transparent);
+}
+
+.zag-datepicker__day[data-today] {
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--zag-fg, #0b1f3a) 18%, transparent);
+}
+
+.zag-datepicker__day[data-highlighted]:not([data-disabled]):not([data-selected]) {
+	background: var(--zag-field, rgb(247, 249, 250));
+}
+
+/**
+ * Keyboard focus. Without this, arrow-key navigation through the grid gives no
+ * visible indication of position at all.
+ */
+.zag-datepicker__day[data-focus]:not([data-disabled]):not([data-selected]),
+.zag-datepicker__cell[data-focus]:not([data-selected]) {
+	box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--zag-accent, #5eb4e1) 50%, transparent);
+}
+
+.zag-datepicker__day[data-selected] {
+	background: var(--zag-accent, #5eb4e1);
+	color: #fff;
+	font-weight: 400;
+	box-shadow: none;
+}
+
+.zag-datepicker__day[data-disabled],
+.zag-datepicker__day[data-unavailable] {
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 22%, transparent);
+	cursor: default;
+}
+
+/* Range band. Not in the ref, which is single-date only. */
+.zag-datepicker__day[data-in-range] {
+	background: color-mix(in srgb, var(--zag-accent, #5eb4e1) 16%, transparent);
+	border-radius: 0;
+	color: var(--zag-fg, #0b1f3a);
+}
+
+.zag-datepicker__cell {
+	min-width: 88px;
+	height: 44px;
+	padding: 0 14px;
+	border-radius: var(--zag-cell-radius, 10px);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: 300;
+	font-size: 15px;
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 85%, transparent);
+	cursor: pointer;
+	user-select: none;
+	transition:
+		background 0.12s ease,
+		color 0.12s ease,
+		box-shadow 0.12s ease;
+}
+
+.zag-datepicker__cell[data-highlighted]:not([data-selected]) {
+	background: var(--zag-field, rgb(247, 249, 250));
+}
+
+.zag-datepicker__cell[data-selected] {
+	background: var(--zag-accent, #5eb4e1);
+	color: #fff;
+	font-weight: 400;
+}
+
+.zag-datepicker__cell[data-disabled] {
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 22%, transparent);
+	cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.zag-select__menu,
+	.zag-select__trigger,
+	.zag-select__indicator,
+	.zag-select__option,
+	.zag-select__check,
+	.zag-datepicker__content,
+	.zag-datepicker__trigger,
+	.zag-datepicker__day,
+	.zag-datepicker__cell {
+		transition-duration: 0.01ms;
+	}
+}
+
+/* ==========================================================================
+   Field label
+   ========================================================================== */
+
+.zag-select__label,
+.zag-datepicker__label,
+.zag-search__label {
+	display: block;
+	margin-bottom: 8px;
+	font-size: 14px;
+	font-weight: 400;
+	letter-spacing: 0.02em;
+	line-height: 1.4;
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 80%, transparent);
+	cursor: pointer;
+}
+
+/**
+ * Hidden but still announced.
+ *
+ * The label is always rendered so Zag's aria-labelledby on the trigger resolves
+ * — display:none would break that reference and leave the control with no
+ * accessible name, which is the bug this exists to fix.
+ */
+.zag-select__label.is-hidden,
+.zag-datepicker__label.is-hidden,
+.zag-search__label.is-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+	border: 0;
+}
+
+/* ==========================================================================
+   Caption
+   ========================================================================== */
+
+.zag-select__caption,
+.zag-datepicker__caption {
+	margin: 8px 0 0;
+	font-size: 13px;
+	letter-spacing: 0.01em;
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 50%, transparent);
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 18px;
+}
+
+.zag-select__dot,
+.zag-datepicker__dot {
+	width: 7px;
+	height: 7px;
+	flex-shrink: 0;
+	border-radius: 50%;
+	background: color-mix(in srgb, var(--zag-fg, #0b1f3a) 20%, transparent);
+	transition: background 0.2s ease;
+}
+
+/* Fills once something is selected — the ref's status affordance. */
+.zag-select__caption.is-set .zag-select__dot,
+.zag-datepicker__caption.is-set .zag-datepicker__dot {
+	background: var(--zag-accent, #5eb4e1);
+}
+
+/* ---- typeable date field ---- */
+
+/**
+ * With typing enabled the control itself is the field, and the progressive
+ * enhancement input is promoted to the visible one — so the border and focus
+ * ring move from the trigger onto the wrapper.
+ */
+/* Typing mode: the input sits directly in the control, so it needs the padding
+   the trigger would otherwise have carried. */
+.zag-datepicker__control:has(.zag-datepicker__input) {
+	gap: 12px;
+	padding: 0 12px 0 16px;
+}
+
+.zag-datepicker__input {
+	flex: 1 1 auto;
+	min-width: 0;
+	border: 0;
+	background: transparent;
+	outline: none;
+	padding: 0;
+	margin: 0;
+	font: inherit;
+	letter-spacing: 0.02em;
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 90%, transparent);
+}
+
+.zag-datepicker__input::placeholder {
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 50%, transparent);
+}
+
+.zag-datepicker__iconbtn {
+	appearance: none;
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+	padding: 0;
+	flex-shrink: 0;
+	width: 24px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 6px;
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 80%, transparent);
+	transition: color 0.12s ease;
+}
+
+.zag-datepicker__iconbtn:hover {
+	color: var(--zag-accent, #5eb4e1);
+}
+
+/* ==========================================================================
+   Defensive guards against Bricks' global rules
+   ========================================================================== */
+
+/**
+ * Keep the chevron out of the icon colour control's reach.
+ *
+ * Setting a colour for the element's icon makes Bricks emit a blanket svg rule
+ * that also recolours our chevron, which isn't the user's icon and shouldn't
+ * follow it. An explicit colour rather than currentColor so a `color` override
+ * can't leak in either. Still themeable through --zag-fg.
+ */
+.zag-select__indicator svg {
+	fill: none !important;
+	stroke: var(--zag-fg, #0b1f3a) !important;
+}
+
+/**
+ * The selected tick needs the same guard, but its colour differs by mode, so a
+ * single blanket rule would break one of them:
+ *
+ * - single: an accent tick sitting directly on the menu background
+ * - multi: a white tick inside the filled accent checkbox
+ */
+.zag-select:not([data-zag-multiple]) .zag-select__check svg {
+	fill: none !important;
+	stroke: var(--zag-accent, #5eb4e1) !important;
+}
+
+.zag-select[data-zag-multiple] .zag-select__check svg {
+	fill: none !important;
+	stroke: var(--zag-check-color, #fff) !important;
+}
+
+/**
+ * Hold the popover shadow while the surface holds focus.
+ *
+ * Zag makes both popovers focusable (the menu carries tabindex="0", the
+ * calendar tabindex="-1") and focuses them on open, so Bricks' `:focus {
+ * box-shadow: none }` reset strips their elevation for exactly as long as they
+ * are open. The tell is that blurring the browser window brings the shadow
+ * back, because :focus stops matching.
+ *
+ * Unlike the field, there is no non-focusable wrapper to move this to: the
+ * positioner is unstyled and the open/close transition lives on the surface
+ * itself. !important on the declaration is the containable fix — the value
+ * still comes from --zag-popover-shadow, so the style control keeps working.
+ */
+.zag-select__menu,
+.zag-datepicker__content {
+	box-shadow: var(--zag-popover-shadow, 0 0 10px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.1)) !important;
+}
+
+/**
+ * Suppress the frontend focus outline on field-level controls.
+ *
+ * Bricks applies `body.bricks-is-frontend.bricks-is-frontend :focus-visible`
+ * with an outline at (0,3,1). Focus on these is already expressed by the
+ * control wrapper's :focus-within ring, so the outline is a second, misaligned
+ * indicator drawn around the inner element.
+ *
+ * Deliberately scoped to the field: the calendar's day cells and nav buttons
+ * sit inside the popover with no wrapper ring of their own, so they keep the
+ * outline.
+ */
+.zag-select__trigger:focus-visible,
+.zag-datepicker__trigger:focus-visible,
+.zag-datepicker__input:focus-visible,
+.zag-datepicker__iconbtn:focus-visible,
+.zag-search__input:focus-visible {
+	outline: none !important;
+}
+
+/* ==========================================================================
+   Smart search
+   ========================================================================== */
+
+.zag-search__control {
+	gap: var(--zag-search-gap, 10px);
+	padding: 0 16px;
+}
+
+/**
+ * Leading glyph, not the select's circular badge.
+ *
+ * The search icon sits inline with the text the way the ref draws it, so it
+ * takes a size and a colour and nothing else — no plate, no radius.
+ */
+.zag-search__icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	color: var(--zag-search-icon, rgba(11, 31, 59, 0.45));
+}
+
+.zag-search__icon svg,
+.zag-search__icon img {
+	width: var(--zag-search-icon-size, 18px);
+	height: var(--zag-search-icon-size, 18px);
+	object-fit: contain;
+}
+
+/**
+ * Transparent field filling the control; the box lives on the wrapper.
+ *
+ * appearance:none because type="search" is styled as a rounded pill by default
+ * in Safari, which fights the wrapper's own radius.
+ */
+.zag-search__input {
+	appearance: none;
+	-webkit-appearance: none;
+	flex: 1;
+	min-width: 0;
+	margin: 0;
+	padding: 0;
+	font: inherit;
+	line-height: 1.4;
+	min-height: var(--zag-field-height, 48px);
+	border: 0;
+	border-radius: inherit;
+	background: transparent;
+	box-shadow: none;
+	color: var(--zag-fg, #0b1f3a);
+}
+
+.zag-search__input::placeholder {
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 45%, transparent);
+	opacity: 1;
+}
+
+/**
+ * Hide the webkit clear button.
+ *
+ * Firefox has no equivalent, and a clear affordance present in one browser and
+ * absent in another reads as a rendering bug. Escape clears the field in every
+ * browser, which search.js handles explicitly.
+ */
+.zag-search__input::-webkit-search-cancel-button,
+.zag-search__input::-webkit-search-decoration {
+	-webkit-appearance: none;
+	appearance: none;
+}
+
+/* Matches the caption's placement under the other two elements' fields. */
+.zag-search__hint {
+	margin: 8px 0 0;
+	font-size: 13px;
+	letter-spacing: 0.01em;
+	line-height: 1.5;
+	color: var(--zag-search-hint, rgba(11, 31, 59, 0.5));
+}
+
+.zag-search__hint[hidden] {
+	display: none;
+}
+
+.zag-search__hint strong {
+	font-weight: 600;
+	color: var(--zag-search-hint-strong, #0b1f3a);
+}
+
+/* ==========================================================================
+   Active filters
+   ========================================================================== */
+
+/**
+ * The root is the row.
+ *
+ * PHP renders it with [hidden] and active-filters.js only clears that once
+ * there is something to show, so an unfiltered page has no empty gap. The
+ * display value has to be declared after [hidden] is accounted for — hence the
+ * :not(), since `display: flex` would otherwise beat the UA's `display: none`.
+ */
+.zag-active-filters:not([hidden]) {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--zag-chip-gap, 8px);
+}
+
+.zag-active-filters__label {
+	font-size: 13px;
+	letter-spacing: 0.01em;
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 55%, transparent);
+}
+
+.zag-active-filters__list {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--zag-chip-gap, 8px);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.zag-active-filters__chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	padding: 5px 6px 5px 12px;
+	font-size: 13px;
+	line-height: 1.4;
+	border-radius: var(--zag-chip-radius, 9999px);
+	background: var(--zag-chip-bg, rgba(94, 180, 225, 0.14));
+	box-shadow: inset 0 0 0 1px var(--zag-chip-border, rgba(94, 180, 225, 0.35));
+	color: var(--zag-chip-fg, #0b1f3a);
+}
+
+/**
+ * Cloned from the owning filter's leading icon.
+ *
+ * Only the glyph is cloned, so none of the select's badge styling comes with
+ * it — the size lives here instead. `<i>` icon fonts size by font-size, SVG and
+ * images by box, so both are set.
+ */
+.zag-active-filters__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	font-size: var(--zag-chip-icon-size, 14px);
+	line-height: 1;
+	color: inherit;
+}
+
+.zag-active-filters__icon svg,
+.zag-active-filters__icon img {
+	width: var(--zag-chip-icon-size, 14px);
+	height: var(--zag-chip-icon-size, 14px);
+	object-fit: contain;
+}
+
+/* The glyph sits closer to its text than the text does to the remove button. */
+.zag-active-filters__chip.has-icon {
+	gap: 6px;
+	padding-left: 10px;
+}
+
+.zag-active-filters__remove {
+	appearance: none;
+	-webkit-appearance: none;
+	display: grid;
+	place-items: center;
+	flex-shrink: 0;
+	width: 18px;
+	height: 18px;
+	padding: 0;
+	margin: 0;
+	border: 0;
+	border-radius: 50%;
+	font: inherit;
+	font-size: 13px;
+	line-height: 1;
+	cursor: pointer;
+	background: var(--zag-chip-remove-bg, rgba(94, 180, 225, 0.3));
+	color: inherit;
+	transition:
+		background 0.14s ease,
+		color 0.14s ease;
+}
+
+.zag-active-filters__remove:hover {
+	background: var(--zag-chip-remove-hover-bg, #5eb4e1);
+	color: var(--zag-chip-remove-hover-fg, #fff);
+}
+
+/**
+ * Focus stays visible here.
+ *
+ * Unlike the field controls, a chip has no wrapper drawing a :focus-within
+ * ring, so suppressing Bricks' outline would leave keyboard users with nothing
+ * at all. The ring is drawn explicitly rather than relying on that outline,
+ * which Bricks strips from :focus regardless.
+ */
+.zag-active-filters__remove:focus-visible {
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--zag-accent, #5eb4e1) 35%, transparent);
+}
+
+.zag-active-filters__clear {
+	appearance: none;
+	-webkit-appearance: none;
+	padding: 4px;
+	margin: 0;
+	border: 0;
+	background: none;
+	font: inherit;
+	font-size: 13px;
+	line-height: 1.4;
+	cursor: pointer;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 55%, transparent);
+	transition: color 0.14s ease;
+}
+
+.zag-active-filters__clear:hover {
+	color: var(--zag-fg, #0b1f3a);
+}

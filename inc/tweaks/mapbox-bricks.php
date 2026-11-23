@@ -5,8 +5,11 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_mapbox_bricks',
     'label' => 'Mapbox Bricks Element',
-    'tab'   => 'bricks',
+    'tab'   => 'builder',
     'group' => 'elements',
+    'description' => 'Register a Mapbox GL map element in Bricks Builder.',
+    'tags'  => ['CDN'],
+    'requires' => ['Bricks'],
 
     'settings' => [
         [

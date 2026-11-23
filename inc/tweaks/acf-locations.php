@@ -5,8 +5,11 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_acf_locations',
     'label' => 'Locations',
-    'tab'   => 'acf',
-    'group' => 'presets',
+    'tab'   => 'content',
+    'group' => 'post-type-presets',
+    'description' => 'Locations post type with a type taxonomy and details fields.',
+    'tags'  => ['Post type', 'Taxonomy'],
+    'requires' => ['ACF'],
 
     'settings' => [
         [

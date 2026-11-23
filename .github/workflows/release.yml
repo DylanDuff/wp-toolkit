@@ -29,6 +29,19 @@ jobs:
         with:
           ref: main
 
+      # Only for release.sh's Zag Filters bundle freshness check: the bundle is
+      # committed, so nothing is built into the package here.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
       - name: Run release.sh
         env:
           GH_TOKEN: ${{ github.token }}

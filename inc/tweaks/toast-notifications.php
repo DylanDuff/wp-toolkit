@@ -244,7 +244,10 @@ function toast_script()
 return [
     'id'    => 'ddwpt_toast_notifications',
     'label' => 'Toast Notifications',
-    'tab'   => 'experimental',
+    'tab'   => 'admin',
+    'group' => 'look-and-feel',
+    'description' => 'Show admin notices as stacking toasts.',
+    'labs'  => true,
 
     'settings' => [
         [

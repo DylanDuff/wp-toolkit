@@ -5,8 +5,9 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_reorder_sidebar',
     'label' => 'Reorder Sidebar Menu',
-    'tab'   => 'wp-admin',
-    'group' => 'sidebar',
+    'tab'   => 'admin',
+    'group' => 'menu',
+    'description' => 'Apply a custom order to the admin sidebar menu.',
 
     'settings' => [
         [

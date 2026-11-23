@@ -5,8 +5,11 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_bricks_component_groups',
     'label' => 'Component Property Groups in Gutenberg',
-    'tab'   => 'bricks',
+    'tab'   => 'builder',
     'group' => 'gutenberg',
+    'description' => 'Show Bricks component property groups as separate block panels.',
+    'tags'  => ['Bricks 2.1+'],
+    'requires' => ['Bricks'],
 
     'settings' => [
         [

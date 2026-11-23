@@ -5,8 +5,9 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_disable_image_compression',
     'label' => 'Disable Image Compression',
-    'tab'   => 'general',
+    'tab'   => 'site',
     'group' => 'media',
+    'description' => 'Set JPEG compression quality to 100%. WordPress defaults to 82%.',
 
     'settings' => [
         [

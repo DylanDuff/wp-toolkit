@@ -5,8 +5,9 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_disable_dashboard_widgets',
     'label' => 'Disable Dashboard Widgets',
-    'tab'   => 'wp-admin',
+    'tab'   => 'admin',
     'group' => 'dashboard',
+    'description' => 'Hide the "Welcome to WordPress" panel.',
 
     'settings' => [
         [

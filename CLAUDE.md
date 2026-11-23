@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Modular WordPress admin plugin. Core concept: self-contained **tweaks** (PHP files in `inc/tweaks/`) that each define a settings form and a callback. The tweak loader wires everything together — no tweak touches the loader or UI code.
 
-Admin-only apart from the custom Bricks elements in `inc/elements/`, which enqueue frontend JS/CSS (and vendored runtimes) on pages that render them.
+Admin-only apart from the custom Bricks elements in `inc/elements/` and the Zag Filters module in `inc/zag-filters/`, which enqueue frontend JS/CSS (and vendored runtimes) on pages that render them.
 
 **Slug:** `wp-toolkit` | **Namespace:** `DDWPTweaks` | **Admin URL:** `Tools → WP Toolkit`
 
@@ -118,17 +118,18 @@ A tweak can define its own field type: render it on `ddwpt_render_field_{type}` 
 
 A setting with `'show_if' => ['other_field' => ['a', 'b']]` only shows while that sibling holds one of those values (see `docs/tweak-system.md`).
 
-### Tabs
-Tabs are ad-hoc — any tweak can declare any `tab` string and it will appear automatically. The `ai` tab is the exception: it is always present regardless of whether any tweak declares it.
+### Areas and sections
+A tweak's `tab` is its **area** and `group` its **section** (presentation only; option keys never depend on them). Areas: `site → admin → content → builder → integrations → seo → ai → settings`, with sections, labels, icons and ledes in `Settings_Layout::AREAS` (`inc/class-settings-layout.php`). The `ai` area is always present. Tweaks also take `description` (one short line), `tags` (badges), `requires` (plugin names, hide the card while missing), `labs` (shown only with Experiments on), `abilities` (Read/Write chip rows), `pages` / a setting's `page` (nested pages) and `position`. See `docs/settings-layout.md`.
 
-Preferred order: `general → acf → dashboard → admin-bar → admin-tables → sidebar → animations → bricks → seo → ai → settings`.
+### Renaming an option key
+Never rename a saved option key without a migration: add it to `Migrations::RENAMED_OPTIONS` and bump `Migrations::VERSION` (`inc/class-migrations.php`). Migrations run on `plugins_loaded` before tweaks load, and settings import translates old keys. See `docs/settings-layout.md#migrations`.
 
 ---
 
 ## Admin UI
 
 - Settings page: `tools.php?page=ddwptweaks`
-- Vertical tab layout; each tweak = collapsible card
+- Overview hub, flat area sidebar with search (`/` or Cmd/Ctrl+K), segmented section switcher and nested pages; each tweak = card. Hidden cards (Labs, missing plugin) stay in the form so saving keeps their values
 - `_enabled` checkbox field on a tweak drives the card header toggle
 - JS lives in `assets/js/settings.js` (jQuery + vanilla); CSS in `assets/css/settings.css`
 - Icons: Lucide SVGs from `assets/icons/` inlined via `Plugin::inline_icon()`
@@ -142,22 +143,22 @@ AJAX-based. Nonces: `ddwptweaks_export_nonce` / `ddwptweaks_import_nonce`. See `
 
 Several tweaks register ACF options pages or field groups — guard with `class_exists('ACF')`.
 
-**Filter timing:** ACF settings filters (e.g. `acf/settings/enable_acf_ai`) must fire before `acf/init`, which means they must be registered at file-load time (outside the `return []` array), not inside the callback. See `acf-abilities-api.php` for the pattern:
+**Filter timing:** ACF settings filters (e.g. `acf/settings/enable_acf_ai`) must fire before `acf/init`, which means they must be registered at file-load time (outside the `return []` array), not inside the callback. See `ai-acf-field-abilities.php` for the pattern:
 
 ```php
 // Runs at plugins_loaded when the file is required — before acf/init.
-if ( get_option('ddwpt_acf_abilities_api_enabled') ) {
+if ( get_option('ddwpt_ai_acf_field_abilities_acf_native') ) {
     add_filter('acf/settings/enable_acf_ai', '__return_true');
 }
 
-return [ 'id' => 'ddwpt_acf_abilities_api', ... ];
+return [ 'id' => 'ddwpt_ai_acf_field_abilities', ... ];
 ```
 
 ---
 
-## AI Tab (`inc/tweaks/ai-mcp-info.php`)
+## AI & MCP area (`inc/tweaks/ai-mcp-info.php`)
 
-Render-only tweak that shows MCP Adapter connection details, authentication steps, and registered WordPress Abilities API abilities. Only shows connection details when the `mcp-adapter` plugin is active.
+Render-only tweak that draws the AI setup card at the top of the area (MCP Adapter status, live ability counts from `Plugin::get_ability_summary()`, a checklist, and the endpoint and client config once `mcp-adapter` is active) and owns the Registered Abilities nested page (every `wp_get_abilities()` entry with namespace filter and search). Ability tweaks below it declare an `abilities` list so their cards show Read/Write chip rows; keep it in step with what the file registers.
 
 **WordPress Abilities API** (`wp_get_abilities()`, requires WP 6.9+): returns an array of `WP_Ability` objects. Access data via getter methods — **not** properties:
 - `$ability->get_name()`
@@ -213,13 +214,17 @@ Bricks builds `Setup::$control_options` on `init` before tweak callbacks run, so
 
 Simple string-valued dynamic tags go through `\DDWPTweaks\Bricks_Tags::register()` rather than hand-wired filters (`bricks-dynamic-tags.php`, `linked-author.php`); see `docs/bricks-builder-tweaks.md`.
 
+### Zag Filters (`inc/zag-filters/`, `inc/tweaks/bricks-zag-filters.php`)
+
+Seven Zag.js query filter elements folded in from the standalone "Zag Filters for Bricks" plugin. **Drop-in replacement:** element names (`zag-*`), element setting keys, the `Zag` PHP namespace, hooks, handles and CSS/data attributes are deliberately unchanged, so never rename them. The tweak loads `bootstrap.php` at file-load time only when `ZAG_FILE` is undefined (standalone plugin inactive), and deactivating the standalone plugin switches the tweak on. Frontend source is `src/zag-filters/`, built to the committed `inc/zag-filters/assets/zag-filters.js` with `pnpm build`; `release.sh` refuses a stale bundle. Tests: `pnpm test`. Read `docs/zag-filters/README.md` before touching the query bridge: it impersonates native Bricks filter elements and is the most fragile code in the plugin.
+
 Third-party runtimes are vendored or CDN-loaded per element, deliberately: vendor when nothing users author depends on the version (Embla), stay on a CDN when the runtime must track upstream export formats (Rive, Unicorn Studio, Mapbox). Always pin an exact version.
 
 ---
 
 ## Structured Data (`inc/seo/`, `inc/tweaks/seo-schema.php`)
 
-SEO tab (moved out of Experimental in 1.5.19; option names unchanged). Per-post-type JSON-LD templates with Bricks-style `{tag:filter|arg @fallback:'x'}` tokens (`Schema_Syntax`; the earlier `{{source|transform:arg}}` form still renders and the editor migrates it on load), edited in one editor with Visual, JSON and Preview modes plus presets. The template JSON is the only stored format; Visual mode is a view onto it. MCP agents read and write templates through `ai-schema-abilities.php` (also in the SEO tab), which reuses `seo_schema_save_template()` and `seo_schema_preview()`. See `docs/seo-schema.md` before touching the renderer or editor. Renderer tests run without WordPress: `php tests/schema/run.php` (stubs in `tests/schema/bootstrap.php`; add a `test-*.php` file per area).
+SEO tab (moved out of Experimental in 1.5.19; option names unchanged). Per-post-type JSON-LD templates with Bricks-style `{tag:filter|arg @fallback:'x'}` tokens (`Schema_Syntax`; the earlier `{{source|transform:arg}}` form still renders and the editor migrates it on load), edited in one editor with Visual, JSON and Preview modes plus presets. The template JSON is the only stored format; Visual mode is a view onto it. MCP agents read and write templates through `ai-schema-abilities.php` (in the AI & MCP area), which reuses `seo_schema_save_template()` and `seo_schema_preview()`. See `docs/seo-schema.md` before touching the renderer or editor. Renderer tests run without WordPress: `php tests/schema/run.php` (stubs in `tests/schema/bootstrap.php`; add a `test-*.php` file per area).
 
 ---
 
@@ -232,6 +237,7 @@ SEO tab (moved out of Experimental in 1.5.19; option names unchanged). Per-post-
 | Bricks Builder | No | 6+ tweaks; guard with `defined('BRICKS_VERSION')` |
 | Redirection | No | AI redirect-management abilities; guard with `defined('REDIRECTION_VERSION')` |
 | Fluent Forms | No | `fluentforms-mirror` CPT mirror; guard with `defined('FLUENTFORM')` |
+| Shopify store | No | `acf-shopify-products` field types need a shop domain + Storefront API token; stands down while the standalone ACF Shopify Product Field plugin (`ASPF_PLUGIN_FILE`) is active |
 
 `plugin-update-checker/` is vendored (YahnisElsts v5.6+). Do not remove.
 
@@ -256,6 +262,9 @@ Markdown articles auto-discovered from the directory. `manifest.php` provides in
 | `fluent-forms-mirror.md` | Fluent Forms → `ff_form` CPT mirror for Bricks query loops and popups, sync triggers |
 | `bricks-builder-tweaks.md` | `Bricks_Tags` helper, extra dynamic tags, component property groups in Gutenberg, extra HTML tags |
 | `linked-author.md` | Team member as post author: filters, `{linked_author:field}` tag |
+| `settings-layout.md` | Settings page areas, sections, tweak layout keys, ability rows, nested pages, option key migrations |
 | `acf-admin-screens.md` | ACF tab error highlighting, tidier term edit screens and left tabs on term screens |
+| `zag-filters/` | Zag Filters elements: drop-in compatibility, filter impersonation, frontend, build; one file per element |
+| `acf-shopify-products.md` | Shopify Product(s) ACF field types, Storefront API client, Bricks loop tags, migration from the standalone plugin |
 
 Keep docs current when features change materially.

@@ -4,6 +4,8 @@ return [
     'id'       => 'ddwpt_plugin_settings',
     'label'    => 'White Label',
     'tab'      => 'settings',
+    'description' => 'Apply custom branding to the plugin header.',
+
     'settings' => [
         [
             'id'          => 'enabled',

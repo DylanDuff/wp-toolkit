@@ -5,8 +5,10 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_bricks_toolbar_logo',
     'label' => 'Bricks Toolbar Logo',
-    'tab'   => 'bricks',
-    'group' => 'builder',
+    'tab'   => 'builder',
+    'group' => 'editor',
+    'description' => 'Replace the Bricks builder toolbar logo with a custom image.',
+    'requires' => ['Bricks'],
 
     'settings' => [
         [

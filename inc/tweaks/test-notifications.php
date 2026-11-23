@@ -5,7 +5,10 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_test_notifications',
     'label' => 'Test Notifications',
-    'tab'   => 'experimental',
+    'tab'   => 'admin',
+    'group' => 'look-and-feel',
+    'description' => 'Show a success notification on every admin page load.',
+    'labs'  => true,
 
     'settings' => [
         [

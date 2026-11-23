@@ -107,9 +107,8 @@
 .ddwpt-tabs-nav-actions {
   position: sticky;
   bottom: 0;
-  background: var(--ddwpt-surface);
+  background: var(--ddwpt-bg);
   padding: 12px 16px;
-  border-top: 1px solid var(--ddwpt-border);
 }
 
 .ddwpt-save-btn {
@@ -159,8 +158,8 @@
   width: 200px;
   flex-shrink: 0;
   min-height: 100vh;
-  background: var(--ddwpt-surface);
-  border-right: 1px solid var(--ddwpt-border);
+  /* Sits on the page background rather than a white panel. */
+  background: transparent;
 }
 
 .ddwpt-tabs-nav-sticky {
@@ -207,7 +206,7 @@
 
 .ddwpt-tab:hover {
   color: var(--ddwpt-text);
-  background: var(--ddwpt-surface-alt);
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .ddwpt-tab.is-active {
@@ -225,60 +224,6 @@
   height: 15px;
   flex-shrink: 0;
   stroke-width: 1.75;
-}
-
-/* ── Nested sub-tabs (within the sidebar, under their parent tab) ── */
-.ddwpt-subtabs-nested {
-  display: none;
-  flex-direction: column;
-  position: relative;
-  margin: 2px 0 8px;
-}
-
-.ddwpt-subtabs-nested.is-open {
-  display: flex;
-}
-
-/* Thin guide line connecting the sub-tabs back to their parent, aligned
-   under the parent tab's icon. */
-.ddwpt-subtabs-nested::before {
-  content: "";
-  position: absolute;
-  top: 2px;
-  bottom: 10px;
-  left: 30px;
-  width: 1px;
-  background: var(--ddwpt-border);
-}
-
-.ddwpt-subtab-nested {
-  display: flex;
-  align-items: center;
-  margin: 1px 14px 1px 40px;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--ddwpt-text-muted);
-  text-decoration: none !important;
-  white-space: nowrap;
-  transition: color 0.15s ease, background 0.15s ease;
-}
-
-.ddwpt-subtab-nested:hover {
-  color: var(--ddwpt-text);
-  background: var(--ddwpt-surface-alt);
-}
-
-.ddwpt-subtab-nested.is-active {
-  color: var(--ddwpt-accent);
-  background: var(--ddwpt-accent-light);
-  font-weight: 600;
-}
-
-.ddwpt-subtab-nested:focus {
-  outline: none;
-  box-shadow: none;
 }
 
 /* ── Content ───────────────────────────────────────────────────── */
@@ -299,7 +244,10 @@
   transition: opacity 0.2s ease;
 }
 
-.ddwpt-card.is-disabled {
+/* Faded per part, so a row that works without the main switch
+   (.is-independent) can stay at full strength. */
+.ddwpt-card.is-disabled .ddwpt-card-header,
+.ddwpt-card.is-disabled .ddwpt-card-body > :not(.is-independent) {
   opacity: 0.6;
 }
 
@@ -833,4 +781,588 @@
 
 .ddwpt-ai-steps li:last-child {
   margin-bottom: 0;
+}
+
+/* ================================================================
+   Areas layout (1.6.0): Overview hub, flat sidebar with search,
+   segmented section switcher, nested pages and search palette.
+   See docs/settings-layout.md.
+   ================================================================ */
+
+.ddwpt-content {
+  max-width: 960px;
+}
+
+.ddwpt-tabs-nav-scroll {
+  padding-top: 16px;
+}
+
+.ddwpt-nav-utility {
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--ddwpt-border);
+}
+
+.ddwpt-nav-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% - 24px);
+  margin: 0 12px 10px;
+  padding: 0 8px 0 10px;
+  background: var(--ddwpt-surface);
+  border: 1px solid var(--ddwpt-border);
+  border-radius: 8px;
+  color: var(--ddwpt-text-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ddwpt-nav-search:hover {
+  border-color: var(--ddwpt-text-light);
+}
+
+.ddwpt-nav-search svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.ddwpt-nav-search span {
+  flex: 1;
+  text-align: left;
+  padding: 7px 0;
+}
+
+.ddwpt-wrap kbd {
+  font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+  border: 1px solid var(--ddwpt-border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 5px;
+  color: var(--ddwpt-text-muted);
+  background: var(--ddwpt-surface-alt);
+}
+
+/* Hero lives on the Overview only, as a rounded card. */
+.ddwpt-header.ddwpt-hero-card {
+  position: relative;
+  top: 0;
+  z-index: auto;
+  border-radius: var(--ddwpt-radius);
+  margin-bottom: 14px;
+  padding: 28px 24px 24px;
+}
+
+/* ── Page heading, breadcrumbs ─────────────────────────────────── */
+.ddwpt-crumbs {
+  color: var(--ddwpt-text-muted);
+  margin-bottom: 8px;
+}
+
+.ddwpt-crumbs a {
+  color: var(--ddwpt-accent);
+  text-decoration: none;
+}
+
+.ddwpt-page-title {
+  margin: 0 0 4px;
+  padding: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ddwpt-text);
+}
+
+.ddwpt-page-lede {
+  margin: 0 0 18px;
+  color: var(--ddwpt-text-muted);
+}
+
+/* ── Segmented section switcher ────────────────────────────────── */
+.ddwpt-segmented {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  width: fit-content;
+  max-width: 100%;
+  margin: -4px 0 18px;
+  padding: 3px;
+  background: #e4e5ea;
+  border-radius: 8px;
+}
+
+.ddwpt-segmented a {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ddwpt-text-muted);
+  text-decoration: none;
+}
+
+.ddwpt-segmented[hidden],
+.ddwpt-segmented a[hidden],
+.ddwpt-segmented-divider[hidden] {
+  display: none;
+}
+
+.ddwpt-segmented a:hover {
+  color: var(--ddwpt-text);
+}
+
+.ddwpt-segmented a:focus {
+  box-shadow: none;
+  outline: 2px solid var(--ddwpt-accent);
+}
+
+.ddwpt-segmented a.is-active {
+  background: var(--ddwpt-surface);
+  color: var(--ddwpt-text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.ddwpt-segmented a.is-page {
+  color: var(--ddwpt-accent);
+}
+
+.ddwpt-segmented-divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: #c9cbd2;
+}
+
+@media (max-width: 900px) {
+  .ddwpt-segmented {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    width: 100%;
+  }
+
+  .ddwpt-segmented a {
+    white-space: nowrap;
+  }
+}
+
+/* ── Badges ────────────────────────────────────────────────────── */
+.ddwpt-card-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.ddwpt-badge {
+  padding: 1px 7px;
+  border-radius: 99px;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+  background: #eef2f7;
+  color: #3c4a5c;
+}
+
+.ddwpt-badge.is-labs    { background: #f3e8ff; color: #8a2be2; }
+.ddwpt-badge.is-missing { background: #fef3c7; color: #92400e; }
+.ddwpt-badge.is-write   { background: #fef2f2; color: #b91c1c; }
+.ddwpt-badge.is-read    { background: #ecfdf5; color: #047857; }
+
+.ddwpt-badge.is-plugin {
+  background: var(--ddwpt-surface);
+  color: var(--ddwpt-text-muted);
+  border: 1px solid var(--ddwpt-border);
+  font-weight: 500;
+}
+
+/* ── Overview ──────────────────────────────────────────────────── */
+.ddwpt-hub-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.ddwpt-hub-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 14px 16px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.ddwpt-hub-tile:hover,
+.ddwpt-hub-tile:focus {
+  border-color: var(--ddwpt-accent);
+  color: inherit;
+  box-shadow: none;
+}
+
+.ddwpt-hub-tile .ddwpt-card-title svg {
+  width: 15px;
+  height: 15px;
+  color: var(--ddwpt-accent);
+}
+
+.ddwpt-meter {
+  height: 4px;
+  margin-top: 6px;
+  overflow: hidden;
+  background: #eceef1;
+  border-radius: 99px;
+}
+
+.ddwpt-meter i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--ddwpt-accent);
+}
+
+.ddwpt-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ddwpt-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border: 1px solid var(--ddwpt-border);
+  border-radius: 99px;
+  background: var(--ddwpt-surface);
+  color: var(--ddwpt-text);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.ddwpt-chip:hover {
+  border-color: var(--ddwpt-accent);
+  color: var(--ddwpt-accent);
+}
+
+.ddwpt-chip.is-active {
+  background: var(--ddwpt-accent-light);
+  border-color: var(--ddwpt-accent);
+  color: var(--ddwpt-accent);
+}
+
+/* ── Cards: links to nested pages, flush bodies, hidden states ─── */
+.ddwpt-card-link-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  color: var(--ddwpt-text-muted);
+  font-size: 12px;
+}
+
+.ddwpt-card-link-row .ddwpt-btn {
+  margin-left: auto;
+  color: var(--ddwpt-accent) !important;
+  text-decoration: none;
+}
+
+.ddwpt-card-body-flush {
+  padding: 12px 20px;
+}
+
+.ddwpt-card[hidden],
+.ddwpt-render-panel[hidden],
+.ddwpt-pane[hidden],
+.ddwpt-area[hidden] {
+  display: none;
+}
+
+.ddwpt-card.is-flashing,
+.ddwpt-render-panel.is-flashing > .ddwpt-card {
+  animation: ddwpt-flash 1.4s ease-out;
+}
+
+@keyframes ddwpt-flash {
+  0%   { box-shadow: 0 0 0 3px #72aee6; }
+  100% { box-shadow: 0 0 0 3px transparent; }
+}
+
+.ddwpt-unavailable-note {
+  margin-top: 14px;
+  color: var(--ddwpt-text-muted);
+  font-size: 12px;
+}
+
+.ddwpt-link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ddwpt-accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.ddwpt-empty {
+  padding: 30px;
+  text-align: center;
+  color: var(--ddwpt-text-muted);
+  background: var(--ddwpt-surface);
+  border: 1px dashed var(--ddwpt-border);
+  border-radius: var(--ddwpt-radius);
+}
+
+.ddwpt-empty[hidden],
+.ddwpt-unavailable-note[hidden] {
+  display: none;
+}
+
+/* ── Ability rows ──────────────────────────────────────────────── */
+.ddwpt-ability-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ddwpt-ability-chips code {
+  padding: 2px 7px;
+  font-size: 11.5px;
+  background: var(--ddwpt-surface);
+  border: 1px solid var(--ddwpt-border);
+  border-radius: 5px;
+}
+
+.ddwpt-ability-optin {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.ddwpt-ability-optin-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 1px 0 6px;
+  font-size: 13px;
+  color: var(--ddwpt-text);
+}
+
+.ddwpt-ability-row.is-off .ddwpt-ability-chips {
+  opacity: 0.45;
+}
+
+.ddwpt-field-label .ddwpt-badge {
+  margin-left: 4px;
+}
+
+.ddwpt-toggle-sm .ddwpt-toggle-track {
+  width: 32px;
+  height: 18px;
+}
+
+.ddwpt-toggle-sm .ddwpt-toggle-thumb {
+  width: 12px;
+  height: 12px;
+}
+
+.ddwpt-toggle-sm input:checked + .ddwpt-toggle-track .ddwpt-toggle-thumb {
+  transform: translateX(14px);
+}
+
+/* ── AI setup card ─────────────────────────────────────────────── */
+.ddwpt-ai-setup {
+  border-color: var(--ddwpt-accent);
+}
+
+.ddwpt-ai-setup .ddwpt-card-header {
+  align-items: flex-start;
+}
+
+.ddwpt-ai-setup .ddwpt-card-header .ddwpt-btn {
+  color: var(--ddwpt-accent) !important;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ddwpt-ai-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  padding: 0;
+  background: var(--ddwpt-border);
+}
+
+.ddwpt-ai-stat {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 20px;
+  background: var(--ddwpt-surface-alt);
+}
+
+.ddwpt-ai-stat b {
+  font-size: 20px;
+  line-height: 1.2;
+  color: var(--ddwpt-text);
+}
+
+.ddwpt-ai-stat span {
+  font-size: 12px;
+  color: var(--ddwpt-text-muted);
+}
+
+.ddwpt-ai-checklist {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ddwpt-text-muted);
+}
+
+.ddwpt-ai-checklist li {
+  margin: 0;
+}
+
+.ddwpt-ai-checklist li.is-done {
+  color: #047857;
+}
+
+@media (max-width: 900px) {
+  .ddwpt-ai-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ── Registered abilities ──────────────────────────────────────── */
+.ddwpt-registry .ddwpt-card-header {
+  align-items: center;
+}
+
+.ddwpt-registry-search {
+  min-width: 200px;
+}
+
+.ddwpt-registry-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 20px;
+}
+
+.ddwpt-registry-table tr[hidden] {
+  display: none;
+}
+
+/* ── Search palette ────────────────────────────────────────────── */
+.ddwpt-palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 12vh;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.ddwpt-palette-backdrop[hidden] {
+  display: none;
+}
+
+.ddwpt-palette {
+  width: min(560px, calc(100vw - 32px));
+  overflow: hidden;
+  background: var(--ddwpt-surface);
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+.ddwpt-page .ddwpt-palette-input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--ddwpt-border);
+  border-radius: 0;
+  font-size: 15px;
+  box-shadow: none;
+  outline: 0;
+}
+
+.ddwpt-palette-results {
+  max-height: 50vh;
+  margin: 0;
+  padding: 6px;
+  overflow: auto;
+  list-style: none;
+}
+
+.ddwpt-palette-results li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.ddwpt-palette-results li.is-current {
+  background: var(--ddwpt-accent-light);
+}
+
+.ddwpt-palette-results li.is-empty {
+  cursor: default;
+  color: var(--ddwpt-text-muted);
+}
+
+.ddwpt-palette-where {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--ddwpt-text-muted);
+  white-space: nowrap;
+}
+
+.ddwpt-palette-hint {
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--ddwpt-text-muted);
+  border-top: 1px solid var(--ddwpt-border);
+}
+
+@media (max-width: 900px) {
+  .ddwpt-body {
+    flex-direction: column;
+  }
+
+  .ddwpt-tabs-nav {
+    width: 100%;
+    min-height: 0;
+  }
+
+  .ddwpt-tabs-nav-scroll {
+    position: static;
+  }
+}
+
+/* Hash links are "visited" once opened; keep sidebar and switcher
+   colours from picking up the admin's visited link colour. */
+.ddwpt-tab:visited,
+.ddwpt-segmented a:visited {
+  color: var(--ddwpt-text-muted);
+}
+
+.ddwpt-tab.is-active,
+.ddwpt-segmented a.is-page {
+  color: var(--ddwpt-accent);
+}
+
+.ddwpt-segmented a.is-active {
+  color: var(--ddwpt-text);
 }

@@ -5,8 +5,10 @@ namespace DDWPTweaks\Tweaks;
 return [
     'id'    => 'ddwpt_bricks_menu_images',
     'label' => 'Menu Item Images',
-    'tab'   => 'bricks',
-    'group' => 'builder',
+    'tab'   => 'builder',
+    'group' => 'data',
+    'description' => 'Show an image on nav menu items, from ACF or the featured image.',
+    'requires' => ['Bricks'],
 
     'settings' => [
         [

@@ -15,8 +15,10 @@ if (get_option('ddwpt_bricks_term_order_enabled')) {
 return [
     'id'    => 'ddwpt_bricks_term_order',
     'label' => 'Term Order Sorting',
-    'tab'   => 'bricks',
-    'group' => 'builder',
+    'tab'   => 'builder',
+    'group' => 'data',
+    'description' => 'Sort Bricks term loops by custom term order.',
+    'requires' => ['Bricks'],
 
     'settings' => [
         [

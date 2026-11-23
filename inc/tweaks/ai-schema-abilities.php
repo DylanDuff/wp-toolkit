@@ -498,7 +498,13 @@ if (get_option('ddwpt_ai_schema_abilities_enabled')) {
 return [
     'id'    => 'ddwpt_ai_schema_abilities',
     'label' => 'AI Structured Data Abilities',
-    'tab'   => 'seo',
+    'tab'   => 'ai',
+    'description' => 'Let agents read, preview and edit schema templates.',
+    // Listed for the settings card; registration happens at file load above.
+    'abilities' => [
+        ['kind' => 'read', 'names' => ['wp-toolkit/get-schema-guide', 'wp-toolkit/preview-schema']],
+        ['kind' => 'write', 'setting' => 'allow_write', 'names' => ['wp-toolkit/set-schema-template', 'wp-toolkit/save-schema-node', 'wp-toolkit/delete-schema-node']],
+    ],
 
     'settings' => [
         [

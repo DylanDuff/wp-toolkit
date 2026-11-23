@@ -40,7 +40,9 @@ function remove_comments_dashboard_widget()
 return [
     'id'    => 'ddwpt_disable_comments',
     'label' => 'Disable Comments',
-    'tab'   => 'general',
+    'tab'   => 'site',
+    'group' => 'content',
+    'description' => 'Turn comments off everywhere.',
 
     'settings' => [
         [

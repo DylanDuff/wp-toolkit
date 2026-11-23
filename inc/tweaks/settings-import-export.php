@@ -4,7 +4,11 @@ namespace DDWPTweaks\Tweaks;
 
 return [
     'id'     => 'ddwpt_settings_import_export',
+    'label'  => 'Import / Export',
     'tab'    => 'settings',
+    'description' => 'Back up or restore all WP Toolkit settings as JSON.',
+    'tags'   => ['JSON'],
+
     'render' => function (\DDWPTweaks\Plugin $plugin) {
         $plugin->render_info_card(
             'Import / Export Settings',

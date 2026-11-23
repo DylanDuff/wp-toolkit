@@ -1027,7 +1027,12 @@ return [
     'id'    => 'ddwpt_ai_content_abilities',
     'label' => 'AI Content Abilities',
     'tab'   => 'ai',
-    'group' => 'abilities',
+    'description' => 'Agents can read and edit posts, terms and meta.',
+    // Listed for the settings card; registration happens at file load above.
+    'abilities' => [
+        ['kind' => 'read', 'names' => ['wp-toolkit/list-post-types', 'wp-toolkit/list-taxonomies', 'wp-toolkit/get-post', 'wp-toolkit/list-posts', 'wp-toolkit/list-terms', 'wp-toolkit/get-option-field']],
+        ['kind' => 'write', 'setting' => 'allow_write', 'names' => ['wp-toolkit/create-post', 'wp-toolkit/update-post', 'wp-toolkit/get-or-create-term', 'wp-toolkit/upload-media', 'wp-toolkit/update-option-field', 'wp-toolkit/set-seo-meta']],
+    ],
 
     'settings' => [
         [

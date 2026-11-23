@@ -23,8 +23,10 @@ function bricks_html_tags_parse(string $value): array
 return [
     'id'    => 'ddwpt_bricks_html_tags',
     'label' => 'Extra HTML Tags',
-    'tab'   => 'bricks',
-    'group' => 'builder',
+    'tab'   => 'builder',
+    'group' => 'data',
+    'description' => 'Allow more tags in the Custom HTML tag option.',
+    'requires' => ['Bricks'],
 
     'settings' => [
         [
