@@ -194,6 +194,49 @@
     }
 
     /**
+     * "Items to show" right now, from the cascade like resolveRows(). Computed, not
+     * root.style: --embla-per-page lives in a breakpoint-aware stylesheet rule.
+     * parseFloat, not parseInt: fractional values (3.5) are valid. Unset means the
+     * CSS var() fallback applies, so mirror it (Prefix_Element_Embla_Slider::DEFAULT_PER_PAGE).
+     */
+    var DEFAULT_PER_PAGE = 2;
+
+    function resolvePerPage(root) {
+        var computed = parseFloat(getComputedStyle(root).getPropertyValue('--embla-per-page'));
+
+        return computed > 0 ? computed : DEFAULT_PER_PAGE;
+    }
+
+    /**
+     * Items in the container, whether flat or already grouped into columns.
+     */
+    function countItems(container) {
+        if (!container) return 0;
+
+        return slideNodesIn(container).reduce(function (total, node) {
+            return total + (node.hasAttribute('data-embla-group') ? slideNodesIn(node).length : 1);
+        }, 0);
+    }
+
+    /**
+     * The row count to actually group by: Rows, capped at what the items need.
+     *
+     * Columns fill top to bottom, so 3 items in 2 rows would make a column of 2 and a
+     * column of 1 even when the view has room for 3 columns. Fill the visible columns
+     * first instead, and only stack as many rows as it takes to fit the items in
+     * them. A fractional peek column (3.5 per page) counts as a column.
+     */
+    function resolveGroupRows(root, config, container) {
+        var rows = resolveRows(root, config);
+        if (rows < 2) return rows;
+
+        var columns = Math.ceil(resolvePerPage(root));
+        var needed = Math.ceil(countItems(container) / columns);
+
+        return Math.max(1, Math.min(rows, needed));
+    }
+
+    /**
      * Embla's *effective* loop state, which is not always the requested one — see
      * warnIfLoopDisabled(). Returns null when it can't be determined, since
      * internalEngine() is advanced API that may change shape between versions.
@@ -226,10 +269,7 @@
         if (getEffectiveLoop(embla) !== false) return;
 
         var slideCount = container ? slideNodesIn(container).length : 0;
-        // Computed, not root.style — --embla-per-page lives in a breakpoint-aware
-        // stylesheet rule now, so the inline style attribute no longer carries it.
-        // parseFloat, not parseInt — fractional per-page values (3.5) are valid.
-        var perPage = parseFloat(getComputedStyle(root).getPropertyValue('--embla-per-page')) || 1;
+        var perPage = resolvePerPage(root);
 
         console.warn(
             '[Embla Slider] Embla fell back to loop: false — slide content is not enough to ' +
@@ -280,7 +320,7 @@
         }
 
         // Grid mode: regroup children into columns before anything measures them
-        var rows = resolveRows(root, config);
+        var rows = resolveGroupRows(root, config, container);
         applyRowGrouping(container, rows);
 
         if (elementId) builtRows[elementId] = rows;
@@ -631,8 +671,8 @@
 
     /*
      * Per-breakpoint Rows. Grouping is DOM structure, so a media query alone can't
-     * apply it: on resize, re-read each slider's --embla-rows and rebuild the ones
-     * whose count changed. Covers the builder too, whose breakpoint switch
+     * apply it: on resize, re-read each slider's --embla-rows (and --embla-per-page,
+     * which caps the rows a few items need) and rebuild the ones whose count changed. Covers the builder too, whose breakpoint switch
      * resizes the canvas iframe. Sliders mid-AJAX are left alone; their rebuild
      * reads the current value anyway.
      */
@@ -650,7 +690,8 @@
             var config = {};
             try { config = JSON.parse(root.getAttribute('data-embla') || '{}'); } catch (e) { return; }
 
-            if (resolveRows(root, config) !== builtRows[elementId]) buildEmbla(root);
+            var container = root.querySelector('.embla__container');
+            if (resolveGroupRows(root, config, container) !== builtRows[elementId]) buildEmbla(root);
         });
     }
 

@@ -1280,7 +1280,11 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
         $child_ids = array_column( $children, 'id' );
         $slides    = 0;
 
-        $open_group = function ( $html, $instance ) use ( $rows, $child_ids, &$slides ) {
+        // Each slide is marked first and grouped once the total is known, so a few
+        // slides can drop the rows they don't need (see group_slides()).
+        $marker = '<!--embla-slide-' . uniqid() . '-->';
+
+        $mark_slide = function ( $html, $instance ) use ( $child_ids, $marker, &$slides ) {
             $element = $instance->element ?? [];
 
             // The loop element's own render, wrapping iterations that already carry
@@ -1299,23 +1303,17 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
                 return $html;
             }
 
-            $boundary = $slides % $rows === 0
-                // data-embla-group is what applyRowGrouping() looks for, so the JS
-                // treats these exactly like the groups it builds itself.
-                ? ( $slides ? '</div>' : '' ) . '<div class="embla__group embla__slide" data-embla-group>'
-                : '';
-
             $slides++;
 
-            return $boundary . $html;
+            return $marker . $html;
         };
 
-        add_filter( 'bricks/frontend/render_element', $open_group, 10, 2 );
+        add_filter( 'bricks/frontend/render_element', $mark_slide, 10, 2 );
         $output = \Bricks\Frontend::render_children( $this );
-        remove_filter( 'bricks/frontend/render_element', $open_group, 10 );
+        remove_filter( 'bricks/frontend/render_element', $mark_slide, 10 );
 
         if ( $slides ) {
-            return $output . '</div>';
+            return $this->group_slides( $output, $marker, $slides, $rows );
         }
 
         // Filter never fired (Bricks < 2.0): the children are already rendered flat,
@@ -1323,6 +1321,48 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
         $this->use_pre_init_grid( $rows );
 
         return $output;
+    }
+
+    /**
+     * Turn the slide markers into column wrappers.
+     *
+     * Columns fill top to bottom, so Rows alone would stack 3 slides into a column
+     * of 2 and a column of 1 even with room for 3 columns. Rows is capped at what
+     * the slides need to fill the visible columns, the same cap the JS applies
+     * (resolveGroupRows()), so init finds the grouping already current. When the
+     * columns come from CSS the server can't cap; the JS regroups at init.
+     */
+    private function group_slides( $output, $marker, $slides, $rows ) {
+        $columns = $this->visible_columns();
+
+        if ( $columns ) {
+            $rows = min( $rows, (int) ceil( $slides / $columns ) );
+        }
+
+        $parts = explode( $marker, $output );
+
+        // One row: no wrappers, and the pre-init grid sizes the flat slides until
+        // the JS adds .embla__slide.
+        if ( $rows < 2 ) {
+            $this->use_pre_init_grid( 1 );
+
+            return implode( '', $parts );
+        }
+
+        // $parts[0] is whatever precedes the first slide (a loop start marker)
+        $grouped = array_shift( $parts );
+
+        foreach ( $parts as $index => $slide ) {
+            if ( $index % $rows === 0 ) {
+                // data-embla-group is what applyRowGrouping() looks for, so the JS
+                // treats these exactly like the groups it builds itself.
+                $grouped .= ( $index ? '</div>' : '' ) . '<div class="embla__group embla__slide" data-embla-group>';
+            }
+
+            $grouped .= $slide;
+        }
+
+        return $grouped . '</div>';
     }
 
     /**
@@ -1346,12 +1386,20 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
      * is whatever the cascade resolves --embla-rows to, which only the browser knows.
      */
     private function rows_from_css() {
-        if ( self::sets_rows( $this->settings, true ) ) {
+        return $this->control_from_css( 'rows' );
+    }
+
+    /**
+     * Is this control's value resolved by CSS rather than known to the server?
+     * Same rule as rows_from_css(), for any breakpoint-aware CSS control.
+     */
+    private function control_from_css( $control ) {
+        if ( self::sets_control( $this->settings, $control, true ) ) {
             return true;
         }
 
         foreach ( $this->get_global_class_settings() as $class_settings ) {
-            if ( self::sets_rows( $class_settings ) ) {
+            if ( self::sets_control( $class_settings, $control ) ) {
                 return true;
             }
         }
@@ -1360,19 +1408,34 @@ class Prefix_Element_Embla_Slider extends \Bricks\Element {
     }
 
     /**
-     * Do these settings set Rows? Bricks stores the base value as 'rows' and a
-     * breakpoint override as 'rows:{breakpoint}'.
+     * Do these settings set the control? Bricks stores the base value under the
+     * control's key and a breakpoint override as '{control}:{breakpoint}'.
      */
-    private static function sets_rows( $settings, $overrides_only = false ) {
+    private static function sets_control( $settings, $control, $overrides_only = false ) {
         foreach ( array_keys( (array) $settings ) as $key ) {
             $key = (string) $key;
 
-            if ( strpos( $key, 'rows:' ) === 0 || ( ! $overrides_only && $key === 'rows' ) ) {
+            if ( strpos( $key, $control . ':' ) === 0 || ( ! $overrides_only && $key === $control ) ) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Whole columns in view ("Items to show", a peek column counted as one), or null
+     * when the value comes from CSS (breakpoint overrides, a global class) and only
+     * the browser knows it. Mirrors resolvePerPage() in the JS.
+     */
+    private function visible_columns() {
+        if ( $this->control_from_css( 'perPage' ) ) {
+            return null;
+        }
+
+        $per_page = floatval( $this->settings['perPage'] ?? 0 );
+
+        return (int) ceil( $per_page > 0 ? $per_page : self::DEFAULT_PER_PAGE );
     }
 
     /**
