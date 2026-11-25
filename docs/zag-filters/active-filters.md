@@ -50,7 +50,10 @@ server-side would mean reading the same collapsed, name-gated data, and would
 then need the element added to `dynamic_update_elements()` to ever refresh —
 which Bricks does not allow.
 
-1. `filterTargets(queryId)` (`src/zag-filters/bricks.js`) returns every live Zag filter.
+1. `filterTargets(queryId)` (`src/zag-filters/bricks.js`) returns every live Zag filter,
+   once per Bricks filter instance and only for roots still in the DOM. `reap()`
+   only runs on `query_result/displayed`, so without that guard a swapped-out node
+   and its replacement both answered and every chip showed twice.
 2. Each supplies its own chips through `adapter.describe()`:
    - **select** — one per selected value, labelled with the count-free option
      text so a chip never reads "Penrith (4)". A value with no matching option
@@ -63,8 +66,10 @@ which Bricks does not allow.
    and the chip clones its **children** — the glyph only, never the select's own
    icon wrapper, which carries 40px badge sizing that is meaningless at chip
    scale. Cloned glyphs are `aria-hidden`; the chip text carries the meaning.
-4. Removing a chip drops that one value and re-applies what remains through
-   `driveFilters()`. Clear-all empties every covered filter in one request per
+4. Chips are keyed by query, value and label, so the same value held by two
+   filters (a hero bar and a sidebar over one query, both set by the smart
+   search) is **one chip**. Removing a chip drops that value from every filter
+   holding it and re-applies what remains through `driveFilters()`. Clear-all empties every covered filter in one request per
    query.
 
 Both filter elements can supply one. The date picker only does so when its Icon
