@@ -216,6 +216,17 @@ A page with a keyword search and **no Zag filters at all** is a valid setup —
 it is then just a search box — but there is nothing to infer the query from, so
 **Limit to query must be set**. The builder says so under the checkbox.
 
+**Finding the element on a filter request.** `Keyword_Search` reads the page's
+elements from `Database::$active_templates`. A filter request resolves those
+only from its posted `postId`, and an archive (the OPH `/team/` page, a
+`team-member` post type archive) posts `0`, so they come back empty. With no
+smart search found the words were dropped: a name filtered the team after a
+reload, but not as it was typed. When the query being built is not among the
+elements found, `page_elements()` now also loads the elements stored with it
+through `Helpers::get_element_data()`, which is how the filter endpoint finds
+the query element. Covered by the archive checks in
+`tests/zag-filters/impersonation-test.php`.
+
 ### How the term reaches the server
 
 The element is not a Bricks filter, so its value never rides in

@@ -37,8 +37,9 @@ namespace {
 namespace Bricks {
 
 	class Query_Filters {
-		public static $active_filters = [];
-		public static $replayed       = [];
+		public static $active_filters          = [];
+		public static $replayed                = [];
+		public static $query_vars_before_merge = [];
 
 		public static function filter_controls_elements() {
 			return [
@@ -109,6 +110,33 @@ namespace Bricks {
 				}
 			}
 			return $check;
+		}
+	}
+
+	/** Templates by ID and area, and what the page resolved as active. */
+	class Database {
+		public static $active_templates = [];
+		public static $data             = [];
+
+		public static function get_data( $id, $area ) {
+			return self::$data[ $id ][ $area ] ?? [];
+		}
+	}
+
+	/** Finds an element in any stored template, as the filter endpoint does. */
+	class Helpers {
+		public static function get_element_data( $post_id, $element_id ) {
+			foreach ( Database::$data as $id => $areas ) {
+				foreach ( $areas as $elements ) {
+					foreach ( $elements as $element ) {
+						if ( $element['id'] === $element_id ) {
+							return [ 'element' => $element, 'elements' => $elements, 'source_id' => $id ];
+						}
+					}
+				}
+			}
+
+			return false;
 		}
 	}
 
@@ -809,6 +837,40 @@ namespace {
 	// Nothing searchable must mean no query, not a query matching everything.
 	check( 'a sentence of stopwords yields nothing', \Zag\Keyword_Search::search_words( 'who are the' ), [] );
 	check( 'an empty term yields nothing', \Zag\Keyword_Search::search_words( '' ), [] );
+
+
+	// --- Keyword pass on an archive filter request -------------------------
+	//
+	// An archive posts postId 0, so no active templates resolve on the filter
+	// request. The smart search beside the query must still be found, or the
+	// typed words only reach the query on a reload.
+
+	\Bricks\Database::$data = [
+		501 => [
+			'content' => [
+				[ 'id' => 'loop01', 'name' => 'container', 'settings' => [ 'hasLoop' => true ] ],
+				[ 'id' => 'srch01', 'name' => 'zag-smart-search', 'settings' => [ 'zagKeyword' => true ] ],
+				[ 'id' => 'filt01', 'name' => 'zag-filter-select', 'settings' => [ 'filterQueryId' => 'loop01' ] ],
+			],
+		],
+	];
+	\Bricks\Database::$active_templates = [];
+
+	$bridge_params = new ReflectionProperty( \Zag\Query_Filters_Bridge::class, 'rest_params' );
+	$bridge_params->setAccessible( true );
+	$bridge_params->setValue( null, [ 'postId' => '0', 'urlParams' => [ 'zag-search' => 'david' ] ] );
+
+	$keyword = new \Zag\Keyword_Search();
+	$vars    = $keyword->apply( [ 'post_type' => 'team-member' ], [], 'loop01' );
+
+	check( 'archive request: typed words reach the query', $vars['s'] ?? null, 'david' );
+	check( 'archive request: words are OR-matched', $vars[ \Zag\Keyword_Search::WORDS_VAR ] ?? null, [ 'david' ] );
+
+	// A loop the search does not target is left alone.
+	$other = $keyword->apply( [ 'post_type' => 'post' ], [], 'elsewhere' );
+	check( 'archive request: unrelated loops untouched', isset( $other['s'] ), false );
+
+	$bridge_params->setValue( null, null );
 
 	echo "\n" . ( $failures ? "$failures FAILED\n" : "all checks passed\n" );
 	exit( $failures ? 1 : 0 );

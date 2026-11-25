@@ -76,6 +76,9 @@ class Keyword_Search {
 	 */
 	private $elements = null;
 
+	/** Queries already searched for by elements_around(), so each costs one lookup. */
+	private $looked_up = [];
+
 	/** Query IDs targeted by a Zag filter element on this page. */
 	private $filtered_query_ids = null;
 
@@ -379,7 +382,7 @@ class Keyword_Search {
 	 * @return array|null The element's settings.
 	 */
 	private function search_settings_for_query( $query_id ) {
-		foreach ( $this->page_elements() as $element ) {
+		foreach ( $this->page_elements( $query_id ) as $element ) {
 			if ( ( $element['name'] ?? '' ) !== 'zag-smart-search' ) {
 				continue;
 			}
@@ -442,34 +445,105 @@ class Keyword_Search {
 	 * The page's elements, header and footer included.
 	 *
 	 * Same source Helpers::get_element_data() reads, minus its search for a
-	 * single ID. Database::$active_templates is resolved by then on both paths:
-	 * the AJAX one sets it from the posted postId before any query renders.
+	 * single ID. On a page load Database::$active_templates is resolved by then.
+	 *
+	 * On a filter request it is only resolved from the posted postId, and an
+	 * archive (the OPH /team/ page) posts 0. The active templates then come back
+	 * empty, no smart search is found, and the typed words never reach the
+	 * query: a name filtered the results after a reload but not as it was typed.
+	 * So when the query being built is not among what was found, the elements
+	 * around it are fetched the way Bricks finds the query element itself.
 	 *
 	 * Elements nested inside a component instance are not walked, so a smart
 	 * search built into a component is not discovered here.
 	 */
-	private function page_elements() {
-		if ( $this->elements !== null ) {
-			return $this->elements;
+	private function page_elements( $query_id = '' ) {
+		if ( $this->elements === null ) {
+			$this->elements = [];
+
+			foreach ( [ 'header', 'content', 'footer' ] as $area ) {
+				$template_id = \Bricks\Database::$active_templates[ $area ] ?? 0;
+
+				if ( ! $template_id ) {
+					continue;
+				}
+
+				$this->add_elements( \Bricks\Database::get_data( $template_id, $area ) );
+			}
 		}
 
-		$this->elements = [];
-
-		foreach ( [ 'header', 'content', 'footer' ] as $area ) {
-			$template_id = \Bricks\Database::$active_templates[ $area ] ?? 0;
-
-			if ( ! $template_id ) {
-				continue;
-			}
-
-			$elements = \Bricks\Database::get_data( $template_id, $area );
-
-			if ( is_array( $elements ) ) {
-				$this->elements = array_merge( $this->elements, $elements );
-			}
+		if ( $query_id !== '' && ! isset( $this->looked_up[ $query_id ] ) && ! $this->has_element( $query_id ) ) {
+			// Once per query: apply() runs for every posts query on the page.
+			$this->looked_up[ $query_id ] = true;
+			$this->add_elements( $this->elements_around( $query_id ) );
 		}
 
 		return $this->elements;
+	}
+
+	/**
+	 * The elements stored alongside one element, wherever Bricks finds it.
+	 *
+	 * Helpers::get_element_data() is what the filter endpoint itself uses to
+	 * locate the query element, so it resolves the same template for the same
+	 * postId, archives included.
+	 */
+	private function elements_around( $element_id ) {
+		if ( ! method_exists( '\Bricks\Helpers', 'get_element_data' ) ) {
+			return [];
+		}
+
+		$data = \Bricks\Helpers::get_element_data( Query_Filters_Bridge::rest_post_id(), $element_id );
+
+		if ( ! is_array( $data ) ) {
+			return [];
+		}
+
+		if ( ! empty( $data['elements'] ) && is_array( $data['elements'] ) ) {
+			return $data['elements'];
+		}
+
+		// Older shapes name only where the element was found.
+		$source_id = (int) ( $data['source_id'] ?? 0 );
+		$elements  = [];
+
+		foreach ( $source_id ? [ 'header', 'content', 'footer' ] : [] as $area ) {
+			$area_elements = \Bricks\Database::get_data( $source_id, $area );
+
+			if ( is_array( $area_elements ) ) {
+				$elements = array_merge( $elements, $area_elements );
+			}
+		}
+
+		return $elements;
+	}
+
+	private function has_element( $element_id ) {
+		foreach ( $this->elements as $element ) {
+			if ( (string) ( $element['id'] ?? '' ) === $element_id ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/** Append elements not already held, keyed by ID. */
+	private function add_elements( $elements ) {
+		if ( ! is_array( $elements ) ) {
+			return;
+		}
+
+		$known = array_flip( array_map( static fn( $element ) => (string) ( $element['id'] ?? '' ), $this->elements ) );
+
+		foreach ( $elements as $element ) {
+			if ( ! isset( $known[ (string) ( $element['id'] ?? '' ) ] ) ) {
+				$this->elements[] = $element;
+			}
+		}
+
+		// The query IDs the filters target depend on the element set.
+		$this->filtered_query_ids = null;
 	}
 
 	/**
