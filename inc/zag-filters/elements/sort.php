@@ -104,7 +104,8 @@ class Element_Zag_Sort extends Element_Zag_Filter_Select {
 		 * so it leads rather than sitting below the inherited controls.
 		 */
 		if ( isset( $this->controls['sortOptions'] ) ) {
-			$sort_options = $this->controls['sortOptions'];
+			$sort_options                = $this->controls['sortOptions'];
+			$sort_options['description'] = esc_html__( 'Leave empty to offer Newest, Oldest, Title A-Z and Title Z-A.', 'zag' );
 			unset( $this->controls['sortOptions'] );
 
 			$this->controls = array_merge( [ 'sortOptions' => $sort_options ], $this->controls );
@@ -112,15 +113,16 @@ class Element_Zag_Sort extends Element_Zag_Filter_Select {
 	}
 
 	/**
-	 * Force the action, whatever the saved settings say.
+	 * Force the action and fill in default options, whatever was saved.
 	 *
-	 * The control is gone, so nothing can set filterAction — but the parent, the
-	 * bridge and Bricks' own `get_common_filter_settings()` all read it, and an
-	 * element converted from a Zag select would still carry the old value.
-	 * Setting it here means every reader sees the same thing.
+	 * The control is gone, so nothing can set filterAction, but the parent,
+	 * the bridge and Bricks' own `get_common_filter_settings()` all read it, and
+	 * an element converted from a Zag select would still carry the old value.
+	 * The bridge applies the same element_settings() to the raw page data, so
+	 * the options rendered here are the ones the query is sorted by.
 	 */
 	public function render() {
-		$this->settings['filterAction'] = 'sort';
+		$this->settings = element_settings( $this->name, $this->settings );
 
 		parent::render();
 	}

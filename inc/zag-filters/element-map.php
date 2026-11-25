@@ -44,3 +44,54 @@ if ( ! function_exists( __NAMESPACE__ . '\element_map' ) ) {
 		];
 	}
 }
+
+if ( ! function_exists( __NAMESPACE__ . '\default_sort_options' ) ) {
+	/**
+	 * What a zag-sort with an empty Sort options repeater offers.
+	 *
+	 * Bricks' repeater starts empty and the element used to render an empty
+	 * menu, which reads as a sort that does nothing. Rows use Bricks' own
+	 * sortOptions shape so setup_sort_options() and get_selected_sort_option()
+	 * consume them unchanged. Labels stay plain strings so this file keeps no
+	 * WordPress dependency (see the note at the top).
+	 */
+	function default_sort_options() {
+		return [
+			[ 'optionLabel' => 'Newest', 'optionSource' => 'date', 'optionOrder' => 'DESC' ],
+			[ 'optionLabel' => 'Oldest', 'optionSource' => 'date', 'optionOrder' => 'ASC' ],
+			[ 'optionLabel' => 'Title A-Z', 'optionSource' => 'title', 'optionOrder' => 'ASC' ],
+			[ 'optionLabel' => 'Title Z-A', 'optionSource' => 'title', 'optionOrder' => 'DESC' ],
+		];
+	}
+}
+
+if ( ! function_exists( __NAMESPACE__ . '\element_settings' ) ) {
+	/**
+	 * Settings as an element actually behaves, not as they were saved.
+	 *
+	 * zag-sort has no Action control, so its saved settings never carry
+	 * filterAction. Forcing it only in render() was not enough: the filter
+	 * request builds query vars from the raw page data, where the element looked
+	 * like a filter with no source and was skipped, so selecting an option never
+	 * changed the order. Every reader (render, query vars, index rows) goes
+	 * through here instead.
+	 *
+	 * @param string $name     Element name from page data.
+	 * @param array  $settings Saved element settings.
+	 */
+	function element_settings( $name, $settings ) {
+		$settings = is_array( $settings ) ? $settings : [];
+
+		if ( $name !== 'zag-sort' ) {
+			return $settings;
+		}
+
+		$settings['filterAction'] = 'sort';
+
+		if ( empty( $settings['sortOptions'] ) ) {
+			$settings['sortOptions'] = default_sort_options();
+		}
+
+		return $settings;
+	}
+}

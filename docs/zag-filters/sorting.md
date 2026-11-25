@@ -12,6 +12,10 @@ repeater — the same repeater Bricks uses, with a label, a source and a directi
 per row. Everything else (label, placeholder, icon, caption, placement, styling)
 is inherited from the Zag select and behaves identically.
 
+Leave the repeater empty and the element offers **Newest**, **Oldest**,
+**Title A-Z** and **Title Z-A** (`default_sort_options()` in
+`inc/zag-filters/element-map.php`). Adding any row replaces all four.
+
 Values are Bricks' own `<key>_<ORDER>` format: `title_ASC`, `date_DESC`,
 `selling_price_DESC`. The key may contain underscores; the direction is taken
 from the end.
@@ -22,7 +26,7 @@ Bricks models sorting as an **action on `filter-select`/`filter-radio`**, not as
 an element of its own (`filter-base.php:1136`). `Element_Zag_Sort` therefore
 subclasses `Element_Zag_Filter_Select` and changes only the packaging:
 
-- `filterAction` is forced to `sort` in `render()` and its control removed
+- `filterAction` is forced to `sort` and its control removed
 - the filter-only controls are dropped rather than hidden — Bricks gates them on
   `[ 'filterAction', '=', [ '', 'filter' ] ]`, a condition that can never be
   evaluated once the control it reads is gone
@@ -35,6 +39,21 @@ UI, adapter or stylesheet to keep in step.
 **Multi-select is impossible by construction.** A query has one order, and
 `get_selected_sort_option()` parses a scalar — an array value would silently stop
 sorting rather than error.
+
+## Saved settings versus effective settings
+
+`zag-sort` saves no `filterAction` (there is no control for it) and may save no
+`sortOptions`. The filter request builds query vars from the **raw page data**,
+not from the rendered element, so forcing the action in `render()` alone left
+the query side seeing a filter with no source: the dropdown changed and the
+results did not. Every reader therefore goes through `element_settings()`
+(`inc/zag-filters/element-map.php`):
+
+- `Element_Zag_Sort::render()`, so the rendered options and payload match
+- `Query_Filters_Bridge::build_query_vars()`, before it picks the sort branch
+- `impersonate_native_elements()`, so the element table row says `sort`
+
+Add any future forced setting there, not in one of the readers.
 
 ## Why the query vars are ours
 
