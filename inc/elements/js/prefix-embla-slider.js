@@ -161,6 +161,8 @@
             container.removeChild(group);
         });
 
+        repointQueryResults(existing, container);
+
         if (!(rows > 1)) return;
 
         var items = slideNodesIn(container);
@@ -175,6 +177,29 @@
                 group.appendChild(items[j]);
             }
         }
+    }
+
+    /*
+     * Bricks records each query loop's resultsContainer once, as the parent of
+     * its first iteration, and inserts every later filter, load more or
+     * pagination result there. In grid mode that parent is one of our column
+     * groups, which the unwrap above has just taken out of the page, so the new
+     * results went into a detached node: the request succeeded and the slider
+     * kept showing the old cards. Point any loop that held a removed group at
+     * the container that now holds its iterations.
+     */
+    function repointQueryResults(removedGroups, container) {
+        var loops = window.bricksData && window.bricksData.queryLoopInstances;
+        if (!loops || !removedGroups.length) return;
+
+        var removed = Array.prototype.slice.call(removedGroups);
+
+        Object.keys(loops).forEach(function (queryId) {
+            var loop = loops[queryId];
+            if (loop && removed.indexOf(loop.resultsContainer) !== -1) {
+                loop.resultsContainer = container;
+            }
+        });
     }
 
     /**
