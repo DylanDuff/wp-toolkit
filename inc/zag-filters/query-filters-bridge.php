@@ -299,6 +299,9 @@ class Query_Filters_Bridge {
 
 			$found = true;
 
+			// Index rows record the action the element really has.
+			$elements[ $index ]['settings'] = element_settings( $name, $element['settings'] ?? [] );
+
 			// Multi-select needs filter-checkbox's array handling, single needs
 			// filter-select's scalar handling.
 			$elements[ $index ]['name'] = ! empty( $element['settings']['zagMultiple'] )
@@ -437,8 +440,10 @@ class Query_Filters_Bridge {
 			return $query_vars;
 		}
 
-		$settings      = $filter['settings'] ?? [];
-		$filter_action = $settings['filterAction'] ?? 'filter';
+		// Raw page data: zag-sort's forced action and default options live here.
+		$settings           = element_settings( $instance_name, $filter['settings'] ?? [] );
+		$filter['settings'] = $settings;
+		$filter_action      = $settings['filterAction'] ?? 'filter';
 
 		if ( $filter_action === 'sort' ) {
 			return $this->build_sort_query_vars( $query_vars, $filter, $query_id, $filter_index );

@@ -597,9 +597,9 @@ namespace {
 			'instance_name' => 'zag-sort',
 			'filter_id'     => 'sort1',
 			'value'         => $value,
+			// As saved: zag-sort has no Action control, so no filterAction.
 			'settings'      => [
-				'filterAction' => 'sort',
-				'sortOptions'  => $options === null ? $sortOptions : $options,
+				'sortOptions' => $options === null ? $sortOptions : $options,
 			],
 		];
 	};
@@ -649,7 +649,19 @@ namespace {
 	check( 'a value matching no option is a no-op', $bridge->build_query_vars( [], $makeSort( 'nope_ASC' ), 'q1', 0 ), [] );
 	check( 'a value with no order is a no-op', $bridge->build_query_vars( [], $makeSort( 'title' ), 'q1', 0 ), [] );
 	check( 'the wrong order for an option is a no-op', $bridge->build_query_vars( [], $makeSort( 'title_DESC' ), 'q1', 0 ), [] );
-	check( 'no sort options configured is a no-op', $bridge->build_query_vars( [], $makeSort( 'title_ASC', [] ), 'q1', 0 ), [] );
+	// An empty repeater falls back to the defaults the element renders.
+	check(
+		'no sort options configured sorts by the defaults',
+		$bridge->build_query_vars( [], $makeSort( 'date_ASC', [] ), 'q1', 0 ),
+		[ 'orderby' => [ 'date' => 'ASC' ] ]
+	);
+	check( 'a value outside the defaults is a no-op', $bridge->build_query_vars( [], $makeSort( 'price_ASC', [] ), 'q1', 0 ), [] );
+	check(
+		'element_settings forces sort and defaults for zag-sort',
+		\Zag\element_settings( 'zag-sort', [ 'filterAction' => 'filter' ] ),
+		[ 'filterAction' => 'sort', 'sortOptions' => \Zag\default_sort_options() ]
+	);
+	check( 'element_settings leaves other elements alone', \Zag\element_settings( 'zag-filter-select', [ 'a' => 1 ] ), [ 'a' => 1 ] );
 
 	// per_page is offered by the inherited Action control but deliberately unhandled.
 	$perPage = [
