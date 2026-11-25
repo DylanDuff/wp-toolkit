@@ -22,34 +22,50 @@ export const activeFilterInstances = new Map()
 const REMOVE_GLYPH = '×'
 
 /**
- * Every active value across the filters this element covers.
+ * Every active value across the filters this element covers, once each.
  *
  * A chip is only ever produced by a filter's own describe(), so a value the
  * owning element cannot label is a value that cannot appear — deliberate. The
  * alternative is a chip reading a bare term id.
+ *
+ * The same value can be held by more than one filter: a page with a hero
+ * filter bar and a results sidebar over one query carries two discipline
+ * selects, and the smart search sets a label in every filter that offers it.
+ * Those read as one choice to the visitor, so they share a chip, and removing
+ * it clears the value from each of them.
  */
 function collectChips(instance) {
-	const chips = []
+	const chips = new Map()
 
 	filterTargets(instance.config.queryId || undefined).forEach((target) => {
 		target.describe().forEach((chip) => {
-			chips.push({ target, value: String(chip.value), label: chip.label })
+			const value = String(chip.value)
+			const key = [target.filter.targetQueryId, value, chip.label].join('\u0000')
+
+			if (chips.has(key)) {
+				chips.get(key).targets.push(target)
+
+				return
+			}
+
+			chips.set(key, { targets: [target], value, label: chip.label })
 		})
 	})
 
-	return chips
+	return [...chips.values()]
 }
 
 /**
- * Drop one value, keeping everything else that filter holds.
+ * Drop one value, keeping everything else each holding filter has.
  *
  * Multi-selects lose only the clicked value. Single selects and the date picker
  * hold one value, so removing it empties them.
  */
 function removeChip(chip) {
-	const remaining = toArray(chip.target.filter.currentValue).filter((value) => value !== chip.value)
-
-	driveFilters([{ target: chip.target, values: remaining }])
+	driveFilters(chip.targets.map((target) => ({
+		target,
+		values: toArray(target.filter.currentValue).filter((value) => value !== chip.value)
+	})))
 }
 
 /** Clear every filter this element covers, in one request per query. */
@@ -98,7 +114,7 @@ function buildChip(instance, chip) {
 	item.className = 'zag-active-filters__chip'
 
 	if (!instance.config.hideIcons) {
-		const icon = chipIcon(chip.target)
+		const icon = chipIcon(chip.targets[0])
 
 		if (icon) {
 			item.append(icon)

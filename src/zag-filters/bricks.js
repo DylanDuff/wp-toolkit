@@ -207,12 +207,28 @@ export function applyFilter(instance, value) {
 export function filterTargets(queryId) {
 	const targets = []
 
+	const seen = new Set()
+
 	mounted.forEach((instance) => {
 		const filter = instance.filterInstance
 
 		if (!filter?.targetQueryId) {
 			return
 		}
+
+		/**
+		 * Only live roots, and each Bricks filter once.
+		 *
+		 * reap() only runs on query_result/displayed, so between a swap and that
+		 * event `mounted` can hold the discarded node next to its replacement,
+		 * both pointing at the same filter instance. Read here, that showed every
+		 * active value twice in the chips row.
+		 */
+		if (!instance.root.isConnected || seen.has(filter)) {
+			return
+		}
+
+		seen.add(filter)
 
 		/**
 		 * Sorting and per-page are actions, not filters.

@@ -5,7 +5,7 @@
   "scripts": {
     "build": "node scripts/build-zag-filters.mjs",
     "watch": "node scripts/build-zag-filters.mjs --watch",
-    "test": "php tests/zag-filters/impersonation-test.php && node --test tests/zag-filters/link-core.test.mjs && php tests/schema/run.php",
+    "test": "php tests/zag-filters/impersonation-test.php && node --test tests/zag-filters/link-core.test.mjs tests/zag-filters/search-match.test.mjs && php tests/schema/run.php",
     "lint": "npx oxlint src/",
     "check": "npx oxlint src/ && node scripts/build-zag-filters.mjs && pnpm test"
   },
