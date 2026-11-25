@@ -14,6 +14,7 @@
  */
 
 import { filterTargets, driveFilters, fetchQueries, isSameValue, onFiltersSettled, toArray } from './bricks.js'
+import { matchesPhrase, normalise, words } from './search-match.js'
 
 /** Live search elements, keyed by root. Mirrors `mounted` for the filters. */
 export const searchInstances = new Map()
@@ -26,25 +27,6 @@ export const searchInstances = new Map()
  * flushes it immediately for anyone who would rather not wait.
  */
 const DEBOUNCE_MS = 300
-
-/** Lowercase, punctuation to spaces, collapsed. */
-function normalise(text) {
-	return String(text)
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, ' ')
-		.trim()
-}
-
-/**
- * Match a phrase at the start of a word.
- *
- * The haystack is space padded and single spaced, so testing for a leading
- * space is a word-start test without a regex: "physio" catches
- * "physiotherapist" but "myphysio" catches nothing.
- */
-function matchesPhrase(haystack, phrase) {
-	return haystack.includes(' ' + phrase)
-}
 
 /** The text an option is matched against — never the count-bearing label. */
 function optionText(option) {
@@ -120,11 +102,11 @@ function buildVocabulary(targets, synonyms) {
 
 /** What a sentence resolves to: a set of option values per filter. */
 function parse(text, targets, synonyms) {
-	const haystack = ' ' + normalise(text) + ' '
+	const typed = words(text)
 	const wanted = new Map()
 
 	buildVocabulary(targets, synonyms).forEach((entry) => {
-		if (!entry.phrases.some((phrase) => matchesPhrase(haystack, phrase))) {
+		if (!entry.phrases.some((phrase) => matchesPhrase(typed, phrase))) {
 			return
 		}
 

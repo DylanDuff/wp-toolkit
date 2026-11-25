@@ -25,14 +25,29 @@ option labels.
 
 ### What matches with no configuration
 
-Every option label on the page, matched from the **start of a word**:
+Every option label on the page, matched **word by word**. A label's words must
+appear together and in order among the typed words, and each typed word matches
+a label word when it is the same word, starts it (4 letters or more), or shares
+its stem:
 
 | Typed | Matches |
 |---|---|
 | `penrith` | the option labelled "Penrith" |
-| `physio` | "Physiotherapy" — word-start, so a prefix is enough |
-| `myphysio` | nothing — not a word start |
+| `physio` | "Physiotherapy": a word start of 4+ letters is enough |
+| `podiatrist` | "Podiatry": same stem once `-ist` / `-y` are stripped |
+| `occupational therapist` | "Occupational therapy" |
+| `the` | nothing: too short to match by prefix, so filler never selects "Therapy" |
+| `myphysio` | nothing: not a word start |
 | `Penrith (4)` | the count is stripped before matching, so counts never interfere |
+
+Stems drop one ending from `-ist(s)`, `-ian(s)`, `-ic(s)`, `-or(s)`, `-er(s)`,
+`-ies`, `-y` and `-s`, and only when at least 4 letters remain, so `ndis` and
+`older` stay whole. That covers the practitioner-versus-discipline pairs
+(psychologist/Psychology, chiropractor/Chiropractic) without authoring.
+Anything less regular, such as dietitian/Dietetics, still needs a Vocabulary
+row. Vocabulary phrases are matched the same way. The matcher lives in
+`src/zag-filters/search-match.js`, tested by
+`tests/zag-filters/search-match.test.mjs`.
 
 Case, punctuation and extra whitespace are all normalised away. A label that
 exists on more than one filter selects the option in **each** of them.
