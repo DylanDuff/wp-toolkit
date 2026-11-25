@@ -95,3 +95,44 @@ if ( ! function_exists( __NAMESPACE__ . '\element_settings' ) ) {
 		return $settings;
 	}
 }
+
+if ( ! function_exists( __NAMESPACE__ . '\sort_option_items' ) ) {
+	/**
+	 * Sort options as menu items, with values in Bricks' `<key>_<ORDER>` form.
+	 *
+	 * Built here rather than taken from Filter_Element::setup_sort_options(),
+	 * which leaves get_populated_options() empty for our element on Bricks 2.4,
+	 * so the menu rendered with nothing in it. The key mirrors the matching in
+	 * Query_Filters::get_selected_sort_option(): the source without its term|
+	 * or user| prefix, or the meta key for a custom field source, so every value
+	 * rendered here is one the query side can resolve.
+	 *
+	 * @param array $sort_options Rows from the sortOptions repeater.
+	 * @return array[] Each `[ 'value' => string, 'text' => string ]`.
+	 */
+	function sort_option_items( $sort_options ) {
+		$items = [];
+
+		foreach ( (array) $sort_options as $option ) {
+			$source = str_replace( [ 'term|', 'user|' ], '', (string) ( $option['optionSource'] ?? '' ) );
+
+			if ( $source === '' ) {
+				continue;
+			}
+
+			$key = in_array( $source, [ 'meta_value', 'meta_value_num' ], true ) && ! empty( $option['optionMetaKey'] )
+				? (string) $option['optionMetaKey']
+				: $source;
+
+			$value = $key . '_' . ( $option['optionOrder'] ?? 'ASC' );
+			$text  = trim( (string) ( $option['optionLabel'] ?? '' ) );
+
+			$items[] = [
+				'value' => $value,
+				'text'  => $text !== '' ? $text : $value,
+			];
+		}
+
+		return $items;
+	}
+}
