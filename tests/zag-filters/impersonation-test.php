@@ -181,6 +181,7 @@ namespace {
 
 	// The element file expects the Bricks parent to exist, which it now does.
 	require $plugin . '/inc/zag-filters/elements/filter-select.php';
+	require $plugin . '/inc/zag-filters/elements/sort.php';
 
 	$failures = 0;
 	function check( $label, $actual, $expected ) {
@@ -686,6 +687,43 @@ namespace {
 		'settings'      => [ 'filterAction' => 'sort', 'sortOptions' => $sortOptions ],
 	];
 	check( 'native sorts pass through untouched', $bridge->build_query_vars( [], $nativeSort, 'q1', 0 ), [] );
+
+	// The menu is built from the repeater, and every value must resolve back.
+	$items = \Zag\sort_option_items( $sortOptions );
+	check(
+		'sort items use the <key>_<ORDER> values the query side parses',
+		array_column( $items, 'value' ),
+		[ 'date_DESC', 'title_ASC', 'price_ASC', 'product_code_ASC' ]
+	);
+	foreach ( $items as $item ) {
+		check(
+			"rendered value {$item['value']} resolves to an option",
+			Bricks\Query_Filters::get_selected_sort_option( $item['value'], $sortOptions )['optionLabel'],
+			$item['text']
+		);
+	}
+	check( 'the defaults render four items', count( \Zag\sort_option_items( \Zag\default_sort_options() ) ), 4 );
+	check( 'a row with no source is skipped', \Zag\sort_option_items( [ [ 'optionLabel' => 'x' ] ] ), [] );
+
+	// Sort controls are gated on an Action control zag-sort does not have.
+	$resolved = \Zag\Element_Zag_Sort::resolve_action_conditions(
+		[
+			'sortOptions' => [ 'type' => 'repeater', 'required' => [ 'filterAction', '=', 'sort' ] ],
+			'perPage'     => [ 'type' => 'text', 'required' => [ 'filterAction', '=', 'per_page' ] ],
+			'source'      => [ 'type' => 'select', 'required' => [ [ 'filterAction', '=', [ '', 'filter' ] ] ] ],
+			'mixed'       => [ 'type' => 'text', 'required' => [ [ 'filterAction', '!=', 'per_page' ], [ 'x', '!=', '' ] ] ],
+			'plain'       => [ 'type' => 'text' ],
+		]
+	);
+	check(
+		'sort conditions are dropped and impossible controls removed',
+		$resolved,
+		[
+			'sortOptions' => [ 'type' => 'repeater' ],
+			'mixed'       => [ 'type' => 'text', 'required' => [ [ 'x', '!=', '' ] ] ],
+			'plain'       => [ 'type' => 'text' ],
+		]
+	);
 
 	// --- 6. Keyword search: is there anything to OR against? ---------------
 	//

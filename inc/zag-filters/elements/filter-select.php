@@ -295,7 +295,12 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 
 		$options = [];
 
-		foreach ( $this->get_populated_options() as $option ) {
+		// Sort menus come from the repeater directly. See sort_option_items().
+		$populated = $filter_action === 'sort'
+			? sort_option_items( $settings['sortOptions'] ?? [] )
+			: $this->get_populated_options();
+
+		foreach ( $populated as $option ) {
 			// Every option needs text. 0 is allowed; '' collides with the placeholder.
 			if ( isset( $option['text'] ) && $option['text'] === '' ) {
 				continue;

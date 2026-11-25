@@ -55,6 +55,21 @@ results did not. Every reader therefore goes through `element_settings()`
 
 Add any future forced setting there, not in one of the readers.
 
+## Builder controls and menu items
+
+Bricks gates its sort controls, the **Sort options** repeater included, on
+`[ 'filterAction', '=', 'sort' ]`. With the Action control removed that can
+never hold in the builder, so the repeater was invisible.
+`Element_Zag_Sort::resolve_action_conditions()` settles every `filterAction`
+condition as if the action were `sort`: conditions that hold are dropped,
+controls that could never show are removed.
+
+The menu items come from `sort_option_items()`, not from Bricks'
+`setup_sort_options()` / `get_populated_options()`, which left the menu empty
+for this element on Bricks 2.4. The values follow the same key rules as
+`get_selected_sort_option()`, and the tests check every rendered value resolves
+back to its option.
+
 ## Why the query vars are ours
 
 Sorting is gated twice, both times on the element name:

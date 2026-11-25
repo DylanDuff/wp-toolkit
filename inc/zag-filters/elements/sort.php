@@ -95,6 +95,8 @@ class Element_Zag_Sort extends Element_Zag_Filter_Select {
 			unset( $this->controls[ $key ] );
 		}
 
+		$this->controls = self::resolve_action_conditions( $this->controls );
+
 		// Multi-select is meaningless for a single order, and its counter label
 		// only ever appeared alongside it.
 		unset( $this->controls['zagMultiple'], $this->controls['zagCounterLabel'] );
@@ -110,6 +112,56 @@ class Element_Zag_Sort extends Element_Zag_Filter_Select {
 
 			$this->controls = array_merge( [ 'sortOptions' => $sort_options ], $this->controls );
 		}
+	}
+
+	/**
+	 * Settle every `filterAction` condition as though the action were 'sort'.
+	 *
+	 * Bricks gates the sort controls, the Sort options repeater included, on
+	 * `[ 'filterAction', '=', 'sort' ]`. With the Action control removed the
+	 * builder can never satisfy that, so the repeater was hidden and nobody could
+	 * add options. Conditions that hold for 'sort' are dropped, and controls
+	 * whose condition can never hold (per-page, filter-only) are removed.
+	 *
+	 * @param array $controls Element controls.
+	 * @return array
+	 */
+	public static function resolve_action_conditions( $controls ) {
+		foreach ( $controls as $key => $control ) {
+			if ( empty( $control['required'] ) || ! is_array( $control['required'] ) ) {
+				continue;
+			}
+
+			// A single condition or a list of them.
+			$conditions = is_array( $control['required'][0] ?? null )
+				? $control['required']
+				: [ $control['required'] ];
+			$remaining  = [];
+
+			foreach ( $conditions as $condition ) {
+				if ( ( $condition[0] ?? '' ) !== 'filterAction' ) {
+					$remaining[] = $condition;
+					continue;
+				}
+
+				$operator = $condition[1] ?? '=';
+				$allowed  = in_array( 'sort', (array) ( $condition[2] ?? '' ), true );
+				$holds    = in_array( $operator, [ '!=', '!==' ], true ) ? ! $allowed : $allowed;
+
+				if ( ! $holds ) {
+					unset( $controls[ $key ] );
+					continue 2;
+				}
+			}
+
+			if ( empty( $remaining ) ) {
+				unset( $controls[ $key ]['required'] );
+			} else {
+				$controls[ $key ]['required'] = $remaining;
+			}
+		}
+
+		return $controls;
 	}
 
 	/**
