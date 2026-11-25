@@ -348,6 +348,14 @@ class Query_Filters_Bridge {
 	}
 
 	/**
+	 * The postId the filter request was sent with. 0 on archives, and when
+	 * there is no request.
+	 */
+	public static function rest_post_id() {
+		return (int) ( self::$rest_params['postId'] ?? 0 );
+	}
+
+	/**
 	 * The page's query string as the filter request reported it.
 	 *
 	 * Bricks sends this as `urlParams` (@since 2.3.8). Null when the key is

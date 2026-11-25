@@ -261,6 +261,16 @@ Key facts about Bricks' filter JS (`assets/js/filters.js`):
 - `bricksFiltersFn` registers instances by reading `element.value`, which is
   `undefined` on our wrapper `<div>`. We seed `currentValue` ourselves on mount,
   otherwise a filter restored from the URL registers as empty.
+- **The Bricks instance may not exist when we mount.** On a page served from
+  FlyingPress' cache (the OPH home page) Bricks builds `filterInstances` after
+  our elements have mounted, so a lookup at mount found nothing and every
+  change went nowhere: the menu showed the choice, no request was sent, and
+  only a reload with the value in the URL filtered the results. Query-string
+  URLs bypass the cache, which is why a refresh appeared to fix it. So
+  `instance.filterInstance` is a getter (`bindFilterInstance()` in `bricks.js`)
+  that looks the instance up on read, and `seedFilterInstance(root, …)` keeps
+  the seed per root and applies it whenever the instance is first found or
+  replaced. Never cache a Bricks filter object at mount.
 - Reset, active-filters clear and popstate all write `currentValue` and then
   trigger an AJAX round trip. Rather than intercepting each, we re-sync the UI
   from `currentValue` on `bricks/ajax/query_result/displayed`.

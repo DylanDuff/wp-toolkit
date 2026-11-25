@@ -2,7 +2,7 @@ import { VanillaMachine, normalizeProps, spreadProps } from '@zag-js/vanilla'
 import * as datePicker from '@zag-js/date-picker'
 import { DateFormatter, getLocalTimeZone, parseDate } from '@internationalized/date'
 
-import { applyFilter, emitChange, getFilterInstance, insertControl, mounted, register, seedFilterInstance, updateCaption } from './bricks.js'
+import { applyFilter, emitChange, insertControl, mounted, register, seedFilterInstance, updateCaption } from './bricks.js'
 
 /**
  * Zag date picker UI over a Bricks query filter.
@@ -143,11 +143,22 @@ export function mountDatepicker(root) {
 	}
 
 	const native = root.querySelector('[data-zag-native]')
-	const filterInstance = getFilterInstance(root)
 	const range = config.mode === 'range'
 	const initial = parseValue(config.value)
 
-	seedFilterInstance(filterInstance, config.value || '', '')
+	/**
+	 * Bricks' reset path calls .clear() and .setDate() on whatever it finds at
+	 * filterInstance.datepicker, assuming flatpickr (filters.js:256). It bails
+	 * early if the property is missing, which would make reset silently not
+	 * clear the date rather than error. Expose that shape, through the seed so a
+	 * filter Bricks only builds after mount gets it too.
+	 */
+	seedFilterInstance(root, config.value || '', '', (filter) => {
+		filter.datepicker = {
+			clear: () => api().clearValue(),
+			setDate: (value) => api().setValue(parseValue(value))
+		}
+	})
 
 	// Preserve Bricks' element id through mounting — see the note in select.js.
 	const bricksId = root.id
@@ -199,7 +210,6 @@ export function mountDatepicker(root) {
 		config,
 		parts,
 		range,
-		filterInstance,
 		adapter: {
 			getValue: () => {
 				const value = api().value || []
@@ -251,19 +261,6 @@ export function mountDatepicker(root) {
 
 	machine.subscribe(instance.render)
 	instance.render()
-
-	/**
-	 * Bricks' reset path calls .clear() and .setDate() on whatever it finds at
-	 * filterInstance.datepicker, assuming flatpickr (filters.js:256). It bails
-	 * early if the property is missing, which would make reset silently not
-	 * clear the date rather than error. Expose that shape.
-	 */
-	if (filterInstance) {
-		filterInstance.datepicker = {
-			clear: () => api().clearValue(),
-			setDate: (value) => api().setValue(parseValue(value))
-		}
-	}
 
 	register(instance)
 }

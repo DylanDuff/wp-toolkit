@@ -1,7 +1,7 @@
 import { VanillaMachine, normalizeProps, spreadProps } from '@zag-js/vanilla'
 import * as select from '@zag-js/select'
 
-import { applyFilter, emitChange, getFilterInstance, insertControl, mounted, register, seedFilterInstance, toArray, updateCaption } from './bricks.js'
+import { applyFilter, emitChange, insertControl, mounted, register, seedFilterInstance, toArray, updateCaption } from './bricks.js'
 import { scheduleRelink } from './link.js'
 
 /**
@@ -23,11 +23,10 @@ export function mountSelect(root) {
 	}
 
 	const native = root.querySelector('[data-zag-native]')
-	const filterInstance = getFilterInstance(root)
 	const multiple = !!config.multiple
 	const initial = toArray(config.value)
 
-	seedFilterInstance(filterInstance, multiple ? initial : initial[0] || '', multiple ? [] : '')
+	seedFilterInstance(root, multiple ? initial : initial[0] || '', multiple ? [] : '')
 
 	/**
 	 * Values a linked sibling has ruled out (src/zag-filters/link.js). Read live by the
@@ -102,7 +101,6 @@ export function mountSelect(root) {
 		config,
 		parts,
 		multiple,
-		filterInstance,
 		isHidden: (value) => hidden.has(String(value)),
 		setHidden: (values) => {
 			hidden = new Set(values || [])

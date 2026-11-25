@@ -78,6 +78,7 @@ export function insertControl(root, control, positioner) {
 }
 
 export function register(instance) {
+	bindFilterInstance(instance)
 	mounted.set(instance.root, instance)
 
 	/**
@@ -102,19 +103,83 @@ export function register(instance) {
 }
 
 /**
+ * What each root seeds its Bricks filter with, kept until the filter exists.
+ *
+ * @see seedFilterInstance
+ */
+const seeds = new WeakMap()
+
+function applySeed(filterInstance, seed) {
+	filterInstance.currentValue = seed.value
+	filterInstance.originalValue = seed.emptyValue
+	seed.decorate?.(filterInstance)
+}
+
+/**
  * Seed Bricks' value tracking from what the server rendered.
  *
  * bricksFiltersFn registers an instance by reading element.value, which is
  * undefined on our wrapper div — so a filter restored from the URL would
  * otherwise register as empty and be dropped from the next request.
+ *
+ * The seed is remembered per root because the Bricks filter may not exist yet.
+ * `decorate` gets the filter object too, for anything else an element hangs on
+ * it (the datepicker's reset shim).
+ *
+ * @see bindFilterInstance
  */
-export function seedFilterInstance(filterInstance, value, emptyValue) {
-	if (!filterInstance) {
-		return
-	}
+export function seedFilterInstance(root, value, emptyValue, decorate) {
+	const seed = { value, emptyValue, decorate }
 
-	filterInstance.currentValue = value
-	filterInstance.originalValue = emptyValue
+	seeds.set(root, seed)
+
+	const filterInstance = getFilterInstance(root)
+
+	if (filterInstance) {
+		applySeed(filterInstance, seed)
+	}
+}
+
+/**
+ * Resolve `instance.filterInstance` when it is read, not when it mounts.
+ *
+ * Our elements can mount before Bricks has built its filter instances. A page
+ * whose scripts an optimiser delays (FlyingPress on the OPH home page) runs
+ * this bundle after the document is ready, so startLifecycle() mounts at once,
+ * while Bricks builds bricksData.filterInstances from a DOMContentLoaded that
+ * the optimiser replays afterwards. A lookup at mount then finds nothing and
+ * every change goes nowhere: the select shows the choice, no request is sent,
+ * and only a reload (with the value in the URL) filters the results.
+ *
+ * So the binding is checked on every read and re-made when Bricks has built or
+ * replaced the object, applying the element's seed to the new one first.
+ */
+function bindFilterInstance(instance) {
+	let bound = false
+
+	Object.defineProperty(instance, 'filterInstance', {
+		configurable: true,
+		enumerable: true,
+		get() {
+			if (bound && window.bricksData?.filterInstances?.[bound.filterId] === bound) {
+				return bound
+			}
+
+			const found = getFilterInstance(instance.root)
+
+			if (found && found !== bound) {
+				const seed = seeds.get(instance.root)
+
+				if (seed) {
+					applySeed(found, seed)
+				}
+
+				bound = found
+			}
+
+			return bound
+		}
+	})
 }
 
 /**
