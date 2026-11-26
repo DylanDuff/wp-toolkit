@@ -103,6 +103,7 @@ Detailed documentation is in [`docs/`](docs/):
 - [`linked-author.md`](docs/linked-author.md): team member as post author, `{linked_author:field}` tag
 - [`acf-admin-screens.md`](docs/acf-admin-screens.md): ACF tab error highlighting, tidier term edit screens
 - [`zag-filters/`](docs/zag-filters/README.md): Zag Filters, the Zag.js query filter elements for Bricks folded in from the standalone plugin (drop-in replacement, filter impersonation, frontend, build). Per element: [select](docs/zag-filters/select.md), [sorting](docs/zag-filters/sorting.md), [smart search](docs/zag-filters/smart-search.md), [active filters](docs/zag-filters/active-filters.md), [group](docs/zag-filters/group.md)
+- [`acf-site-options.md`](docs/acf-site-options.md): Site Options (Branding & Extras) page, announcement bar timer mode and how it gates the bar
 - [`acf-shopify-products.md`](docs/acf-shopify-products.md): Shopify Product(s) ACF field types, Bricks loop tags, replacing the standalone plugin
 
 ---

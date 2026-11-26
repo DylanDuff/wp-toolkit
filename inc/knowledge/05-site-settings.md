@@ -56,6 +56,17 @@ The announcement bar displays a message at the top of every page on the site.
 3. Edit the content in the text area — you can use bold, links, and other basic formatting.
 4. Click **Update Options** to save.
 
+### Scheduling the bar
+
+To show the bar only for a set period, such as a sale or a holiday closure:
+
+1. Turn on **Timer Mode** (it appears once the bar is enabled).
+2. Pick a **Start** and **End** date and time. Times use the site's timezone, shown under each picker.
+3. Leave **Start** blank to show the bar straight away, or **End** blank to keep it showing.
+4. Click **Update Options** to save.
+
+The bar hides on its own outside that period. **Enabled** still has to be on. If the site uses page caching, the change appears once the cached page refreshes.
+
 ---
 
 ## Map Settings

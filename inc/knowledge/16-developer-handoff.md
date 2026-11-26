@@ -85,7 +85,7 @@ Each preset registers fields using a consistent prefix. Use these names with `ge
 
 **Site Options** (options page — use `get_field('field_name', 'option')`)
 
-`so_brand_logo`, `so_phone_number`, `so_email_address`, `so_primary_address`, `so_operating_hours`, `so_facebook_url`, `so_instagram_url`, `so_twitter_url`, `so_linkedin_url`, `so_youtube_url`, `so_tiktok_url`, `so_pinterest_url`, `so_whatsapp_url`, `so_reddit_url`, `so_linktree_url`, `so_vimeo_url`, `so_gmb_url`, `so_mapbox_api_key`, `so_map_latitude`, `so_map_longitude`, `so_map_icon`, `so_announcement_enabled`, `so_announcement_content`, `so_trusted_logos`, `so_award_logos`
+`so_brand_logo`, `so_phone_number`, `so_email_address`, `so_primary_address`, `so_operating_hours`, `so_facebook_url`, `so_instagram_url`, `so_twitter_url`, `so_linkedin_url`, `so_youtube_url`, `so_tiktok_url`, `so_pinterest_url`, `so_whatsapp_url`, `so_reddit_url`, `so_linktree_url`, `so_vimeo_url`, `so_gmb_url`, `so_mapbox_api_key`, `so_map_latitude`, `so_map_longitude`, `so_map_icon`, `so_announcement_enabled`, `so_announcement_content`, `so_announcement_timer`, `so_announcement_start`, `so_announcement_end`, `so_trusted_logos`, `so_award_logos`
 
 ---
 
