@@ -2,6 +2,53 @@
 
 namespace DDWPTweaks\Tweaks;
 
+/**
+ * ACF date_time_picker storage format. ACF saves the value as entered, with no
+ * offset, so it is read back in the site's WordPress timezone.
+ */
+const ANNOUNCEMENT_DATE_FORMAT = 'Y-m-d H:i:s';
+
+/**
+ * Parse an announcement bar bound (a raw date_time_picker value).
+ * Null when the bound is empty or unreadable, which leaves that side open.
+ */
+function announcement_bar_bound($raw): ?\DateTimeImmutable
+{
+    if (!is_string($raw) || $raw === '') {
+        return null;
+    }
+
+    $date = \DateTimeImmutable::createFromFormat(ANNOUNCEMENT_DATE_FORMAT, $raw, wp_timezone());
+
+    return $date ?: null;
+}
+
+/**
+ * Whether the announcement bar's schedule allows it to show right now.
+ * Always true while timer mode is off. Start is inclusive, end exclusive.
+ */
+function announcement_bar_in_window(?\DateTimeImmutable $now = null): bool
+{
+    if (!get_option('options_so_announcement_timer')) {
+        return true;
+    }
+
+    $now   = $now ?? current_datetime();
+    $start = announcement_bar_bound(get_option('options_so_announcement_start'));
+    $end   = announcement_bar_bound(get_option('options_so_announcement_end'));
+
+    return (!$start || $now >= $start) && (!$end || $now < $end);
+}
+
+/**
+ * Whether the announcement bar should render: enabled and inside its window.
+ * For PHP templates; Bricks and get_field() already see the gated value.
+ */
+function announcement_bar_active(): bool
+{
+    return (bool) get_option('options_so_announcement_enabled') && announcement_bar_in_window();
+}
+
 return [
     'id'    => 'ddwpt_acf_site_options',
     'label' => 'ACF Site Options',
@@ -53,6 +100,9 @@ return [
                 ['name' => 'so_map_icon',          'type' => 'image',    'label' => 'Custom map pin icon'],
                 ['name' => 'so_announcement_enabled', 'type' => 'true_false', 'label' => 'Announcement bar enabled'],
                 ['name' => 'so_announcement_content', 'type' => 'wysiwyg',    'label' => 'Announcement bar content'],
+                ['name' => 'so_announcement_timer',   'type' => 'true_false',       'label' => 'Announcement bar timer mode'],
+                ['name' => 'so_announcement_start',   'type' => 'date_time_picker', 'label' => 'Announcement bar start (site timezone)'],
+                ['name' => 'so_announcement_end',     'type' => 'date_time_picker', 'label' => 'Announcement bar end (site timezone)'],
                 ['name' => 'so_trusted_logos',     'type' => 'gallery',  'label' => 'Trusted by / client logos'],
                 ['name' => 'so_award_logos',       'type' => 'gallery',  'label' => 'Award logos'],
                 ['name' => 'so_privacy_policy',    'type' => 'wysiwyg',  'label' => 'Privacy policy'],
@@ -90,6 +140,36 @@ return [
         if (!function_exists('acf_add_local_field_group')) {
             return;
         }
+
+        // Timer mode: outside the window, so_announcement_enabled reads as off
+        // everywhere but the options screen, so existing Bricks conditions and
+        // get_field() checks hide the bar with no template changes.
+        add_filter('acf/load_value/name=so_announcement_enabled', static function ($value) {
+            if (is_admin() && !wp_doing_ajax()) {
+                return $value;
+            }
+
+            return $value && announcement_bar_in_window() ? $value : 0;
+        });
+
+        add_filter('acf/validate_value/name=so_announcement_end', static function ($valid, $value) {
+            if ($valid !== true || empty($_POST['acf']['field_6c4a1e2b7d901'])) {
+                return $valid;
+            }
+
+            $start = announcement_bar_bound(sanitize_text_field(wp_unslash($_POST['acf']['field_6c4a1e2b7d902'] ?? '')));
+            $end   = announcement_bar_bound($value);
+
+            return $start && $end && $end <= $start ? 'End must be after the start.' : $valid;
+        }, 10, 2);
+
+        $timezone = wp_timezone_string();
+        $timer_condition = array(
+            array(
+                array('field' => 'field_66d543cd96d90', 'operator' => '==', 'value' => '1'),
+                array('field' => 'field_6c4a1e2b7d901', 'operator' => '==', 'value' => '1'),
+            ),
+        );
 
         acf_add_local_field_group(array(
             'key'    => 'group_66d540426b8e3',
@@ -594,6 +674,61 @@ return [
                     'toolbar'           => 'full',
                     'media_upload'      => 1,
                     'delay'             => 0,
+                ),
+                array(
+                    'key'               => 'field_6c4a1e2b7d901',
+                    'label'             => 'Timer Mode',
+                    'name'              => 'so_announcement_timer',
+                    'aria-label'        => '',
+                    'type'              => 'true_false',
+                    'instructions'      => 'Only show the bar between a start and end time. Leave either blank to leave that side open.',
+                    'required'          => 0,
+                    'conditional_logic' => array(
+                        array(
+                            array(
+                                'field'    => 'field_66d543cd96d90',
+                                'operator' => '==',
+                                'value'    => '1',
+                            ),
+                        ),
+                    ),
+                    'wrapper'           => array('width' => '', 'class' => '', 'id' => ''),
+                    'message'           => '',
+                    'default_value'     => 0,
+                    'allow_in_bindings' => 0,
+                    'ui_on_text'        => '',
+                    'ui_off_text'       => '',
+                    'ui'                => 1,
+                ),
+                array(
+                    'key'               => 'field_6c4a1e2b7d902',
+                    'label'             => 'Start',
+                    'name'              => 'so_announcement_start',
+                    'aria-label'        => '',
+                    'type'              => 'date_time_picker',
+                    'instructions'      => 'Site timezone (' . $timezone . '). Blank shows it straight away.',
+                    'required'          => 0,
+                    'conditional_logic' => $timer_condition,
+                    'wrapper'           => array('width' => '50', 'class' => '', 'id' => ''),
+                    'display_format'    => 'd/m/Y g:i a',
+                    'return_format'     => ANNOUNCEMENT_DATE_FORMAT,
+                    'first_day'         => 1,
+                    'allow_in_bindings' => 0,
+                ),
+                array(
+                    'key'               => 'field_6c4a1e2b7d903',
+                    'label'             => 'End',
+                    'name'              => 'so_announcement_end',
+                    'aria-label'        => '',
+                    'type'              => 'date_time_picker',
+                    'instructions'      => 'Site timezone (' . $timezone . '). Blank keeps it showing.',
+                    'required'          => 0,
+                    'conditional_logic' => $timer_condition,
+                    'wrapper'           => array('width' => '50', 'class' => '', 'id' => ''),
+                    'display_format'    => 'd/m/Y g:i a',
+                    'return_format'     => ANNOUNCEMENT_DATE_FORMAT,
+                    'first_day'         => 1,
+                    'allow_in_bindings' => 0,
                 ),
                 array(
                     'key'               => 'field_6a0129b0b1b1e',

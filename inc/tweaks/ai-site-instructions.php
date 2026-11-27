@@ -93,6 +93,8 @@ Site-wide settings are stored on an ACF options page. Read and write these with 
 | Map icon | `so_map_icon` |
 | Announcement enabled | `so_announcement_enabled` |
 | Announcement content | `so_announcement_content` |
+| Announcement timer mode | `so_announcement_timer` |
+| Announcement start / end | `so_announcement_start`, `so_announcement_end` (`Y-m-d H:i:s`, site timezone) |
 | Trusted logos | `so_trusted_logos` (repeater) |
 | Award logos | `so_award_logos` (repeater) |
 

@@ -265,6 +265,7 @@ Markdown articles auto-discovered from the directory. `manifest.php` provides in
 | `settings-layout.md` | Settings page areas, sections, tweak layout keys, ability rows, nested pages, option key migrations |
 | `acf-admin-screens.md` | ACF tab error highlighting, tidier term edit screens and left tabs on term screens |
 | `zag-filters/` | Zag Filters elements: drop-in compatibility, filter impersonation, frontend, build; one file per element |
+| `acf-site-options.md` | Site Options page fields, announcement bar timer mode (schedule window, gating, caching) |
 | `acf-shopify-products.md` | Shopify Product(s) ACF field types, Storefront API client, Bricks loop tags, migration from the standalone plugin |
 
 Keep docs current when features change materially.
